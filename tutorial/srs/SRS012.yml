@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Threshold Check
+level: 12
+links:
+- SYS006: M8Q4DBBfunxQ8l_yTnbdc6OlKMeuIauLLWCpHGl43-4=
+normative: true
+ref: ''
+reviewed: mTQGUHhHQEwxJTZsjKQcaGw1sGZg1y3QEwVV15f8C_M=
+text: |
+  Software shall compare values against configurable thresholds.

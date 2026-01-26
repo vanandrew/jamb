@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  PDF Report
+level: 15
+links:
+- SYS008: 9Z0MLkr4pGkk3aWavNcDIgS85yJBPCra2W04eddb048=
+normative: true
+ref: ''
+reviewed: b3FuYsZsvqujlJB9Ubiz5qMnvihteSG8AUqufr_CfAA=
+text: |
+  Software shall generate PDF reports with charts and summary.

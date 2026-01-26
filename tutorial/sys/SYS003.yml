@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Real-time Display
+level: 3
+links:
+- UN002: GvtS4IrQxnZniGwuHQlXiArSDvyNz19hucm__bgeRE8=
+normative: true
+ref: ''
+reviewed: 5WduhMEfRmEQqN3px2ORpkE9LPKA0lpEiG4fh17iRpM=
+text: |
+  System shall display vital signs updated every 5 seconds.

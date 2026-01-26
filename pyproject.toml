@@ -1,0 +1,96 @@
+[project]
+name = "jamb"
+version = "0.1.0"
+description = "IEC 62304 requirements traceability for pytest, built on doorstop"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    { name = "Andrew Van", email = "vanandrew77@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "doorstop>=3.0, <4.0",
+    "pytest>=7.0",
+    "click>=8.0",
+    "jinja2>=3.0",
+    "openpyxl>=3.0",
+    "python-docx>=1.0",
+    "tomlkit>=0.12",
+]
+
+[project.scripts]
+jamb = "jamb.cli.commands:cli"
+
+[project.entry-points.pytest11]
+jamb = "jamb.pytest_plugin.plugin"
+
+[project.optional-dependencies]
+dev = [
+    "pytest-cov",
+    "mypy",
+    "ruff",
+    "pre-commit",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jamb"]
+
+[tool.jamb]
+test_documents = ["SRS", "SYS"]
+trace_to_ignore = ["PRJ"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src/jamb"
+filterwarnings = [
+    "ignore:Could not load doorstop tree:UserWarning:jamb.pytest_plugin.collector",
+]
+
+[tool.coverage.run]
+source = ["src/jamb"]
+omit = ["src/jamb/__init__.py", "src/jamb/*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "raise NotImplementedError",
+    "^from .* import",
+    "^import ",
+    "@dataclass",
+    "@pytest.fixture",
+    "@pytest.hookimpl",
+]
+exclude_also = [
+    "def __repr__",
+    "class .*\\(Protocol\\):",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]

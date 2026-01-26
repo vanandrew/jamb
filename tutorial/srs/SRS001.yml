@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Credential Validation
+level: 1
+links:
+- SYS001: BdX1MGrThHbaf77PXb5eq9EkgQzpW-MSe5vXtHAj8P0=
+normative: true
+ref: ''
+reviewed: op0nQq0WglENldZkJw6Ed49vHIGCtQGndbp507QVZ_E=
+text: |
+  Software shall validate credentials against the database.

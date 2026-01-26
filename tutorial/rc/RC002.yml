@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Redundant Alert Pathways
+level: 2
+links:
+- HAZ002: 8iXSKo_Lpzkj0F5VusXE_YoTjn9M3z2mlH7ZyqjoyHs=
+normative: true
+ref: ''
+reviewed: wts1QgSbTkQq7B5FwSwtUzfT0Tla3HPVzRvQC_ZwuJk=
+text: |
+  System shall implement redundant alert pathways with acknowledgment tracking.

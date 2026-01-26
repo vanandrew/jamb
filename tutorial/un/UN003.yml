@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Historical Data
+level: 3
+links:
+- PRJ001: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
+normative: true
+ref: ''
+reviewed: FUjemBNpffI9DeZ2t36cpr5MI3EVFGlS4ZNdv8MUCYk=
+text: |
+  User shall be able to view patient vital signs history.

@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Data Storage
+level: 4
+links:
+- UN003: TiaFmdX-qPpvmgEqtg_KZw02MBoFp5GrQNk5IHQTbtg=
+normative: true
+ref: ''
+reviewed: PKT7kL8t5TXkyLDDmALemd3cNnt9bN0_eZo1awZsOng=
+text: |
+  System shall store vital signs with timestamps.

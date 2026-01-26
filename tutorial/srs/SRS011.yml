@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Pagination
+level: 11
+links:
+- SYS005: cPpSdxHOjEnD-NKbDFddlQBhvi0MnMT7IhRg4FndEBc=
+normative: true
+ref: ''
+reviewed: n7qtpuq9LpeUYurppry9V84X7wS8EW0h_RYo6nKkyQQ=
+text: |
+  Software shall paginate results with 100 records per page.
