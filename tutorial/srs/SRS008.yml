@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Database Write
+level: 8
+links:
+- SYS004: gadF53o5490Oc61u_bbD2H7YaO49W7GNHwOlGP2NCbo=
+normative: true
+ref: ''
+reviewed: y2YSx8SM8C6cwl6ZGTDZda5sESvGzKNxDmxbBPxb3Kg=
+text: |
+  Software shall write vital signs to PostgreSQL with timestamp.

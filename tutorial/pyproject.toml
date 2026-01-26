@@ -1,0 +1,10 @@
+[project]
+name = "jamb-advanced-example"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+[tool.jamb]
+test_documents = ["SRS", "SYS"]
+fail_uncovered = false
+matrix_output = "matrix.html"
+matrix_format = "html"

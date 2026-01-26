@@ -1,0 +1,160 @@
+"""Main pytest plugin entry point for jamb."""
+
+from typing import TYPE_CHECKING
+
+import pytest
+
+if TYPE_CHECKING:
+    from _pytest.terminal import TerminalReporter
+
+from jamb.pytest_plugin.collector import RequirementCollector
+from jamb.pytest_plugin.log import JAMB_LOG_KEY, JambLog
+
+
+@pytest.fixture
+def jamb_log(request: pytest.FixtureRequest) -> JambLog:
+    """
+    Fixture to log custom messages for the traceability matrix.
+
+    Example:
+        @pytest.mark.requirement("SRS001")
+        def test_validation(jamb_log):
+            jamb_log.note("Verified input validation with boundary values")
+            assert validate_input(-1) is False
+    """
+    log = JambLog()
+    request.node.stash[JAMB_LOG_KEY] = log
+    return log
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Register command-line options."""
+    group = parser.getgroup("jamb", "IEC 62304 requirements traceability")
+
+    group.addoption(
+        "--jamb",
+        action="store_true",
+        default=False,
+        help="Enable requirements traceability checking",
+    )
+    group.addoption(
+        "--jamb-fail-uncovered",
+        action="store_true",
+        default=False,
+        help="Fail if any test spec items lack pytest test coverage",
+    )
+    group.addoption(
+        "--jamb-matrix",
+        metavar="PATH",
+        help="Generate traceability matrix at PATH",
+    )
+    group.addoption(
+        "--jamb-matrix-format",
+        choices=["html", "markdown", "json", "csv", "xlsx"],
+        default="html",
+        help="Format for traceability matrix (default: html)",
+    )
+    group.addoption(
+        "--jamb-documents",
+        metavar="PREFIXES",
+        help="Comma-separated list of test document prefixes to check",
+    )
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register markers and initialize plugin."""
+    # Register the requirement marker
+    config.addinivalue_line(
+        "markers",
+        "requirement(*uids): Mark test as implementing specified doorstop item UID(s). "
+        "Example: @pytest.mark.requirement('UT001', 'UT002')",
+    )
+
+    if config.option.jamb:
+        # Initialize the collector
+        collector = RequirementCollector(config)
+        config.pluginmanager.register(collector, "jamb_collector")
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Generate reports after test session."""
+    if not session.config.option.jamb:
+        return
+
+    collector = session.config.pluginmanager.get_plugin("jamb_collector")
+    if not collector:
+        return
+
+    # Generate traceability matrix if requested
+    if matrix_path := session.config.option.jamb_matrix:
+        collector.generate_matrix(matrix_path, session.config.option.jamb_matrix_format)
+
+    # Check coverage and potentially modify exit status
+    if session.config.option.jamb_fail_uncovered:
+        if not collector.all_test_items_covered():
+            session.exitstatus = 1
+
+
+def pytest_report_header(config: pytest.Config) -> list[str] | None:
+    """Add jamb info to pytest header."""
+    if config.option.jamb:
+        collector = config.pluginmanager.get_plugin("jamb_collector")
+        if collector and collector.graph:
+            return [
+                f"jamb: tracking {len(collector.graph.items)} doorstop items",
+            ]
+    return None
+
+
+def pytest_terminal_summary(
+    terminalreporter: "TerminalReporter",
+    exitstatus: int,
+    config: pytest.Config,
+) -> None:
+    """Add coverage summary to terminal output."""
+    if not config.option.jamb:
+        return
+
+    collector = config.pluginmanager.get_plugin("jamb_collector")
+    if not collector:
+        return
+
+    coverage = collector.get_coverage()
+    if not coverage:
+        return
+
+    terminalreporter.write_sep("=", "Requirements Coverage Summary")
+
+    # Count statistics
+    total = len(coverage)
+    covered = sum(1 for c in coverage.values() if c.is_covered)
+    passed = sum(1 for c in coverage.values() if c.all_tests_passed)
+
+    terminalreporter.write_line(f"Total test spec items: {total}")
+    if total > 0:
+        terminalreporter.write_line(
+            f"Covered by pytest tests: {covered} ({100 * covered / total:.1f}%)"
+        )
+        terminalreporter.write_line(f"All tests passing: {passed}")
+
+    # Report uncovered items
+    uncovered = [
+        uid
+        for uid, c in coverage.items()
+        if not c.is_covered and c.item.normative and c.item.active
+    ]
+    if uncovered:
+        terminalreporter.write_line("")
+        terminalreporter.write_line("Uncovered test spec items:", red=True, bold=True)
+        for uid in uncovered:
+            item = coverage[uid].item
+            terminalreporter.write_line(f"  - {uid}: {item.display_text}", red=True)
+
+    # Report unknown items referenced in tests
+    if collector.unknown_items:
+        terminalreporter.write_line("")
+        terminalreporter.write_line(
+            "Unknown items referenced in tests:", yellow=True, bold=True
+        )
+        for uid in sorted(collector.unknown_items):
+            terminalreporter.write_line(f"  - {uid}", yellow=True)

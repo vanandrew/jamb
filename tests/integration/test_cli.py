@@ -1,0 +1,2234 @@
+"""Integration tests for jamb CLI commands."""
+
+import pytest
+from click.testing import CliRunner
+
+from jamb.cli.commands import cli
+
+
+@pytest.fixture
+def runner():
+    """Create a CLI runner."""
+    return CliRunner()
+
+
+@pytest.fixture
+def git_doorstop_project(tmp_path):
+    """Create a git-initialized doorstop project for testing."""
+    import subprocess
+
+    # Initialize git repo (doorstop requires this)
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=tmp_path,
+        capture_output=True,
+    )
+
+    # Create UN document
+    (tmp_path / ".doorstop.yml").write_text(
+        "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
+    )
+    (tmp_path / "UN001.yml").write_text(
+        "active: true\nnormative: true\ntext: User need\nlinks: []\n"
+    )
+
+    # Create SRS document
+    srs_dir = tmp_path / "srs"
+    srs_dir.mkdir()
+    (srs_dir / ".doorstop.yml").write_text(
+        "settings:\n  digits: 3\n  parent: UN\n  prefix: SRS\n  sep: ''\n"
+    )
+    (srs_dir / "SRS001.yml").write_text(
+        "active: true\nnormative: true\ntext: Software req\nlinks:\n- UN001\n"
+    )
+
+    # Initial commit
+    subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+
+    return tmp_path
+
+
+class TestInfoCommand:
+    """Tests for the info command."""
+
+    def test_info_help(self, runner):
+        """Test that info --help works."""
+        result = runner.invoke(cli, ["info", "--help"])
+
+        assert result.exit_code == 0
+        assert "Display" in result.output or "info" in result.output.lower()
+
+    def test_info_with_doorstop_project(self, runner, git_doorstop_project):
+        """Test info command with doorstop project."""
+        result = runner.invoke(cli, ["info", "--root", str(git_doorstop_project)])
+
+        # Should succeed with valid project
+        assert result.exit_code == 0
+
+
+class TestCheckCommand:
+    """Tests for the check command."""
+
+    def test_check_help(self, runner):
+        """Test that check --help works."""
+        result = runner.invoke(cli, ["check", "--help"])
+
+        assert result.exit_code == 0
+        assert "Check" in result.output or "coverage" in result.output.lower()
+
+
+class TestDocCommands:
+    """Tests for doc subcommands."""
+
+    def test_doc_help(self, runner):
+        """Test that doc --help works."""
+        result = runner.invoke(cli, ["doc", "--help"])
+
+        assert result.exit_code == 0
+        assert "create" in result.output.lower()
+        assert "list" in result.output.lower()
+
+    def test_doc_create_help(self, runner):
+        """Test that doc create --help works."""
+        result = runner.invoke(cli, ["doc", "create", "--help"])
+
+        assert result.exit_code == 0
+        assert "PREFIX" in result.output
+        assert "PATH" in result.output
+
+    def test_doc_list_with_doorstop_project(self, runner, git_doorstop_project):
+        """Test doc list command with doorstop project."""
+        result = runner.invoke(
+            cli, ["doc", "list", "--root", str(git_doorstop_project)]
+        )
+
+        assert result.exit_code == 0
+        assert "UN" in result.output
+        assert "SRS" in result.output
+
+
+class TestItemCommands:
+    """Tests for item subcommands."""
+
+    def test_item_help(self, runner):
+        """Test that item --help works."""
+        result = runner.invoke(cli, ["item", "--help"])
+
+        assert result.exit_code == 0
+        assert "add" in result.output.lower()
+        assert "list" in result.output.lower()
+
+    def test_item_list_with_doorstop_project(self, runner, git_doorstop_project):
+        """Test item list command with doorstop project."""
+        result = runner.invoke(
+            cli, ["item", "list", "--root", str(git_doorstop_project)]
+        )
+
+        assert result.exit_code == 0
+        assert "UN001" in result.output or "SRS001" in result.output
+
+    def test_item_show_help(self, runner):
+        """Test that item show --help works."""
+        result = runner.invoke(cli, ["item", "show", "--help"])
+
+        assert result.exit_code == 0
+        assert "UID" in result.output
+
+
+class TestLinkCommands:
+    """Tests for link subcommands."""
+
+    def test_link_help(self, runner):
+        """Test that link --help works."""
+        result = runner.invoke(cli, ["link", "--help"])
+
+        assert result.exit_code == 0
+        assert "add" in result.output.lower()
+        assert "remove" in result.output.lower()
+
+
+class TestReviewCommands:
+    """Tests for review subcommands."""
+
+    def test_review_help(self, runner):
+        """Test that review --help works."""
+        result = runner.invoke(cli, ["review", "--help"])
+
+        assert result.exit_code == 0
+        assert "mark" in result.output.lower()
+
+
+class TestPublishCommand:
+    """Tests for publish command (doorstop passthrough)."""
+
+    def test_publish_help(self, runner):
+        """Test that publish --help works."""
+        result = runner.invoke(cli, ["publish", "--help"])
+
+        assert result.exit_code == 0
+        assert "PREFIX" in result.output
+        assert "--html" in result.output or "-H" in result.output
+        assert "--markdown" in result.output or "-m" in result.output
+
+    def test_publish_shows_format_options(self, runner):
+        """Test that publish help shows format options."""
+        result = runner.invoke(cli, ["publish", "--help"])
+
+        assert result.exit_code == 0
+        assert "html" in result.output.lower()
+        assert "markdown" in result.output.lower()
+        assert "latex" in result.output.lower()
+        assert "text" in result.output.lower()
+
+
+class TestValidateCommand:
+    """Tests for validate command (doorstop passthrough)."""
+
+    def test_validate_help(self, runner):
+        """Test that validate --help works."""
+        result = runner.invoke(cli, ["validate", "--help"])
+
+        assert result.exit_code == 0
+        assert "validate" in result.output.lower()
+
+    def test_validate_passes_flags(self, runner, git_doorstop_project):
+        """Test that flags like -v are passed through to doorstop."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(cli, ["validate", "-v"], catch_exceptions=False)
+            # -v should be accepted by doorstop (not rejected by Click)
+            # If Click was intercepting flags, we'd get an error
+            assert result.exit_code == 0
+        finally:
+            os.chdir(original_cwd)
+
+
+class TestMainCli:
+    """Tests for the main CLI entry point."""
+
+    def test_cli_help(self, runner):
+        """Test that --help works."""
+        result = runner.invoke(cli, ["--help"])
+
+        assert result.exit_code == 0
+        assert "jamb" in result.output.lower() or "validate" in result.output.lower()
+
+    def test_cli_version_or_help_shows_commands(self, runner):
+        """Test that help shows available commands."""
+        result = runner.invoke(cli, ["--help"])
+
+        assert "validate" in result.output
+        assert "check" in result.output
+        assert "doc" in result.output
+        assert "item" in result.output
+
+
+class TestExportCommand:
+    """Tests for export command."""
+
+    def test_export_help(self, runner):
+        """Test that export --help works."""
+        result = runner.invoke(cli, ["export", "--help"])
+
+        assert result.exit_code == 0
+        assert "OUTPUT" in result.output
+        assert "documents" in result.output.lower()
+
+    def test_export_to_yaml(self, runner, git_doorstop_project):
+        """Test exporting to YAML file."""
+        output_file = git_doorstop_project / "exported.yml"
+
+        result = runner.invoke(
+            cli, ["export", str(output_file), "--root", str(git_doorstop_project)]
+        )
+
+        # Print output for debugging if test fails
+        if result.exit_code != 0:
+            print(f"Output: {result.output}")
+            print(f"Exception: {result.exception}")
+
+        assert result.exit_code == 0, f"Export failed: {result.output}"
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "documents:" in content
+        assert "items:" in content
+
+
+class TestImportCommand:
+    """Tests for import command."""
+
+    def test_import_help(self, runner):
+        """Test that import --help works."""
+        result = runner.invoke(cli, ["import", "--help"])
+
+        assert result.exit_code == 0
+        assert "FILE" in result.output
+        assert "dry-run" in result.output.lower()
+
+    def test_import_dry_run(self, runner, git_doorstop_project):
+        """Test import with --dry-run flag."""
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS002
+    text: New requirement
+"""
+        )
+
+        result = runner.invoke(
+            cli, ["import", str(yaml_file), "--dry-run"], catch_exceptions=False
+        )
+
+        # Should show what would be created
+        assert "dry run" in result.output.lower() or "would" in result.output.lower()
+
+    def test_import_help_shows_update_flag(self, runner):
+        """Test that import --help shows --update option."""
+        result = runner.invoke(cli, ["import", "--help"])
+
+        assert result.exit_code == 0
+        assert "--update" in result.output
+
+    def test_import_without_update_skips_existing(self, runner, git_doorstop_project):
+        """Test import without --update skips existing items."""
+        import os
+
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS001
+    text: Should not update
+"""
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["import", str(yaml_file)], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert "skipped" in result.output.lower()
+        # Original text should remain
+        srs_file = git_doorstop_project / "srs" / "SRS001.yml"
+        assert "Software req" in srs_file.read_text()
+
+    def test_import_update_modifies_existing_item(self, runner, git_doorstop_project):
+        """Test import --update modifies existing items."""
+        import os
+
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS001
+    text: Updated requirement text
+"""
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["import", str(yaml_file), "--update"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert "updated" in result.output.lower()
+        # Text should be updated
+        srs_file = git_doorstop_project / "srs" / "SRS001.yml"
+        assert "Updated requirement text" in srs_file.read_text()
+
+    def test_import_update_dry_run_shows_would_update(
+        self, runner, git_doorstop_project
+    ):
+        """Test import --update --dry-run shows what would be updated."""
+        import os
+
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS001
+    text: Would update this
+  - uid: SRS999
+    text: Would create this
+"""
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli,
+                ["import", str(yaml_file), "--update", "--dry-run"],
+                catch_exceptions=False,
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert "would update" in result.output.lower()
+        assert "would create" in result.output.lower()
+        # File should not be modified
+        srs_file = git_doorstop_project / "srs" / "SRS001.yml"
+        assert "Software req" in srs_file.read_text()
+
+    def test_import_update_clears_reviewed(self, runner, git_doorstop_project):
+        """Test that --update clears reviewed status."""
+        import os
+
+        # Add reviewed field to existing item
+        srs_file = git_doorstop_project / "srs" / "SRS001.yml"
+        srs_file.write_text(
+            "active: true\nnormative: true\nreviewed: abc123\n"
+            "text: Software req\nlinks:\n- UN001\n"
+        )
+
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS001
+    text: Updated text
+"""
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            runner.invoke(
+                cli, ["import", str(yaml_file), "--update"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        content = srs_file.read_text()
+        assert "reviewed" not in content
+        assert "Updated text" in content
+
+
+class TestCheckCommandExtended:
+    """Extended tests for check command."""
+
+    def test_check_with_documents_option(self, runner, git_doorstop_project):
+        """Test check command with --documents option."""
+        # Create a test file with requirement marker
+        test_file = git_doorstop_project / "test_reqs.py"
+        test_file.write_text(
+            """
+import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_req():
+    pass
+"""
+        )
+
+        result = runner.invoke(
+            cli,
+            [
+                "check",
+                "--documents",
+                "SRS",
+                "--root",
+                str(git_doorstop_project),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert "SRS" in result.output
+
+    def test_check_finds_uncovered_items(self, runner, git_doorstop_project):
+        """Test check command exits 1 when items are uncovered."""
+        # No test file with requirement markers
+        result = runner.invoke(
+            cli,
+            [
+                "check",
+                "--documents",
+                "SRS",
+                "--root",
+                str(git_doorstop_project),
+            ],
+        )
+
+        # Should fail - SRS001 is not covered
+        assert result.exit_code == 1
+        assert "uncovered" in result.output.lower()
+        assert "SRS001" in result.output
+
+
+class TestInfoCommandExtended:
+    """Extended tests for info command."""
+
+    def test_info_shows_document_hierarchy(self, runner, git_doorstop_project):
+        """Test info shows document hierarchy tree."""
+        result = runner.invoke(cli, ["info", "--root", str(git_doorstop_project)])
+
+        assert result.exit_code == 0
+        assert "hierarchy" in result.output.lower()
+        assert "UN" in result.output
+        assert "SRS" in result.output
+
+
+class TestItemShowCommand:
+    """Tests for item show command."""
+
+    def test_item_show_displays_details(self, runner, git_doorstop_project):
+        """Test item show displays all item details."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["item", "show", "SRS001"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert "UID: SRS001" in result.output
+        assert "Document: SRS" in result.output
+        assert "Active: True" in result.output
+        assert "Text:" in result.output
+
+    def test_item_show_with_links(self, runner, git_doorstop_project):
+        """Test item show displays links."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["item", "show", "SRS001"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert "Links: UN001" in result.output
+
+
+class TestPublishCommandExtended:
+    """Extended tests for publish command."""
+
+    def test_publish_all_requires_path(self, runner):
+        """Test publish 'all' requires output path."""
+        result = runner.invoke(cli, ["publish", "all"])
+
+        assert result.exit_code == 1
+        assert "requires" in result.output.lower() and "path" in result.output.lower()
+
+
+class TestExportCommandExtended:
+    """Extended tests for export command."""
+
+    def test_export_specific_documents(self, runner, git_doorstop_project):
+        """Test export with --documents option."""
+        output_file = git_doorstop_project / "exported.yml"
+
+        result = runner.invoke(
+            cli,
+            [
+                "export",
+                str(output_file),
+                "--documents",
+                "SRS",
+                "--root",
+                str(git_doorstop_project),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "SRS" in content
+
+
+class TestImportCommandExtended:
+    """Extended tests for import command."""
+
+    def test_import_creates_new_items(self, runner, git_doorstop_project):
+        """Test import creates new items."""
+        import os
+
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS002
+    text: New requirement text
+"""
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["import", str(yaml_file)], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        # Check item was created
+        new_item = git_doorstop_project / "srs" / "SRS002.yml"
+        assert new_item.exists()
+        assert "New requirement text" in new_item.read_text()
+
+    def test_import_verbose(self, runner, git_doorstop_project):
+        """Test import with --verbose flag."""
+        import os
+
+        yaml_file = git_doorstop_project / "import.yml"
+        yaml_file.write_text(
+            """
+documents: []
+items:
+  - uid: SRS003
+    text: Another requirement
+"""
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["import", str(yaml_file), "--verbose"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        # Verbose should show more detailed output
+        assert "SRS003" in result.output or "created" in result.output.lower()
+
+
+class TestDocCreateWithMock:
+    """Tests for doc create command with mocked doorstop."""
+
+    def test_doc_create_with_parent(self, runner, monkeypatch):
+        """Test doc create with --parent option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        def mock_run(cmd, **kwargs):
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["doc", "create", "SRS", "srs", "--parent", "UN"])
+
+        assert result.exit_code == 0
+
+    def test_doc_create_with_digits_and_sep(self, runner, monkeypatch):
+        """Test doc create with --digits and --sep options."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(
+            cli, ["doc", "create", "SRS", "srs", "--digits", "4", "--sep", "-"]
+        )
+
+        assert result.exit_code == 0
+        assert "--digits" in captured_cmd
+        assert "4" in captured_cmd
+        assert "--sep" in captured_cmd
+        assert "-" in captured_cmd
+
+
+class TestDocDeleteWithMock:
+    """Tests for doc delete command with mocked doorstop."""
+
+    def test_doc_delete(self, runner, monkeypatch):
+        """Test doc delete command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        monkeypatch.setattr("subprocess.run", lambda cmd, **kw: mock_result)
+
+        result = runner.invoke(cli, ["doc", "delete", "SRS"])
+
+        assert result.exit_code == 0
+
+
+class TestDocReorderWithMock:
+    """Tests for doc reorder command with mocked doorstop."""
+
+    def test_doc_reorder_auto(self, runner, monkeypatch):
+        """Test doc reorder with --auto flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["doc", "reorder", "SRS", "--auto"])
+
+        assert result.exit_code == 0
+        assert "--auto" in captured_cmd
+
+    def test_doc_reorder_manual(self, runner, monkeypatch):
+        """Test doc reorder with --manual flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["doc", "reorder", "SRS", "--manual"])
+
+        assert result.exit_code == 0
+        assert "--manual" in captured_cmd
+
+
+class TestItemAddWithMock:
+    """Tests for item add command with mocked doorstop."""
+
+    def test_item_add_basic(self, runner, monkeypatch):
+        """Test item add command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        monkeypatch.setattr("subprocess.run", lambda cmd, **kw: mock_result)
+
+        result = runner.invoke(cli, ["item", "add", "SRS"])
+
+        assert result.exit_code == 0
+
+    def test_item_add_with_level(self, runner, monkeypatch):
+        """Test item add with --level option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["item", "add", "SRS", "--level", "1.2"])
+
+        assert result.exit_code == 0
+        assert "--level" in captured_cmd
+        assert "1.2" in captured_cmd
+
+    def test_item_add_with_count(self, runner, monkeypatch):
+        """Test item add with --count option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["item", "add", "SRS", "--count", "5"])
+
+        assert result.exit_code == 0
+        assert "--count" in captured_cmd
+        assert "5" in captured_cmd
+
+
+class TestItemRemoveWithMock:
+    """Tests for item remove command with mocked doorstop."""
+
+    def test_item_remove(self, runner, monkeypatch):
+        """Test item remove command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        monkeypatch.setattr("subprocess.run", lambda cmd, **kw: mock_result)
+
+        result = runner.invoke(cli, ["item", "remove", "SRS001"])
+
+        assert result.exit_code == 0
+
+
+class TestItemEditWithMock:
+    """Tests for item edit command with mocked doorstop."""
+
+    def test_item_edit(self, runner, monkeypatch):
+        """Test item edit command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        monkeypatch.setattr("subprocess.run", lambda cmd, **kw: mock_result)
+
+        result = runner.invoke(cli, ["item", "edit", "SRS001"])
+
+        assert result.exit_code == 0
+
+
+class TestItemImportExportWithMock:
+    """Tests for item import/export commands with mocked doorstop."""
+
+    def test_item_import(self, runner, monkeypatch):
+        """Test item import command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["item", "import", "SRS", "import.csv"])
+
+        assert result.exit_code == 0
+        assert "import" in captured_cmd
+
+    def test_item_export_xlsx(self, runner, monkeypatch):
+        """Test item export with --xlsx flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["item", "export", "SRS", "out.xlsx", "--xlsx"])
+
+        assert result.exit_code == 0
+        assert "--xlsx" in captured_cmd
+
+    def test_item_export_csv(self, runner, monkeypatch):
+        """Test item export with --csv flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["item", "export", "SRS", "out.csv", "--csv"])
+
+        assert result.exit_code == 0
+        assert "--csv" in captured_cmd
+
+
+class TestLinkCommandsWithMock:
+    """Tests for link add/remove commands with mocked doorstop."""
+
+    def test_link_add(self, runner, monkeypatch):
+        """Test link add command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["link", "add", "SRS001", "UN001"])
+
+        assert result.exit_code == 0
+        assert "link" in captured_cmd
+        assert "SRS001" in captured_cmd
+        assert "UN001" in captured_cmd
+
+    def test_link_remove(self, runner, monkeypatch):
+        """Test link remove command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["link", "remove", "SRS001", "UN001"])
+
+        assert result.exit_code == 0
+        assert "unlink" in captured_cmd
+
+
+class TestReviewCommandsWithMock:
+    """Tests for review mark/clear commands with mocked doorstop."""
+
+    def test_review_mark(self, runner, monkeypatch):
+        """Test review mark command."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        monkeypatch.setattr("subprocess.run", lambda cmd, **kw: mock_result)
+
+        result = runner.invoke(cli, ["review", "mark", "SRS001"])
+
+        assert result.exit_code == 0
+
+
+class TestPublishWithMock:
+    """Tests for publish command with mocked doorstop."""
+
+    def test_publish_html(self, runner, monkeypatch):
+        """Test publish with --html flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["publish", "SRS", "output.html", "--html"])
+
+        assert result.exit_code == 0
+        assert "--html" in captured_cmd
+
+    def test_publish_markdown(self, runner, monkeypatch):
+        """Test publish with --markdown flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["publish", "SRS", "output.md", "--markdown"])
+
+        assert result.exit_code == 0
+        assert "--markdown" in captured_cmd
+
+    def test_publish_with_template(self, runner, monkeypatch):
+        """Test publish with --template option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(
+            cli, ["publish", "SRS", "output.html", "--template", "custom.html"]
+        )
+
+        assert result.exit_code == 0
+        assert "--template" in captured_cmd
+        assert "custom.html" in captured_cmd
+
+    def test_publish_no_child_links(self, runner, monkeypatch):
+        """Test publish with --no-child-links flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(
+            cli, ["publish", "SRS", "output.html", "--no-child-links"]
+        )
+
+        assert result.exit_code == 0
+        assert "--no-child-links" in captured_cmd
+
+    def test_publish_latex(self, runner, monkeypatch):
+        """Test publish with --latex flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["publish", "SRS", "output.tex", "--latex"])
+
+        assert result.exit_code == 0
+        assert "--latex" in captured_cmd
+
+    def test_publish_text(self, runner, monkeypatch):
+        """Test publish with --text flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["publish", "SRS", "output.txt", "--text"])
+
+        assert result.exit_code == 0
+        assert "--text" in captured_cmd
+
+
+class TestInfoErrorHandling:
+    """Tests for info command error handling."""
+
+    def test_info_error_handling(self, runner, monkeypatch):
+        """Test info command handles exceptions gracefully."""
+        from unittest.mock import patch
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("No doorstop tree"),
+        ):
+            result = runner.invoke(cli, ["info"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestCheckWithConfigDocuments:
+    """Tests for check command with config.test_documents."""
+
+    def test_check_uses_config_test_documents(self, runner, monkeypatch, tmp_path):
+        """Test check command uses test_documents from config."""
+        from unittest.mock import MagicMock, patch
+
+        # Mock the config to return test_documents
+        mock_config = MagicMock()
+        mock_config.test_documents = ["SRS", "UT"]
+
+        # Mock the tree and graph
+        mock_tree = MagicMock()
+        mock_tree.documents = []
+
+        mock_graph = MagicMock()
+        mock_graph.get_leaf_documents.return_value = ["SRS"]
+        mock_graph.get_items_by_document.return_value = []
+
+        with (
+            patch("jamb.doorstop.discovery.discover_tree", return_value=mock_tree),
+            patch(
+                "jamb.doorstop.reader.build_traceability_graph", return_value=mock_graph
+            ),
+            patch("jamb.config.loader.load_config", return_value=mock_config),
+        ):
+            result = runner.invoke(cli, ["check"])
+
+        assert result.exit_code == 0
+        # Should use config documents
+        assert "SRS, UT" in result.output
+
+    def test_check_falls_back_to_leaf_documents(self, runner, monkeypatch):
+        """Test check command falls back to leaf documents when no config."""
+        from unittest.mock import MagicMock, patch
+
+        # Mock the config with empty test_documents
+        mock_config = MagicMock()
+        mock_config.test_documents = []
+
+        # Mock the tree and graph
+        mock_tree = MagicMock()
+        mock_tree.documents = []
+
+        mock_graph = MagicMock()
+        mock_graph.get_leaf_documents.return_value = ["UT"]
+        mock_graph.get_items_by_document.return_value = []
+
+        with (
+            patch("jamb.doorstop.discovery.discover_tree", return_value=mock_tree),
+            patch(
+                "jamb.doorstop.reader.build_traceability_graph", return_value=mock_graph
+            ),
+            patch("jamb.config.loader.load_config", return_value=mock_config),
+        ):
+            result = runner.invoke(cli, ["check"])
+
+        assert result.exit_code == 0
+        # Should use leaf documents
+        assert "UT" in result.output
+
+    def test_check_error_handling(self, runner, monkeypatch):
+        """Test check command handles exceptions gracefully."""
+        from unittest.mock import patch
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("No doorstop tree"),
+        ):
+            result = runner.invoke(cli, ["check"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestDocListErrorHandling:
+    """Tests for doc list command error handling."""
+
+    def test_doc_list_error_handling(self, runner, monkeypatch):
+        """Test doc list command handles exceptions gracefully."""
+        from unittest.mock import patch
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("No doorstop tree"),
+        ):
+            result = runner.invoke(cli, ["doc", "list"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestExportErrorHandling:
+    """Tests for export command error handling."""
+
+    def test_export_error_handling(self, runner, tmp_path, monkeypatch):
+        """Test export command handles exceptions gracefully."""
+        from unittest.mock import patch
+
+        output_path = tmp_path / "output.yml"
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("No doorstop tree"),
+        ):
+            result = runner.invoke(cli, ["export", str(output_path)])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestImportCommandDocuments:
+    """Tests for import command document creation."""
+
+    def test_import_shows_would_create_documents(self, runner, tmp_path, monkeypatch):
+        """Test import dry-run shows 'Would create X documents'."""
+        import yaml
+
+        # Create test YAML file with documents
+        yaml_content = {
+            "documents": [
+                {"prefix": "SRS", "path": "srs"},
+                {"prefix": "UT", "path": "ut", "parent": "SRS"},
+            ],
+            "items": [],
+        }
+        yaml_file = tmp_path / "import.yml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        # Mock _document_exists to return False (documents don't exist)
+        from unittest.mock import patch
+
+        with patch("jamb.yaml_io._document_exists", return_value=False):
+            result = runner.invoke(cli, ["import", str(yaml_file), "--dry-run"])
+
+        assert result.exit_code == 0
+        assert "Would create" in result.output and "document" in result.output
+
+    def test_import_shows_created_documents(self, runner, tmp_path, monkeypatch):
+        """Test import shows 'Created X documents'."""
+        from unittest.mock import MagicMock, patch
+
+        import yaml
+
+        # Create test YAML file with documents
+        yaml_content = {
+            "documents": [
+                {"prefix": "SRS", "path": "srs"},
+            ],
+            "items": [],
+        }
+        yaml_file = tmp_path / "import.yml"
+        with open(yaml_file, "w") as f:
+            yaml.dump(yaml_content, f)
+
+        # Mock subprocess.run to succeed
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_result.stderr = ""
+
+        with (
+            patch("jamb.yaml_io._document_exists", return_value=False),
+            patch("subprocess.run", return_value=mock_result),
+        ):
+            result = runner.invoke(cli, ["import", str(yaml_file)])
+
+        assert result.exit_code == 0
+        assert "Created" in result.output and "document" in result.output
+
+    def test_import_error_handling(self, runner, tmp_path, monkeypatch):
+        """Test import command handles invalid YAML gracefully."""
+        # Create invalid YAML file
+        yaml_file = tmp_path / "invalid.yml"
+        yaml_file.write_text("not: [valid: yaml")
+
+        result = runner.invoke(cli, ["import", str(yaml_file)])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestItemListWithPrefix:
+    """Tests for item list command with specific prefix."""
+
+    def test_item_list_with_prefix(self, runner, monkeypatch):
+        """Test item list with specific document prefix."""
+        from unittest.mock import MagicMock, patch
+
+        # Mock tree and document
+        mock_item = MagicMock()
+        mock_item.uid = "SRS001"
+        mock_item.text = "Test requirement text"
+        mock_item.active = True
+
+        mock_doc = MagicMock()
+        mock_doc.prefix = "SRS"
+        mock_doc.__iter__ = lambda self: iter([mock_item])
+
+        mock_tree = MagicMock()
+        mock_tree.find_document.return_value = mock_doc
+
+        with patch("jamb.doorstop.discovery.discover_tree", return_value=mock_tree):
+            result = runner.invoke(cli, ["item", "list", "SRS"])
+
+        assert result.exit_code == 0
+        assert "SRS001" in result.output
+
+    def test_item_list_error_handling(self, runner, monkeypatch):
+        """Test item list handles errors gracefully."""
+        from unittest.mock import patch
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("No doorstop tree"),
+        ):
+            result = runner.invoke(cli, ["item", "list"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestItemShowWithHeader:
+    """Tests for item show command showing headers."""
+
+    def test_item_show_with_header(self, runner, monkeypatch):
+        """Test item show displays header when present."""
+        from unittest.mock import MagicMock, patch
+
+        mock_item = MagicMock()
+        mock_item.uid = "SRS001"
+        mock_item.document.prefix = "SRS"
+        mock_item.active = True
+        mock_item.normative = True
+        mock_item.level = 1.0
+        mock_item.header = "Authentication Requirement"
+        mock_item.links = []
+        mock_item.text = "Test requirement text"
+
+        mock_tree = MagicMock()
+        mock_tree.find_item.return_value = mock_item
+
+        with patch("jamb.doorstop.discovery.discover_tree", return_value=mock_tree):
+            result = runner.invoke(cli, ["item", "show", "SRS001"])
+
+        assert result.exit_code == 0
+        assert "Header: Authentication Requirement" in result.output
+
+    def test_item_show_error_handling(self, runner, monkeypatch):
+        """Test item show handles errors gracefully."""
+        from unittest.mock import patch
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("Item not found"),
+        ):
+            result = runner.invoke(cli, ["item", "show", "NONEXISTENT"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestItemImportWithOptions:
+    """Tests for item import command with file and map options."""
+
+    def test_item_import_with_file_option(self, runner, monkeypatch):
+        """Test item import with --file option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(
+            cli, ["item", "import", "SRS", "data.csv", "--file", "alt.csv"]
+        )
+
+        assert result.exit_code == 0
+        assert "--file" in captured_cmd
+        assert "alt.csv" in captured_cmd
+
+    def test_item_import_with_map_option(self, runner, monkeypatch):
+        """Test item import with --map option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(
+            cli, ["item", "import", "SRS", "data.csv", "--map", "text=Description"]
+        )
+
+        assert result.exit_code == 0
+        assert "--map" in captured_cmd
+        assert "text=Description" in captured_cmd
+
+
+class TestInitCommand:
+    """Tests for jamb init command."""
+
+    def test_init_help(self, runner):
+        """Test that init --help works."""
+        result = runner.invoke(cli, ["init", "--help"])
+
+        assert result.exit_code == 0
+        assert "Initialize" in result.output or "init" in result.output.lower()
+        assert "IEC 62304" in result.output
+
+    def test_init_creates_reqs_directory(self, runner, tmp_path, monkeypatch):
+        """Test init creates reqs directory with documents."""
+        import subprocess
+
+        # Initialize git repo
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["init"], catch_exceptions=False)
+
+        assert result.exit_code == 0
+        assert (tmp_path / "reqs").exists()
+        assert (tmp_path / "reqs" / "prj").exists()
+        assert (tmp_path / "reqs" / "un").exists()
+        assert (tmp_path / "reqs" / "sys").exists()
+        assert (tmp_path / "reqs" / "srs").exists()
+        assert (tmp_path / "reqs" / "haz").exists()
+        assert (tmp_path / "reqs" / "rc").exists()
+        assert "Created document: PRJ" in result.output
+        assert "Created document: UN" in result.output
+        assert "Created document: SYS" in result.output
+        assert "Created document: SRS" in result.output
+        assert "Created document: HAZ" in result.output
+        assert "Created document: RC" in result.output
+
+    def test_init_updates_pyproject_toml(self, runner, tmp_path, monkeypatch):
+        """Test init adds [tool.jamb] to pyproject.toml."""
+        import subprocess
+
+        # Initialize git repo
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Create empty pyproject.toml
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[project]\nname = 'test'\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["init"], catch_exceptions=False)
+
+        assert result.exit_code == 0
+        content = pyproject.read_text()
+        assert "[tool.jamb]" in content
+        assert "test_documents" in content
+        assert 'trace_to_ignore = ["PRJ"]' in content
+
+    def test_init_skips_existing_jamb_config(self, runner, tmp_path, monkeypatch):
+        """Test init skips if [tool.jamb] already exists."""
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            '[project]\nname = "test"\n\n[tool.jamb]\ntest_documents = ["UT"]\n'
+        )
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["init"], catch_exceptions=False)
+
+        assert result.exit_code == 0
+        assert "already has [tool.jamb]" in result.output
+        # Original config should be preserved
+        content = pyproject.read_text()
+        assert '["UT"]' in content
+
+    def test_init_fails_if_documents_exist(self, runner, tmp_path, monkeypatch):
+        """Test init fails if documents already exist."""
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Create existing PRJ document
+        reqs_prj = tmp_path / "reqs" / "prj"
+        reqs_prj.mkdir(parents=True)
+        (reqs_prj / ".doorstop.yml").write_text("settings:\n  prefix: PRJ\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["init"])
+
+        assert result.exit_code == 1
+        assert "already exist" in result.output
+
+    def test_init_handles_doorstop_failure(self, runner, tmp_path, monkeypatch):
+        """Test init handles doorstop failure gracefully."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 1  # Doorstop fails
+
+        monkeypatch.setattr("subprocess.run", lambda cmd, **kw: mock_result)
+        monkeypatch.chdir(tmp_path)
+
+        result = runner.invoke(cli, ["init"])
+
+        assert result.exit_code == 1
+        assert "Failed to create" in result.output
+
+    def test_init_handles_pyproject_update_failure(self, runner, tmp_path, monkeypatch):
+        """Test init handles pyproject.toml update failure gracefully."""
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Create a pyproject.toml that will fail to parse
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("invalid toml [[[")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["init"], catch_exceptions=False)
+
+        # Should still succeed (warning only) but show warning
+        assert "Warning" in result.output or result.exit_code == 0
+
+
+class TestReviewResetCommand:
+    """Tests for review reset command."""
+
+    def test_review_reset_help(self, runner):
+        """Test that review reset --help works."""
+        result = runner.invoke(cli, ["review", "reset", "--help"])
+
+        assert result.exit_code == 0
+        assert "Reset" in result.output or "unreviewed" in result.output.lower()
+
+    def test_review_reset_single_item(self, runner, git_doorstop_project):
+        """Test review reset on a single item."""
+        import os
+
+        # First mark the item as reviewed using doorstop's review command
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            # Mark as reviewed first
+            runner.invoke(cli, ["review", "mark", "SRS001"], catch_exceptions=False)
+
+            # Now reset it
+            result = runner.invoke(
+                cli, ["review", "reset", "SRS001"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        # Should indicate item was reset
+        assert "reset" in result.output.lower() or "unreviewed" in result.output.lower()
+
+    def test_review_reset_document(self, runner, git_doorstop_project):
+        """Test review reset on all items in a document."""
+        import os
+
+        # Mark items as reviewed
+        srs_file = git_doorstop_project / "srs" / "SRS001.yml"
+        content = srs_file.read_text()
+        srs_file.write_text(
+            content.replace("active: true", "active: true\nreviewed: abc123")
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["review", "reset", "SRS"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+
+    def test_review_reset_all(self, runner, git_doorstop_project):
+        """Test review reset all."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["review", "reset", "all"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+
+    def test_review_reset_invalid_label(self, runner, git_doorstop_project):
+        """Test review reset with invalid label."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(cli, ["review", "reset", "NONEXISTENT"])
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 1
+        assert (
+            "not a valid" in result.output.lower() or "error" in result.output.lower()
+        )
+
+    def test_review_reset_no_items_need_reset(self, runner, git_doorstop_project):
+        """Test review reset when no items need resetting."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli, ["review", "reset", "SRS001"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert "no items needed resetting" in result.output.lower()
+
+    def test_review_reset_error_handling(self, runner, monkeypatch):
+        """Test review reset handles exceptions gracefully."""
+        from unittest.mock import patch
+
+        with patch(
+            "jamb.doorstop.discovery.discover_tree",
+            side_effect=Exception("Tree error"),
+        ):
+            result = runner.invoke(cli, ["review", "reset", "SRS001"])
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+
+class TestReviewClearWithParents:
+    """Tests for review clear command with parent arguments."""
+
+    def test_review_clear_help_shows_parents(self, runner):
+        """Test that review clear --help shows PARENTS argument."""
+        result = runner.invoke(cli, ["review", "clear", "--help"])
+
+        assert result.exit_code == 0
+        assert "PARENTS" in result.output
+
+    def test_review_clear_with_mock(self, runner, monkeypatch):
+        """Test review clear passes parent arguments to doorstop."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["review", "clear", "SRS001", "SYS001"])
+
+        assert result.exit_code == 0
+        assert "SRS001" in captured_cmd
+        assert "SYS001" in captured_cmd
+
+
+class TestExportWithItemsAndNeighbors:
+    """Tests for export command with --items and --neighbors options."""
+
+    def test_export_help_shows_items_option(self, runner):
+        """Test that export --help shows --items option."""
+        result = runner.invoke(cli, ["export", "--help"])
+
+        assert result.exit_code == 0
+        assert "--items" in result.output
+        assert "--neighbors" in result.output
+
+    def test_export_specific_items(self, runner, git_doorstop_project):
+        """Test export with --items option."""
+        output_file = git_doorstop_project / "exported.yml"
+
+        result = runner.invoke(
+            cli,
+            [
+                "export",
+                str(output_file),
+                "--items",
+                "SRS001",
+                "--root",
+                str(git_doorstop_project),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        content = output_file.read_text()
+        assert "SRS001" in content
+
+    def test_export_with_neighbors(self, runner, git_doorstop_project):
+        """Test export with --items and --neighbors options."""
+        output_file = git_doorstop_project / "exported.yml"
+
+        result = runner.invoke(
+            cli,
+            [
+                "export",
+                str(output_file),
+                "--items",
+                "SRS001",
+                "--neighbors",
+                "--root",
+                str(git_doorstop_project),
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        content = output_file.read_text()
+        # Should include SRS001 and its parent UN001
+        assert "SRS001" in content
+        assert "UN001" in content
+
+    def test_export_neighbors_requires_items(self, runner, tmp_path):
+        """Test that --neighbors requires --items."""
+        output_file = tmp_path / "output.yml"
+
+        result = runner.invoke(cli, ["export", str(output_file), "--neighbors"])
+
+        assert result.exit_code == 1
+        assert "requires --items" in result.output.lower()
+
+
+class TestValidateWithFlags:
+    """Tests for validate command with various flags."""
+
+    def test_validate_quiet(self, runner, monkeypatch):
+        """Test validate with --quiet flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--quiet"])
+
+        assert result.exit_code == 0
+        assert "--quiet" in captured_cmd
+
+    def test_validate_no_reformat(self, runner, monkeypatch):
+        """Test validate with --no-reformat flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--no-reformat"])
+
+        assert result.exit_code == 0
+        assert "--no-reformat" in captured_cmd
+
+    def test_validate_reorder(self, runner, monkeypatch):
+        """Test validate with --reorder flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--reorder"])
+
+        assert result.exit_code == 0
+        assert "--reorder" in captured_cmd
+
+    def test_validate_no_level_check(self, runner, monkeypatch):
+        """Test validate with --no-level-check flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--no-level-check"])
+
+        assert result.exit_code == 0
+        assert "--no-level-check" in captured_cmd
+
+    def test_validate_no_ref_check(self, runner, monkeypatch):
+        """Test validate with --no-ref-check flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--no-ref-check"])
+
+        assert result.exit_code == 0
+        assert "--no-ref-check" in captured_cmd
+
+    def test_validate_no_child_check(self, runner, monkeypatch):
+        """Test validate with --no-child-check flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--no-child-check"])
+
+        assert result.exit_code == 0
+        assert "--no-child-check" in captured_cmd
+
+    def test_validate_strict_child_check(self, runner, monkeypatch):
+        """Test validate with --strict-child-check flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--strict-child-check"])
+
+        assert result.exit_code == 0
+        assert "--strict-child-check" in captured_cmd
+
+    def test_validate_no_suspect_check(self, runner, monkeypatch):
+        """Test validate with --no-suspect-check flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--no-suspect-check"])
+
+        assert result.exit_code == 0
+        assert "--no-suspect-check" in captured_cmd
+
+    def test_validate_no_review_check(self, runner, monkeypatch):
+        """Test validate with --no-review-check flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--no-review-check"])
+
+        assert result.exit_code == 0
+        assert "--no-review-check" in captured_cmd
+
+    def test_validate_skip(self, runner, monkeypatch):
+        """Test validate with --skip flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--skip", "UT"])
+
+        assert result.exit_code == 0
+        assert "--skip" in captured_cmd
+        assert "UT" in captured_cmd
+
+    def test_validate_warn_all(self, runner, monkeypatch):
+        """Test validate with --warn-all flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--warn-all"])
+
+        assert result.exit_code == 0
+        assert "--warn-all" in captured_cmd
+
+    def test_validate_error_all(self, runner, monkeypatch):
+        """Test validate with --error-all flag."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["validate", "--error-all"])
+
+        assert result.exit_code == 0
+        assert "--error-all" in captured_cmd
+
+
+class TestItemEditWithTool:
+    """Tests for item edit command with --tool option."""
+
+    def test_item_edit_help_shows_tool_option(self, runner):
+        """Test that item edit --help shows --tool option."""
+        result = runner.invoke(cli, ["item", "edit", "--help"])
+
+        assert result.exit_code == 0
+        assert "--tool" in result.output or "-T" in result.output
+
+    def test_item_edit_with_tool(self, runner, monkeypatch):
+        """Test item edit with --tool option."""
+        from unittest.mock import MagicMock
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        captured_cmd = []
+
+        def mock_run(cmd, **kwargs):
+            captured_cmd.extend(cmd)
+            return mock_result
+
+        monkeypatch.setattr("subprocess.run", mock_run)
+
+        result = runner.invoke(cli, ["item", "edit", "SRS001", "--tool", "nano"])
+
+        assert result.exit_code == 0
+        assert "--tool" in captured_cmd
+        assert "nano" in captured_cmd
+
+
+class TestScanTestsForRequirements:
+    """Tests for _scan_tests_for_requirements function."""
+
+    def test_scan_handles_unparseable_file(self, tmp_path):
+        """Test scanning handles files that can't be parsed."""
+        from jamb.cli.commands import _scan_tests_for_requirements
+
+        # Create a test directory with an invalid Python file
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        invalid_file = test_dir / "test_invalid.py"
+        invalid_file.write_text("def invalid syntax this is not valid python")
+
+        # Should not raise, just skip the file
+        result = _scan_tests_for_requirements(tmp_path)
+        assert isinstance(result, set)
+
+    def test_is_requirement_marker_returns_false(self):
+        """Test _is_requirement_marker returns False for non-requirement markers."""
+        import ast
+
+        from jamb.cli.commands import _is_requirement_marker
+
+        # Create an AST node for a different function call
+        code = "some_function(arg1, arg2)"
+        tree = ast.parse(code)
+        call_node = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
+
+        assert _is_requirement_marker(call_node) is False
+
+    def test_is_requirement_marker_returns_true(self):
+        """Test _is_requirement_marker returns True for requirement markers."""
+        import ast
+
+        from jamb.cli.commands import _is_requirement_marker
+
+        # Create an AST node for pytest.mark.requirement call
+        code = "pytest.mark.requirement('SRS001')"
+        tree = ast.parse(code)
+        call_node = next(node for node in ast.walk(tree) if isinstance(node, ast.Call))
+
+        assert _is_requirement_marker(call_node) is True
+
+
+class TestPublishDocx:
+    """Tests for publish --docx command."""
+
+    def test_publish_docx_requires_path(self, runner):
+        """Test that --docx requires an output path."""
+        result = runner.invoke(cli, ["publish", "SRS", "--docx"])
+
+        assert result.exit_code == 1
+        assert "requires" in result.output.lower()
+        assert "path" in result.output.lower()
+
+    def test_publish_docx_help_shows_option(self, runner):
+        """Test that publish --help shows --docx option."""
+        result = runner.invoke(cli, ["publish", "--help"])
+
+        assert result.exit_code == 0
+        assert "--docx" in result.output or "-d" in result.output
+        assert "DOCX" in result.output or "Word" in result.output
+
+    def test_publish_single_document_docx(self, runner, git_doorstop_project):
+        """Test publishing a single document as DOCX."""
+        import os
+
+        output_file = git_doorstop_project / "output.docx"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli,
+                ["publish", "SRS", str(output_file), "--docx"],
+                catch_exceptions=False,
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        assert output_file.stat().st_size > 0
+        assert "Published" in result.output
+
+    def test_publish_all_documents_docx(self, runner, git_doorstop_project):
+        """Test publishing all documents to a single DOCX file."""
+        import os
+
+        output_file = git_doorstop_project / "all_requirements.docx"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli,
+                ["publish", "all", str(output_file), "--docx"],
+                catch_exceptions=False,
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+        assert output_file.stat().st_size > 0
+        assert "Published" in result.output
+
+    def test_publish_docx_with_no_child_links(self, runner, git_doorstop_project):
+        """Test publishing DOCX with --no-child-links flag."""
+        import os
+
+        output_file = git_doorstop_project / "output.docx"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli,
+                ["publish", "SRS", str(output_file), "--docx", "--no-child-links"],
+                catch_exceptions=False,
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        assert output_file.exists()
+
+    def test_publish_docx_nonexistent_document(self, runner, git_doorstop_project):
+        """Test publishing DOCX for non-existent document."""
+        import os
+
+        output_file = git_doorstop_project / "output.docx"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(git_doorstop_project)
+            result = runner.invoke(
+                cli,
+                ["publish", "NONEXISTENT", str(output_file), "--docx"],
+                catch_exceptions=False,
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+    def test_publish_docx_empty_document(self, runner, tmp_path, monkeypatch):
+        """Test publishing DOCX when document has no items."""
+        import subprocess
+
+        # Create a project with an empty document
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test"],
+            cwd=tmp_path,
+            capture_output=True,
+        )
+
+        # Create empty UN document (no items)
+        (tmp_path / ".doorstop.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
+        )
+
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True
+        )
+
+        output_file = tmp_path / "output.docx"
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(
+            cli,
+            ["publish", "UN", str(output_file), "--docx"],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 1
+        assert "No items found" in result.output or "Error" in result.output

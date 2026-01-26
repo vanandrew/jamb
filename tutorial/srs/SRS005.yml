@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Session Refresh
+level: 5
+links:
+- SYS002: jaU_-oRG1XXuD-ANX5BKDiN8srP2zgZB2ludkkMX3OI=
+normative: true
+ref: ''
+reviewed: QxXHK4bNGw6FeelkiBRc_2hi1NFZD_owSlSBCtmiVDo=
+text: |
+  Software shall refresh tokens on activity within 15 minutes of expiry.

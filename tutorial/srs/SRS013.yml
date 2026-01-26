@@ -1,0 +1,13 @@
+active: true
+derived: false
+header: |
+  Alert Generation
+level: 13
+links:
+- RC002: 9p2HxKn4hllhdRbNf8-Zc76G9z4mdZ9AckV-gA6drO0=
+- SYS006: M8Q4DBBfunxQ8l_yTnbdc6OlKMeuIauLLWCpHGl43-4=
+normative: true
+ref: ''
+reviewed: S01rB6Up8lJzRws1CHN2T4bxMGGMgfg67VemksRBhkQ=
+text: |
+  Software shall create alert records with severity levels.

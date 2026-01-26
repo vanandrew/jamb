@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Session Management
+level: 2
+links:
+- UN001: KdNLg6Rzo95yd2edHNpuG2muDlawIf-Sa0YOKjGSZyA=
+normative: true
+ref: ''
+reviewed: AFLylxqY2o9y6pm_OlIbppYwpX7FaGymTZOX9QKQ6VM=
+text: |
+  System shall maintain user sessions with timeout.

@@ -1,0 +1,12 @@
+active: true
+derived: false
+header: |
+  Data Retention
+level: 9
+links:
+- SYS004: gadF53o5490Oc61u_bbD2H7YaO49W7GNHwOlGP2NCbo=
+normative: true
+ref: ''
+reviewed: gc5ILJ_bJOEbA9UEARNzqZPVsfBs4pXEqr9Z_Nyq0kk=
+text: |
+  Software shall retain data for 7 years per regulatory requirement.
