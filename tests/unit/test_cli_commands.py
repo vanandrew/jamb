@@ -354,6 +354,79 @@ class TestItemCrud:
         )
         assert r.exit_code == 1
 
+    def test_item_add_with_header_and_text(self, tmp_path):
+        """item add --header and --text populate the YAML file."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["item", "add", "SRS", "--header", "My Header", "--text", "Some body"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        item_path = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        content = item_path.read_text()
+        assert "My Header" in content
+        assert "Some body" in content
+
+    def test_item_add_with_links(self, tmp_path):
+        """item add --links populates the links list."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["item", "add", "SRS", "--links", "SYS001", "--links", "RC001"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        import yaml
+
+        item_path = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = yaml.safe_load(item_path.read_text())
+        assert data["links"] == ["SYS001", "RC001"]
+
+    def test_item_add_with_all_flags(self, tmp_path):
+        """item add with --header, --text, and --links together."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            [
+                "item",
+                "add",
+                "SRS",
+                "--header",
+                "H1",
+                "--text",
+                "Body text",
+                "--links",
+                "SYS001",
+            ],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        import yaml
+
+        item_path = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = yaml.safe_load(item_path.read_text())
+        assert data["header"] == "H1"
+        assert data["text"] == "Body text"
+        assert data["links"] == ["SYS001"]
+
+    def test_item_add_without_flags_unchanged(self, tmp_path):
+        """item add with no content flags still creates a blank item."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 0
+        import yaml
+
+        item_path = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = yaml.safe_load(item_path.read_text())
+        assert data["header"] == ""
+        assert data["text"] == ""
+        assert data["links"] == []
+
     def test_item_remove(self, tmp_path):
         """item remove deletes the item file."""
         _init_project(tmp_path)
