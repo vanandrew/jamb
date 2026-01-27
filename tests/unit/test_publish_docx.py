@@ -238,3 +238,213 @@ class TestRenderDocx:
 
         # UN001 should have "Linked from:" showing SRS001
         assert "Linked from:" in full_text
+
+    def test_render_docx_heading_item_uses_level1(self):
+        """Test that heading items use level 1 heading."""
+        items = [
+            Item(
+                uid="SRS001",
+                text="",
+                header="Safety Requirements",
+                document_prefix="SRS",
+                type="heading",
+            ),
+        ]
+        result = render_docx(items, "SRS")
+
+        doc = Document(io.BytesIO(result))
+        paragraphs = [p.text for p in doc.paragraphs]
+        full_text = " ".join(paragraphs)
+
+        # Should contain the header text
+        assert "Safety Requirements" in full_text
+        # Should NOT have UID prefix in heading
+        assert "SRS001: Safety Requirements" not in full_text
+
+    def test_render_docx_info_item_italic(self):
+        """Test that info items have italic paragraph text."""
+        items = [
+            Item(
+                uid="SRS002",
+                text="This is informational text.",
+                document_prefix="SRS",
+                type="info",
+            ),
+        ]
+        result = render_docx(items, "SRS")
+
+        doc = Document(io.BytesIO(result))
+        # Find the paragraph with the info text
+        info_para = None
+        for p in doc.paragraphs:
+            if "This is informational text." in p.text:
+                info_para = p
+                break
+
+        assert info_para is not None
+        # Check that the run is italic
+        assert info_para.runs[0].italic is True
+
+    def test_render_docx_child_links_no_graph(self):
+        """Child links not shown when graph is None."""
+        items = [
+            Item(uid="UN001", text="Need", document_prefix="UN"),
+            Item(uid="SRS001", text="Req", document_prefix="SRS", links=["UN001"]),
+        ]
+        result = render_docx(items, "Test", graph=None)
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "Linked from:" not in full_text
+
+    def test_render_docx_external_link_plain_text(self):
+        """Links to items not in the document appear as plain text."""
+        items = [
+            Item(
+                uid="SRS001",
+                text="Req",
+                document_prefix="SRS",
+                links=["EXTERNAL001"],
+            ),
+        ]
+        result = render_docx(items, "SRS")
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "EXTERNAL001" in full_text
+
+    def test_render_docx_external_child_links_not_shown(self):
+        """Child links to items not in rendered set are not shown."""
+        graph = TraceabilityGraph()
+        un_item = Item(uid="UN001", text="Need", document_prefix="UN")
+        srs_item = Item(
+            uid="SRS001", text="Req", document_prefix="SRS", links=["UN001"]
+        )
+        graph.add_item(un_item)
+        graph.add_item(srs_item)
+
+        # Only render UN001
+        items = [un_item]
+        result = render_docx(items, "Test", graph=graph)
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "Linked from:" not in full_text
+
+    def test_render_docx_heading_no_header_falls_back_to_uid(self):
+        """6d: Heading item with no header falls back to UID."""
+        items = [
+            Item(
+                uid="SRS001",
+                text="",
+                document_prefix="SRS",
+                type="heading",
+                header="",
+            ),
+        ]
+        result = render_docx(items, "SRS")
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "SRS001" in full_text
+
+    def test_render_docx_unicode_text(self):
+        """6e: Unicode characters in item text produce no encoding errors."""
+        items = [
+            Item(
+                uid="SRS001",
+                text="Ünïcödé — «text» ñ 日本語",
+                document_prefix="SRS",
+            ),
+        ]
+        result = render_docx(items, "SRS")
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "Ünïcödé" in full_text
+        assert "日本語" in full_text
+
+    def test_links_not_in_all_uids_plain_text(self):
+        items = [
+            Item(uid="SRS001", text="Req", document_prefix="SRS", links=["PHANTOM001"]),
+        ]
+        result = render_docx(items, "Test")
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "PHANTOM001" in full_text
+        assert "Links:" in full_text
+        # Find links paragraph and verify no hyperlink element for phantom
+        for p in doc.paragraphs:
+            if "Links:" in p.text:
+                xml_str = p._p.xml
+                assert 'w:anchor="PHANTOM001"' not in xml_str
+                break
+
+    def test_all_unknown_document_order(self):
+        items = [
+            Item(uid="ZZZ001", text="Zeta", document_prefix="ZZZ"),
+            Item(uid="AAA001", text="Alpha", document_prefix="AAA"),
+        ]
+        result = render_docx(items, "Test", document_order=["UN"])
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert full_text.index("AAA001") < full_text.index("ZZZ001")
+
+    def test_empty_links_list_no_section(self):
+        items = [
+            Item(uid="SRS001", text="Req", document_prefix="SRS", links=[]),
+        ]
+        result = render_docx(items, "Test")
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+        assert "Links:" not in full_text
+
+
+class TestRenderDocxEdgeCases:
+    """Additional edge case tests for render_docx."""
+
+    def test_include_child_links_false_with_graph_suppresses_all_links(self):
+        """include_child_links=False with a graph suppresses
+        both parent links and child links."""
+        graph = TraceabilityGraph()
+        un_item = Item(uid="UN001", text="Customer need", document_prefix="UN")
+        srs_item = Item(
+            uid="SRS001",
+            text="Software req",
+            document_prefix="SRS",
+            links=["UN001"],
+        )
+        graph.add_item(un_item)
+        graph.add_item(srs_item)
+
+        items = [un_item, srs_item]
+        result = render_docx(
+            items,
+            "Requirements",
+            include_child_links=False,
+            graph=graph,
+        )
+
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+
+        # Neither parent links nor reverse child links should appear
+        assert "Links:" not in full_text
+        assert "Linked from:" not in full_text
+
+    def test_document_order_sorts_items_by_hierarchy(self):
+        """Items are sorted according to document_order parameter."""
+        items = [
+            Item(uid="SRS001", text="Software req", document_prefix="SRS"),
+            Item(uid="UN001", text="User need", document_prefix="UN"),
+            Item(uid="SYS001", text="System req", document_prefix="SYS"),
+        ]
+        result = render_docx(
+            items,
+            "Full Hierarchy",
+            document_order=["UN", "SYS", "SRS"],
+        )
+
+        doc = Document(io.BytesIO(result))
+        full_text = " ".join(p.text for p in doc.paragraphs)
+
+        # UN should come before SYS, SYS before SRS
+        un_pos = full_text.find("UN001")
+        sys_pos = full_text.find("SYS001")
+        srs_pos = full_text.find("SRS001")
+        assert un_pos < sys_pos < srs_pos

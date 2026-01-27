@@ -1,17 +1,24 @@
 """Tests for jamb.yaml_io module."""
 
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 import yaml
 
+from jamb.core.models import Item, TraceabilityGraph
+from jamb.storage.document_config import DocumentConfig
+from jamb.storage.document_dag import DocumentDAG
 from jamb.yaml_io import (
     _create_document,
     _create_item,
     _document_exists,
     _extract_prefix,
     _get_document_path,
+    _graph_item_to_dict,
     _update_item,
+    export_items_to_yaml,
+    export_to_yaml,
     import_from_yaml,
     load_import_file,
 )
@@ -622,3 +629,384 @@ items:
             stats = import_from_yaml(yaml_file, update=True, echo=lambda x: None)
 
             assert stats["items_updated"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Export tests
+# ---------------------------------------------------------------------------
+
+
+def _make_export_fixtures():
+    """Build a DAG and TraceabilityGraph for export tests."""
+    dag = DocumentDAG()
+    dag.documents["SYS"] = DocumentConfig(prefix="SYS")
+    dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
+    dag.document_paths["SYS"] = Path("/fake/sys")
+    dag.document_paths["SRS"] = Path("/fake/srs")
+
+    graph = TraceabilityGraph()
+    sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS")
+    srs_item = Item(
+        uid="SRS001", text="Software req", document_prefix="SRS", links=["SYS001"]
+    )
+    inactive_item = Item(
+        uid="SRS002", text="Inactive", document_prefix="SRS", active=False
+    )
+    graph.add_item(sys_item)
+    graph.add_item(srs_item)
+    graph.add_item(inactive_item)
+    graph.set_document_parents("SYS", [])
+    graph.set_document_parents("SRS", ["SYS"])
+    return dag, graph
+
+
+class TestGraphItemToDict:
+    """Tests for _graph_item_to_dict function."""
+
+    def test_basic(self):
+        """Test basic item conversion without optional fields."""
+        item = Item(uid="SRS001", text="Hello", document_prefix="SRS")
+        result = _graph_item_to_dict(item)
+
+        assert result == {"uid": "SRS001", "text": "Hello"}
+        assert "header" not in result
+        assert "links" not in result
+
+    def test_with_header(self):
+        """Test item conversion with header."""
+        item = Item(
+            uid="SRS001", text="Hello", document_prefix="SRS", header="My Header"
+        )
+        result = _graph_item_to_dict(item)
+
+        assert result.get("header") == "My Header"
+
+    def test_with_links(self):
+        """Test item conversion with links."""
+        item = Item(
+            uid="SRS001",
+            text="Hello",
+            document_prefix="SRS",
+            links=["SYS001", "SYS002"],
+        )
+        result = _graph_item_to_dict(item)
+
+        assert result.get("links") == ["SYS001", "SYS002"]
+
+    def test_with_header_and_links(self):
+        """Test item conversion with both header and links."""
+        item = Item(
+            uid="SRS001",
+            text="Hello",
+            document_prefix="SRS",
+            header="Section",
+            links=["SYS001"],
+        )
+        result = _graph_item_to_dict(item)
+
+        assert result["uid"] == "SRS001"
+        assert result["text"] == "Hello"
+        assert result.get("header") == "Section"
+        assert result.get("links") == ["SYS001"]
+
+
+@patch("jamb.storage.build_traceability_graph")
+@patch("jamb.storage.discover_documents")
+class TestExportToYaml:
+    """Tests for export_to_yaml function."""
+
+    def test_all_documents(self, mock_discover, mock_build, tmp_path):
+        """Test exporting all documents in topological order."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_to_yaml(out, root=Path("/fake"))
+
+        data = yaml.safe_load(out.read_text())
+        assert len(data["documents"]) == 2
+        assert data["documents"][0]["prefix"] == "SYS"
+        assert data["documents"][1]["prefix"] == "SRS"
+        assert data["documents"][1]["parents"] == ["SYS"]
+        # Inactive SRS002 excluded
+        assert len(data["items"]) == 2
+        item_uids = [i["uid"] for i in data["items"]]
+        assert "SRS001" in item_uids
+        srs_item = next(i for i in data["items"] if i["uid"] == "SRS001")
+        assert srs_item["links"] == ["SYS001"]
+
+    def test_prefix_filter(self, mock_discover, mock_build, tmp_path):
+        """Test exporting only specific prefixes."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_to_yaml(out, prefixes=["SRS"], root=Path("/fake"))
+
+        data = yaml.safe_load(out.read_text())
+        assert len(data["documents"]) == 1
+        assert data["documents"][0]["prefix"] == "SRS"
+        item_uids = [i["uid"] for i in data["items"]]
+        assert all(uid.startswith("SRS") for uid in item_uids)
+
+    def test_excludes_inactive(self, mock_discover, mock_build, tmp_path):
+        """Test that inactive items are excluded from export."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_to_yaml(out, root=Path("/fake"))
+
+        data = yaml.safe_load(out.read_text())
+        item_uids = [i["uid"] for i in data["items"]]
+        assert "SRS002" not in item_uids
+
+    def test_creates_parent_directory(self, mock_discover, mock_build, tmp_path):
+        """Test that parent directories are created automatically."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "nested" / "deep" / "out.yml"
+        export_to_yaml(out, root=Path("/fake"))
+
+        assert out.exists()
+
+    def test_item_with_header(self, mock_discover, mock_build, tmp_path):
+        """Test that item headers appear in export output."""
+        dag, graph = _make_export_fixtures()
+        header_item = Item(
+            uid="SYS002",
+            text="Header item",
+            document_prefix="SYS",
+            header="Overview",
+        )
+        graph.add_item(header_item)
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_to_yaml(out, root=Path("/fake"))
+
+        data = yaml.safe_load(out.read_text())
+        sys002 = next(i for i in data["items"] if i["uid"] == "SYS002")
+        assert sys002["header"] == "Overview"
+
+
+@patch("jamb.storage.build_traceability_graph")
+@patch("jamb.storage.discover_documents")
+class TestExportItemsToYaml:
+    """Tests for export_items_to_yaml function."""
+
+    def test_specific_uids(self, mock_discover, mock_build, tmp_path):
+        """Test exporting specific UIDs only."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_items_to_yaml(out, ["SRS001"], root=Path("/fake"))
+
+        data = yaml.safe_load(out.read_text())
+        item_uids = [i["uid"] for i in data["items"]]
+        assert item_uids == ["SRS001"]
+
+    def test_include_neighbors(self, mock_discover, mock_build, tmp_path):
+        """Test exporting with neighbors includes linked items."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_items_to_yaml(
+            out, ["SRS001"], include_neighbors=True, root=Path("/fake")
+        )
+
+        data = yaml.safe_load(out.read_text())
+        item_uids = {i["uid"] for i in data["items"]}
+        assert "SRS001" in item_uids
+        assert "SYS001" in item_uids
+
+    def test_prefix_filter_with_neighbors(self, mock_discover, mock_build, tmp_path):
+        """Test that prefix filter limits neighbor inclusion."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_items_to_yaml(
+            out,
+            ["SRS001"],
+            include_neighbors=True,
+            prefixes=["SRS"],
+            root=Path("/fake"),
+        )
+
+        data = yaml.safe_load(out.read_text())
+        item_uids = [i["uid"] for i in data["items"]]
+        assert "SRS001" in item_uids
+        assert "SYS001" not in item_uids
+
+    def test_unknown_uid_ignored(self, mock_discover, mock_build, tmp_path):
+        """Test that unknown UIDs are silently ignored."""
+        dag, graph = _make_export_fixtures()
+        mock_discover.return_value = dag
+        mock_build.return_value = graph
+
+        out = tmp_path / "out.yml"
+        export_items_to_yaml(out, ["NONEXIST"], root=Path("/fake"))
+
+        data = yaml.safe_load(out.read_text())
+        assert data["items"] == []
+
+
+# ---------------------------------------------------------------------------
+# Edge case tests
+# ---------------------------------------------------------------------------
+
+
+class TestRoundTripCustomAttributes:
+    """Round-trip preservation of custom_attributes
+    through export and re-import."""
+
+    def test_custom_attributes_roundtrip(self, tmp_path):
+        """Export items with custom_attributes, re-import, verify they survive."""
+        from jamb.storage.items import read_item, write_item
+
+        item_data = {
+            "uid": "SRS001",
+            "text": "Requirement with custom attrs",
+            "document_prefix": "SRS",
+            "active": True,
+            "type": "requirement",
+            "header": "",
+            "links": [],
+            "link_hashes": {},
+            "reviewed": None,
+            "derived": False,
+            "custom_attributes": {},
+        }
+
+        # Write the item with extra_fields containing custom attributes
+        item_path = tmp_path / "SRS001.yml"
+        write_item(
+            item_data,
+            item_path,
+            extra_fields={"priority": "high", "category": "security"},
+        )
+
+        # Re-read the item
+        result = read_item(item_path, "SRS")
+        assert result["uid"] == "SRS001"
+        assert result["text"] == "Requirement with custom attrs"
+        # Custom attributes should be preserved in the custom_attributes dict
+        assert "priority" in result["custom_attributes"]
+        assert result["custom_attributes"]["priority"] == "high"
+        assert "category" in result["custom_attributes"]
+        assert result["custom_attributes"]["category"] == "security"
+
+
+class TestMultilineTextPreservation:
+    """Test that very long multiline text is preserved via block scalar formatting."""
+
+    def test_long_multiline_text_block_scalar(self, tmp_path):
+        """Write item with long multiline text, verify
+        block scalar style and content."""
+        from jamb.storage.items import read_item, write_item
+
+        long_text = (
+            "This is a very long requirement text that spans multiple lines.\n"
+            "It describes a complex feature with many details.\n"
+            "Line 3: The system shall support concurrent users.\n"
+            "Line 4: Performance must meet SLA targets.\n"
+            "Line 5: All data must be encrypted at rest and in transit.\n"
+            "Line 6: The audit log shall capture all state transitions.\n"
+            "Line 7: Recovery time objective is 4 hours.\n"
+            "Line 8: Final line of the requirement."
+        )
+
+        item_data = {
+            "uid": "SRS050",
+            "text": long_text,
+            "document_prefix": "SRS",
+            "active": True,
+            "type": "requirement",
+            "header": "Performance and Security",
+            "links": [],
+            "link_hashes": {},
+            "reviewed": None,
+            "derived": False,
+        }
+
+        item_path = tmp_path / "SRS050.yml"
+        write_item(item_data, item_path)
+
+        # Verify the raw YAML uses block scalar style ("|")
+        raw_yaml = item_path.read_text()
+        assert "|" in raw_yaml, "Multiline text should use block scalar style"
+
+        # Re-read and verify content is identical
+        result = read_item(item_path, "SRS")
+        assert result["text"] == long_text
+        assert result["header"] == "Performance and Security"
+
+
+class TestLinkHashesSpecialCharacters:
+    """Test import/export with link_hashes containing special characters."""
+
+    def test_link_hashes_with_special_chars(self, tmp_path):
+        """Write and read item with link_hashes containing URL-safe base64 chars."""
+        from jamb.storage.items import read_item, write_item
+
+        # URL-safe base64 hashes may contain - _ and =
+        special_hash = "abc-DEF_123/+xyz=="
+
+        item_data = {
+            "uid": "SRS099",
+            "text": "Item with special hash characters",
+            "document_prefix": "SRS",
+            "active": True,
+            "type": "requirement",
+            "header": "",
+            "links": ["SYS001"],
+            "link_hashes": {"SYS001": special_hash},
+            "reviewed": None,
+            "derived": False,
+        }
+
+        item_path = tmp_path / "SRS099.yml"
+        write_item(item_data, item_path)
+
+        # Re-read and verify the hash is preserved exactly
+        result = read_item(item_path, "SRS")
+        assert result["links"] == ["SYS001"]
+        assert result["link_hashes"]["SYS001"] == special_hash
+
+    def test_link_hashes_with_unicode_preserved(self, tmp_path):
+        """Write and read item where link hash is a unicode string."""
+        from jamb.storage.items import read_item, write_item
+
+        unicode_hash = "hash_\u00e9\u00e8\u00ea_value"
+
+        item_data = {
+            "uid": "SRS100",
+            "text": "Item with unicode hash",
+            "document_prefix": "SRS",
+            "active": True,
+            "type": "requirement",
+            "header": "",
+            "links": ["SYS002"],
+            "link_hashes": {"SYS002": unicode_hash},
+            "reviewed": None,
+            "derived": False,
+        }
+
+        item_path = tmp_path / "SRS100.yml"
+        write_item(item_data, item_path)
+
+        result = read_item(item_path, "SRS")
+        assert result["links"] == ["SYS002"]
+        assert result["link_hashes"]["SYS002"] == unicode_hash

@@ -25,6 +25,9 @@ a { color: #2980b9; text-decoration: none; }
 a:hover { text-decoration: underline; }
 .summary { color: #7f8c8d; font-style: italic; margin-bottom: 1.5rem; }
 .item { margin-bottom: 1.5rem; padding-left: 0.5rem; }
+.item-heading h2 { border-bottom: 2px solid #2c3e50;
+  font-weight: 700; margin-top: 2.5rem; }
+.item-info { color: #7f8c8d; font-style: italic; }
 .links, .child-links { font-size: 0.9rem; color: #555; margin-top: 0.3rem; }
 .links strong, .child-links strong { color: #333; }
 """
@@ -85,8 +88,20 @@ def render_html(
 
         heading_text = f"{item.uid}: {item.header}" if item.header else item.uid
 
-        parts.append('<div class="item">')
-        parts.append(f'<h3 id="{_esc(item.uid)}">{_esc(heading_text)}</h3>')
+        item_type = getattr(item, "type", "requirement")
+        if item_type == "heading":
+            css_class = "item item-heading"
+        elif item_type == "info":
+            css_class = "item item-info"
+        else:
+            css_class = "item item-requirement"
+
+        parts.append(f'<div class="{css_class}">')
+        if item_type == "heading":
+            heading_display = item.header if item.header else item.uid
+            parts.append(f'<h2 id="{_esc(item.uid)}">{_esc(heading_display)}</h2>')
+        else:
+            parts.append(f'<h3 id="{_esc(item.uid)}">{_esc(heading_text)}</h3>')
 
         if item.text:
             parts.append(f"<p>{_esc(item.text)}</p>")

@@ -132,7 +132,7 @@ def write_item(item_data: dict, path: Path, extra_fields: dict | None = None) ->
 
 
 def read_document_items(
-    doc_path: Path, prefix: str, include_inactive: bool = False
+    doc_path: Path, prefix: str, include_inactive: bool = False, sep: str = ""
 ) -> list[dict]:
     """Read all item YAML files from a document directory.
 
@@ -140,12 +140,15 @@ def read_document_items(
         doc_path: Path to the document directory.
         prefix: The document prefix.
         include_inactive: Whether to include inactive items.
+        sep: Separator between prefix and number.
 
     Returns:
         List of item dicts, sorted by UID.
     """
     items = []
-    pattern = re.compile(rf"^{re.escape(prefix)}\d+\.yml$", re.IGNORECASE)
+    pattern = re.compile(
+        rf"^{re.escape(prefix)}{re.escape(sep)}\d+\.yml$", re.IGNORECASE
+    )
 
     for path in sorted(doc_path.iterdir()):
         if path.is_file() and pattern.match(path.name):

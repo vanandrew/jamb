@@ -42,7 +42,9 @@ def build_traceability_graph(
             continue
 
         # Read items from disk
-        raw_items = read_document_items(doc_path, prefix, include_inactive)
+        raw_items = read_document_items(
+            doc_path, prefix, include_inactive, sep=config.sep
+        )
 
         for raw in raw_items:
             item = Item(

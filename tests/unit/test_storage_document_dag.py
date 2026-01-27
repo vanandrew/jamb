@@ -70,3 +70,61 @@ class TestDocumentDAG:
         assert order.index("PRJ") < order.index("HAZ")
         assert order.index("UN") < order.index("SRS")
         assert order.index("HAZ") < order.index("SRS")
+
+    def test_topological_sort_parent_referencing_nonexistent(self):
+        """3a: Doc with parent not in documents is treated as root."""
+        dag = DocumentDAG()
+        dag.documents["A"] = DocumentConfig(prefix="A", parents=["NONEXIST"])
+        order = dag.topological_sort()
+        assert "A" in order
+
+    def test_validate_acyclic_self_reference(self):
+        """3b: Self-referencing document (A.parents = ['A']) is a cycle."""
+        dag = DocumentDAG()
+        dag.documents["A"] = DocumentConfig(prefix="A", parents=["A"])
+        errors = dag.validate_acyclic()
+        assert len(errors) == 1
+        assert "A" in errors[0]
+
+    def test_topological_sort_single_isolated_document(self):
+        """3c: Single isolated document (no parents, no children) appears in sort."""
+        dag = DocumentDAG()
+        dag.documents["SOLO"] = DocumentConfig(prefix="SOLO")
+        order = dag.topological_sort()
+        assert order == ["SOLO"]
+
+    def test_validate_acyclic_three_node_cycle(self):
+        """3d: 3-node cycle A→B→C→A is detected."""
+        dag = DocumentDAG()
+        dag.documents["A"] = DocumentConfig(prefix="A", parents=["C"])
+        dag.documents["B"] = DocumentConfig(prefix="B", parents=["A"])
+        dag.documents["C"] = DocumentConfig(prefix="C", parents=["B"])
+        errors = dag.validate_acyclic()
+        assert len(errors) == 1
+        assert "Cycle" in errors[0]
+        for node in ["A", "B", "C"]:
+            assert node in errors[0]
+
+    def test_get_leaf_documents_all_parents(self):
+        """Mutual parent cycle means no leaves; assert empty list."""
+        dag = DocumentDAG()
+        dag.documents["A"] = DocumentConfig(prefix="A", parents=["B"])
+        dag.documents["B"] = DocumentConfig(prefix="B", parents=["A"])
+        # Both A and B are parents of each other, so neither is a leaf
+        leaves = dag.get_leaf_documents()
+        assert leaves == []
+
+    def test_topological_sort_2node_cycle_with_acyclic(self):
+        """Acyclic node sorted first, cycle participants appended."""
+        dag = DocumentDAG()
+        dag.documents["ROOT"] = DocumentConfig(prefix="ROOT")
+        dag.documents["A"] = DocumentConfig(prefix="A", parents=["B"])
+        dag.documents["B"] = DocumentConfig(prefix="B", parents=["A"])
+        order = dag.topological_sort()
+        # ROOT has no parents, so it should come first
+        assert order[0] == "ROOT"
+        # A and B are in a cycle, they should both be in the result
+        assert "A" in order
+        assert "B" in order
+        assert order.index("ROOT") < order.index("A")
+        assert order.index("ROOT") < order.index("B")

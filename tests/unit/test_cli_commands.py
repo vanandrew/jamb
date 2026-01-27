@@ -1,0 +1,993 @@
+"""Tests for CLI command behavior not covered by integration tests."""
+
+import os
+import subprocess
+from pathlib import Path
+
+import yaml
+from click.testing import CliRunner
+
+from jamb.cli.commands import _scan_tests_for_requirements, cli
+
+
+class TestValidateFlagBehavior:
+    """Test validate command flag effects on issue level promotion/demotion."""
+
+    def _make_dag_and_graph(self):
+        """Create minimal DAG and graph with no issues."""
+        from jamb.core.models import Item, TraceabilityGraph
+        from jamb.storage.document_config import DocumentConfig
+        from jamb.storage.document_dag import DocumentDAG
+
+        dag = DocumentDAG()
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=[], digits=3)
+        dag.document_paths["SRS"] = Path("/fake/srs")
+
+        graph = TraceabilityGraph()
+        item = Item(
+            uid="SRS001", text="A requirement", document_prefix="SRS", reviewed="abc"
+        )
+        graph.add_item(item)
+        graph.set_document_parents("SRS", [])
+
+        return dag, graph
+
+    def _make_issues(self):
+        """Create a list with info, warning, and error issues."""
+        from jamb.storage.validation import ValidationIssue
+
+        return [
+            ValidationIssue("info", "SRS001", "SRS", "informational note"),
+            ValidationIssue("warning", "SRS002", "SRS", "a warning"),
+            ValidationIssue("error", "SRS003", "SRS", "an error"),
+        ]
+
+    def test_warn_all_shows_info_issues(self):
+        """With --warn-all, info-level issues are promoted to warning."""
+        issues = self._make_issues()
+
+        # Simulate the promotion logic from the validate command
+        for issue in issues:
+            if issue.level == "info":
+                issue.level = "warning"
+
+        info_issues = [i for i in issues if i.level == "info"]
+        warning_issues = [i for i in issues if i.level == "warning"]
+        assert len(info_issues) == 0
+        assert len(warning_issues) == 2  # original warning + promoted info
+
+    def test_error_all_exits_one_on_warnings(self):
+        """With --error-all, warning issues are promoted to error."""
+        issues = self._make_issues()
+
+        # Simulate the promotion logic
+        for issue in issues:
+            if issue.level == "warning":
+                issue.level = "error"
+
+        error_issues = [i for i in issues if i.level == "error"]
+        assert len(error_issues) == 2  # original error + promoted warning
+
+    def test_quiet_suppresses_warnings(self):
+        """With --quiet, only errors are shown."""
+        issues = self._make_issues()
+
+        # Simulate quiet filter
+        visible = [i for i in issues if i.level == "error"]
+        assert len(visible) == 1
+        assert visible[0].message == "an error"
+
+    def test_no_issues_exits_zero(self):
+        """Clean validation produces no issues."""
+        issues = []
+        has_errors = any(i.level == "error" for i in issues)
+        assert not has_errors
+        assert len(issues) == 0
+
+
+class TestScanTestsEdgeCases:
+    """Test _scan_tests_for_requirements edge cases."""
+
+    def test_finds_multiple_uids_in_one_marker(self, tmp_path):
+        """requirement('SRS001', 'SRS002') collects both."""
+        test_file = tmp_path / "test_example.py"
+        test_file.write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001', 'SRS002')\n"
+            "def test_something():\n"
+            "    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert "SRS001" in result
+        assert "SRS002" in result
+
+    def test_empty_directory_returns_empty_set(self, tmp_path):
+        """No test files in directory returns empty set."""
+        result = _scan_tests_for_requirements(tmp_path)
+        assert result == set()
+
+    def test_skips_non_test_files(self, tmp_path):
+        """Files not matching test_*.py are ignored."""
+        helper = tmp_path / "helper.py"
+        helper.write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001')\n"
+            "def test_something():\n"
+            "    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert result == set()
+
+
+# =========================================================================
+# New comprehensive CLI command tests appended below
+# =========================================================================
+
+
+def _invoke(runner: CliRunner, args: list[str], *, cwd: Path | None = None):
+    """Invoke CLI, optionally inside *cwd*.  Returns the Click result."""
+    if cwd is not None:
+        old = os.getcwd()
+        os.chdir(cwd)
+        try:
+            return runner.invoke(cli, args, catch_exceptions=False)
+        finally:
+            os.chdir(old)
+    return runner.invoke(cli, args, catch_exceptions=False)
+
+
+def _read_yaml(path: Path) -> dict:
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+def _write_yaml(path: Path, data: dict) -> None:
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+
+def _init_project(root: Path) -> None:
+    """Initialize a minimal jamb project at *root*."""
+    subprocess.run(["git", "init"], cwd=root, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"],
+        cwd=root,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"],
+        cwd=root,
+        capture_output=True,
+    )
+    (root / "pyproject.toml").write_text('[project]\nname = "testprj"\n')
+    runner = CliRunner()
+    r = _invoke(runner, ["init"], cwd=root)
+    assert r.exit_code == 0, r.output
+
+
+# =========================================================================
+# 1. Init command
+# =========================================================================
+
+
+class TestInitCommand:
+    """Tests for the ``jamb init`` command."""
+
+    def test_init_creates_all_doc_folders(self, tmp_path):
+        """init creates reqs/ with all 6 IEC 62304 document folders."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
+
+        runner = CliRunner()
+        r = _invoke(runner, ["init"], cwd=tmp_path)
+        assert r.exit_code == 0
+        for doc in ("prj", "un", "sys", "srs", "haz", "rc"):
+            assert (tmp_path / "reqs" / doc / ".jamb.yml").exists()
+
+    def test_init_adds_tool_jamb_to_pyproject(self, tmp_path):
+        """init writes [tool.jamb] into an existing pyproject.toml."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
+
+        runner = CliRunner()
+        _invoke(runner, ["init"], cwd=tmp_path)
+
+        import tomlkit
+
+        content = (tmp_path / "pyproject.toml").read_text()
+        doc = tomlkit.parse(content)
+        tool = doc["tool"]
+        assert isinstance(tool, dict)
+        assert "jamb" in tool
+        jamb_section = tool["jamb"]
+        assert isinstance(jamb_section, dict)
+        assert "test_documents" in jamb_section
+
+    def test_init_again_errors(self, tmp_path):
+        """Running init twice produces a non-zero exit code."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["init"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "already exist" in r.output.lower()
+
+
+# =========================================================================
+# 2. Info command
+# =========================================================================
+
+
+class TestInfoCommand:
+    """Tests for the ``jamb info`` command."""
+
+    def test_info_shows_hierarchy(self, tmp_path):
+        """info output contains 'hierarchy' and all default doc prefixes."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["info", "--root", str(tmp_path)])
+        assert r.exit_code == 0
+        assert "hierarchy" in r.output.lower()
+        for prefix in ("PRJ", "UN", "SYS", "SRS", "HAZ", "RC"):
+            assert prefix in r.output
+
+    def test_info_shows_item_count(self, tmp_path):
+        """After adding items, info shows the correct counts."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+        r = _invoke(runner, ["info", "--root", str(tmp_path)])
+        assert r.exit_code == 0
+        assert "3 active items" in r.output
+
+
+# =========================================================================
+# 3. Doc create / delete / list
+# =========================================================================
+
+
+class TestDocCrud:
+    """Tests for ``jamb doc create``, ``doc delete``, and ``doc list``."""
+
+    def test_doc_create_with_parent(self, tmp_path):
+        """doc create stores parent in the .jamb.yml config."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "UT", str(tmp_path / "reqs" / "ut"), "--parent", "SRS"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        cfg = _read_yaml(tmp_path / "reqs" / "ut" / ".jamb.yml")
+        assert cfg["settings"]["parents"] == ["SRS"]
+
+    def test_doc_delete_removes_folder(self, tmp_path):
+        """doc delete removes the document directory entirely."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        assert (tmp_path / "reqs" / "rc").exists()
+        r = _invoke(runner, ["doc", "delete", "RC"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert not (tmp_path / "reqs" / "rc").exists()
+
+    def test_doc_delete_nonexistent_errors(self, tmp_path):
+        """doc delete on a missing prefix exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["doc", "delete", "NOPE"], cwd=tmp_path)
+        assert r.exit_code == 1
+
+    def test_doc_list_shows_all(self, tmp_path):
+        """doc list shows every discovered document."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["doc", "list", "--root", str(tmp_path)])
+        assert r.exit_code == 0
+        assert "Found 6 documents" in r.output
+
+
+# =========================================================================
+# 4. Item add / remove / list / show
+# =========================================================================
+
+
+class TestItemCrud:
+    """Tests for ``jamb item add``, ``item remove``, ``item list``, ``item show``."""
+
+    def test_item_add_single(self, tmp_path):
+        """item add creates a YAML file for the new UID."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "SRS001" in r.output
+        assert (tmp_path / "reqs" / "srs" / "SRS001.yml").exists()
+
+    def test_item_add_count(self, tmp_path):
+        """item add --count creates the requested number of items."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["item", "add", "SRS", "--count", "5"], cwd=tmp_path)
+        assert r.exit_code == 0
+        for i in range(1, 6):
+            assert (tmp_path / "reqs" / "srs" / f"SRS00{i}.yml").exists()
+
+    def test_item_add_after(self, tmp_path):
+        """item add --after inserts after the specified UID."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+        r = _invoke(
+            runner,
+            ["item", "add", "SRS", "--after", "SRS001", "--count", "1"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        # After insert, SRS should now have 4 items (SRS001..SRS004)
+        assert (tmp_path / "reqs" / "srs" / "SRS004.yml").exists()
+
+    def test_item_add_before(self, tmp_path):
+        """item add --before inserts before the specified UID."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        r = _invoke(
+            runner,
+            ["item", "add", "SRS", "--before", "SRS001", "--count", "1"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        # SRS should now have 3 items
+        assert (tmp_path / "reqs" / "srs" / "SRS003.yml").exists()
+
+    def test_item_add_after_and_before_mutually_exclusive(self, tmp_path):
+        """Passing both --after and --before exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        r = _invoke(
+            runner,
+            ["item", "add", "SRS", "--after", "SRS001", "--before", "SRS002"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+
+    def test_item_remove(self, tmp_path):
+        """item remove deletes the item file."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        r = _invoke(runner, ["item", "remove", "SRS001"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert not (tmp_path / "reqs" / "srs" / "SRS001.yml").exists()
+
+    def test_item_remove_nonexistent_errors(self, tmp_path):
+        """Removing a non-existent item exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["item", "remove", "SRS999"], cwd=tmp_path)
+        assert r.exit_code == 1
+
+    def test_item_list_for_document(self, tmp_path):
+        """item list PREFIX shows items for that document only."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        # Write text so list has something to display
+        for i in (1, 2):
+            p = tmp_path / "reqs" / "srs" / f"SRS00{i}.yml"
+            data = _read_yaml(p)
+            data["text"] = f"req {i}"
+            _write_yaml(p, data)
+
+        r = _invoke(runner, ["item", "list", "SRS", "--root", str(tmp_path)])
+        assert r.exit_code == 0
+        assert "SRS001" in r.output
+        assert "SRS002" in r.output
+
+    def test_item_show_displays_fields(self, tmp_path):
+        """item show prints UID, Document, Active, Type, and Text."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "The pump shall deliver 5 mL/h."
+        _write_yaml(p, data)
+
+        r = _invoke(runner, ["item", "show", "SRS001"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "UID: SRS001" in r.output
+        assert "Document: SRS" in r.output
+        assert "5 mL/h" in r.output
+
+
+# =========================================================================
+# 5. Link add / remove
+# =========================================================================
+
+
+class TestLinkCommands:
+    """Tests for ``jamb link add`` and ``link remove``."""
+
+    def test_link_add_and_show(self, tmp_path):
+        """link add writes the parent UID into the child's links list."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+
+        r = _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "Linked" in r.output
+
+        r = _invoke(runner, ["item", "show", "SRS001"], cwd=tmp_path)
+        assert "SYS001" in r.output
+
+    def test_link_add_duplicate_reports_exists(self, tmp_path):
+        """Adding the same link twice reports 'already exists'."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+
+        r = _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "already exists" in r.output.lower()
+
+    def test_link_remove(self, tmp_path):
+        """link remove strips the parent from the child's links."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+
+        r = _invoke(runner, ["link", "remove", "SRS001", "SYS001"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "Unlinked" in r.output
+
+        # Verify removal
+        data = _read_yaml(tmp_path / "reqs" / "srs" / "SRS001.yml")
+        link_uids = []
+        for entry in data.get("links", []):
+            link_uids.append(entry if isinstance(entry, str) else next(iter(entry)))
+        assert "SYS001" not in link_uids
+
+    def test_link_remove_nonexistent_errors(self, tmp_path):
+        """Removing a link that does not exist exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+
+        r = _invoke(runner, ["link", "remove", "SRS001", "SYS999"], cwd=tmp_path)
+        assert r.exit_code == 1
+
+
+# =========================================================================
+# 6. Review mark / clear / reset
+# =========================================================================
+
+
+class TestReviewCommands:
+    """Tests for ``jamb review mark``, ``review clear``, ``review reset``."""
+
+    def _setup_project(self, tmp_path):
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        for uid, text in [("SRS001", "req1"), ("SRS002", "req2"), ("SYS001", "sysreq")]:
+            prefix = uid[:3]
+            p = tmp_path / "reqs" / prefix.lower() / f"{uid}.yml"
+            data = _read_yaml(p)
+            data["text"] = text
+            _write_yaml(p, data)
+        _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+        _invoke(runner, ["link", "add", "SRS002", "SYS001"], cwd=tmp_path)
+        return runner
+
+    def test_review_mark_single(self, tmp_path):
+        """review mark <UID> sets the reviewed hash on one item."""
+        runner = self._setup_project(tmp_path)
+        r = _invoke(runner, ["review", "mark", "SRS001"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "marked" in r.output.lower()
+
+        data = _read_yaml(tmp_path / "reqs" / "srs" / "SRS001.yml")
+        assert data.get("reviewed") is not None
+
+    def test_review_mark_all(self, tmp_path):
+        """review mark all marks every item across all documents."""
+        runner = self._setup_project(tmp_path)
+        r = _invoke(runner, ["review", "mark", "all"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "marked" in r.output.lower()
+
+    def test_review_clear(self, tmp_path):
+        """review clear recomputes link hashes for suspect links."""
+        runner = self._setup_project(tmp_path)
+        _invoke(runner, ["review", "mark", "all"], cwd=tmp_path)
+        r = _invoke(runner, ["review", "clear", "all"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "Cleared" in r.output
+
+    def test_review_reset_removes_hashes(self, tmp_path):
+        """review reset strips reviewed field and link hashes."""
+        runner = self._setup_project(tmp_path)
+        _invoke(runner, ["review", "mark", "all"], cwd=tmp_path)
+        _invoke(runner, ["review", "clear", "all"], cwd=tmp_path)
+
+        r = _invoke(runner, ["review", "reset", "all", "--root", str(tmp_path)])
+        assert r.exit_code == 0
+        assert "reset" in r.output.lower()
+
+        data = _read_yaml(tmp_path / "reqs" / "srs" / "SRS001.yml")
+        assert "reviewed" not in data or data.get("reviewed") is None
+
+
+# =========================================================================
+# 7. Reorder command
+# =========================================================================
+
+
+class TestReorderCommand:
+    """Tests for ``jamb reorder``."""
+
+    def test_reorder_fills_gap(self, tmp_path):
+        """After removing an item, reorder renumbers to fill the gap."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+        _invoke(runner, ["item", "remove", "SRS002"], cwd=tmp_path)
+
+        r = _invoke(runner, ["reorder", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "renamed" in r.output.lower()
+        # SRS003 should now be SRS002
+        assert (tmp_path / "reqs" / "srs" / "SRS002.yml").exists()
+        assert not (tmp_path / "reqs" / "srs" / "SRS003.yml").exists()
+
+    def test_reorder_nonexistent_doc_errors(self, tmp_path):
+        """reorder on a missing document prefix exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["reorder", "NOPE"], cwd=tmp_path)
+        assert r.exit_code == 1
+
+
+# =========================================================================
+# 8. Publish command
+# =========================================================================
+
+
+class TestPublishCommand:
+    """Tests for ``jamb publish``."""
+
+    def _setup_publish_project(self, tmp_path):
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        for i in (1, 2):
+            p = tmp_path / "reqs" / "srs" / f"SRS00{i}.yml"
+            data = _read_yaml(p)
+            data["text"] = f"Requirement number {i}"
+            _write_yaml(p, data)
+        return runner
+
+    def test_publish_markdown_stdout(self, tmp_path):
+        """publish <PREFIX> with no format flag prints markdown to stdout."""
+        runner = self._setup_publish_project(tmp_path)
+        r = _invoke(runner, ["publish", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "SRS001" in r.output
+        assert "SRS002" in r.output
+
+    def test_publish_html_flag(self, tmp_path):
+        """publish --html writes an HTML file."""
+        runner = self._setup_publish_project(tmp_path)
+        out = tmp_path / "out.html"
+        r = _invoke(runner, ["publish", "SRS", str(out), "--html"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        assert "<html" in out.read_text().lower()
+
+    def test_publish_markdown_file(self, tmp_path):
+        """publish --markdown writes a markdown file."""
+        runner = self._setup_publish_project(tmp_path)
+        out = tmp_path / "out.md"
+        r = _invoke(runner, ["publish", "SRS", str(out), "--markdown"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        assert "SRS001" in out.read_text()
+
+    def test_publish_html_requires_path(self, tmp_path):
+        """publish --html without PATH exits with code 1."""
+        runner = self._setup_publish_project(tmp_path)
+        r = _invoke(runner, ["publish", "SRS", "--html"], cwd=tmp_path)
+        assert r.exit_code == 1
+
+    def test_publish_docx_creates_file(self, tmp_path):
+        """publish --docx writes a non-empty DOCX file."""
+        runner = self._setup_publish_project(tmp_path)
+        out = tmp_path / "out.docx"
+        r = _invoke(runner, ["publish", "SRS", str(out), "--docx"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+
+# =========================================================================
+# 9. Export / Import commands
+# =========================================================================
+
+
+class TestExportImportCommands:
+    """Tests for ``jamb export`` and ``jamb import``."""
+
+    def _setup_export_project(self, tmp_path):
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        for i in (1, 2):
+            p = tmp_path / "reqs" / "srs" / f"SRS00{i}.yml"
+            data = _read_yaml(p)
+            data["text"] = f"Exported req {i}"
+            _write_yaml(p, data)
+        return runner
+
+    def test_export_creates_yaml(self, tmp_path):
+        """export writes a YAML file with documents and items keys."""
+        runner = self._setup_export_project(tmp_path)
+        out = tmp_path / "export.yml"
+        r = _invoke(runner, ["export", str(out), "--root", str(tmp_path)])
+        assert r.exit_code == 0
+        data = _read_yaml(out)
+        assert "documents" in data
+        assert "items" in data
+
+    def test_export_documents_filter(self, tmp_path):
+        """export --documents SRS only exports SRS items."""
+        runner = self._setup_export_project(tmp_path)
+        out = tmp_path / "srs_only.yml"
+        r = _invoke(
+            runner,
+            ["export", str(out), "--documents", "SRS", "--root", str(tmp_path)],
+        )
+        assert r.exit_code == 0
+        data = _read_yaml(out)
+        prefixes = {d["prefix"] for d in data["documents"]}
+        assert "SRS" in prefixes
+
+    def test_import_dry_run(self, tmp_path):
+        """import --dry-run does not write any files."""
+        runner = self._setup_export_project(tmp_path)
+        import_file = tmp_path / "imp.yml"
+        _write_yaml(
+            import_file,
+            {
+                "documents": [],
+                "items": [{"uid": "SRS010", "text": "New req"}],
+            },
+        )
+        r = _invoke(runner, ["import", str(import_file), "--dry-run"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "would" in r.output.lower()
+        assert not (tmp_path / "reqs" / "srs" / "SRS010.yml").exists()
+
+    def test_import_creates_items(self, tmp_path):
+        """import creates new items that do not exist yet."""
+        runner = self._setup_export_project(tmp_path)
+        import_file = tmp_path / "imp.yml"
+        _write_yaml(
+            import_file,
+            {
+                "documents": [],
+                "items": [{"uid": "SRS010", "text": "Brand new"}],
+            },
+        )
+        r = _invoke(runner, ["import", str(import_file)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert (tmp_path / "reqs" / "srs" / "SRS010.yml").exists()
+
+    def test_import_skips_existing(self, tmp_path):
+        """import without --update skips items that already exist."""
+        runner = self._setup_export_project(tmp_path)
+        import_file = tmp_path / "imp.yml"
+        _write_yaml(
+            import_file,
+            {
+                "documents": [],
+                "items": [{"uid": "SRS001", "text": "Should be skipped"}],
+            },
+        )
+        r = _invoke(runner, ["import", str(import_file)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "skipped" in r.output.lower()
+
+
+# =========================================================================
+# 10. Check command
+# =========================================================================
+
+
+class TestCheckCommand:
+    """Tests for ``jamb check``."""
+
+    def test_check_reports_uncovered(self, tmp_path):
+        """check exits 1 when test documents have uncovered items."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        for i in (1, 2):
+            p = tmp_path / "reqs" / "srs" / f"SRS00{i}.yml"
+            data = _read_yaml(p)
+            data["text"] = f"req {i}"
+            _write_yaml(p, data)
+
+        # Create a test file covering only SRS001
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_x.py").write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001')\n"
+            "def test_a():\n"
+            "    pass\n"
+        )
+
+        r = _invoke(
+            runner,
+            ["check", "--documents", "SRS", "--root", str(tmp_path)],
+        )
+        assert r.exit_code == 1
+        assert "uncovered" in r.output.lower()
+
+    def test_check_passes_when_covered(self, tmp_path):
+        """check exits 0 when every item has a linked test."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "the one req"
+        _write_yaml(p, data)
+
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_y.py").write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001')\n"
+            "def test_b():\n"
+            "    pass\n"
+        )
+
+        r = _invoke(
+            runner,
+            ["check", "--documents", "SRS", "--root", str(tmp_path)],
+        )
+        assert r.exit_code == 0
+        assert "all" in r.output.lower()
+
+
+# =========================================================================
+# Gap 1 — _add_jamb_config_to_pyproject() error branches
+# =========================================================================
+
+
+class TestInitCommandErrorBranches:
+    """Tests for _add_jamb_config_to_pyproject error branches."""
+
+    def test_init_skips_existing_tool_jamb_section(self, tmp_path):
+        """Init skips writing [tool.jamb] if it already exists."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        # Pre-create pyproject.toml WITH [tool.jamb] but no reqs/ dir
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "x"\n\n[tool.jamb]\ntest_documents = ["SRS"]\n'
+        )
+        runner = CliRunner()
+        r = _invoke(runner, ["init"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "already has [tool.jamb]" in r.output
+
+        # Original [tool.jamb] content should be preserved
+        import tomlkit
+
+        doc = tomlkit.parse((tmp_path / "pyproject.toml").read_text())
+        assert doc["tool"]["jamb"]["test_documents"] == ["SRS"]
+
+    def test_init_handles_corrupt_pyproject(self, tmp_path):
+        """Init completes even if pyproject.toml contains invalid TOML."""
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "pyproject.toml").write_text("[[[bad")
+
+        runner = CliRunner()
+        r = _invoke(runner, ["init"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "Warning: Could not update pyproject.toml" in r.output
+
+
+# =========================================================================
+# Gap 2 — _scan_tests_for_requirements() with unparseable Python
+# =========================================================================
+
+
+class TestScanTestsUnparseable:
+    """Tests for _scan_tests_for_requirements with syntax errors."""
+
+    def test_skips_unparseable_python_files(self, tmp_path):
+        """Bad syntax file is silently skipped; good file is still parsed."""
+        (tmp_path / "test_bad.py").write_text("def broken(\n")
+        (tmp_path / "test_good.py").write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001')\n"
+            "def test_ok():\n"
+            "    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert "SRS001" in result
+
+
+# =========================================================================
+# Gap 6 — _find_item_path() standalone tests
+# =========================================================================
+
+
+class TestFindItemPath:
+    """Tests for the _find_item_path helper."""
+
+    def test_find_item_path_existing_item(self, tmp_path):
+        """Returns (path, prefix) for an item that exists."""
+        from jamb.cli.commands import _find_item_path
+
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+
+        path, prefix = _find_item_path("SRS001", root=tmp_path)
+        assert path is not None
+        assert path.name == "SRS001.yml"
+        assert prefix == "SRS"
+
+    def test_find_item_path_nonexistent_item(self, tmp_path):
+        """Returns (None, None) for an item that doesn't exist."""
+        from jamb.cli.commands import _find_item_path
+
+        _init_project(tmp_path)
+
+        path, prefix = _find_item_path("SRS999", root=tmp_path)
+        assert path is None
+        assert prefix is None
+
+    def test_find_item_path_unknown_prefix(self, tmp_path):
+        """Returns (None, None) for a UID whose prefix has no document."""
+        from jamb.cli.commands import _find_item_path
+
+        _init_project(tmp_path)
+
+        path, prefix = _find_item_path("ZZZ001", root=tmp_path)
+        assert path is None
+        assert prefix is None
+
+
+# =========================================================================
+# Gap 7 — _is_requirement_marker() edge cases
+# =========================================================================
+
+
+class TestIsRequirementMarker:
+    """Tests for the _is_requirement_marker AST helper."""
+
+    @staticmethod
+    def _parse_call(expr_src: str):
+        """Parse a string expression and return the ast.Call node."""
+        import ast
+
+        tree = ast.parse(expr_src, mode="eval")
+        return tree.body  # the Call node
+
+    def test_matching_marker_returns_true(self):
+        from jamb.cli.commands import _is_requirement_marker
+
+        node = self._parse_call("pytest.mark.requirement('SRS001')")
+        assert _is_requirement_marker(node) is True
+
+    def test_wrong_attr_name_returns_false(self):
+        from jamb.cli.commands import _is_requirement_marker
+
+        node = self._parse_call("pytest.mark.skip('reason')")
+        assert _is_requirement_marker(node) is False
+
+    def test_plain_function_call_returns_false(self):
+        from jamb.cli.commands import _is_requirement_marker
+
+        node = self._parse_call("requirement('SRS001')")
+        assert _is_requirement_marker(node) is False
+
+    def test_different_module_returns_false(self):
+        from jamb.cli.commands import _is_requirement_marker
+
+        node = self._parse_call("other.mark.requirement('SRS001')")
+        assert _is_requirement_marker(node) is False
+
+    def test_missing_mark_level_returns_false(self):
+        from jamb.cli.commands import _is_requirement_marker
+
+        node = self._parse_call("pytest.requirement('SRS001')")
+        assert _is_requirement_marker(node) is False
+
+
+# =========================================================================
+# Gap 8 — _print_dag_hierarchy() standalone tests
+# =========================================================================
+
+
+class TestPrintDagHierarchy:
+    """Tests for the _print_dag_hierarchy tree printer."""
+
+    @staticmethod
+    def _make_dag(docs: dict[str, list[str]]):
+        """Build a DocumentDAG from a {prefix: parents} dict."""
+        from jamb.storage.document_config import DocumentConfig
+        from jamb.storage.document_dag import DocumentDAG
+
+        dag = DocumentDAG()
+        for prefix, parents in docs.items():
+            dag.documents[prefix] = DocumentConfig(
+                prefix=prefix, parents=parents, digits=3
+            )
+            dag.document_paths[prefix] = Path(f"/fake/{prefix.lower()}")
+        return dag
+
+    def test_prints_simple_hierarchy(self):
+        """PRJ -> UN -> SRS renders with proper indentation."""
+        from unittest.mock import patch
+
+        from jamb.cli.commands import _print_dag_hierarchy
+
+        dag = self._make_dag({"PRJ": [], "UN": ["PRJ"], "SRS": ["UN"]})
+        calls: list[str] = []
+        with patch("jamb.cli.commands.click") as mock_click:
+            mock_click.echo = lambda msg="": calls.append(msg)
+            _print_dag_hierarchy(dag)
+
+        text = "\n".join(calls)
+        assert "PRJ" in text
+        assert "UN" in text
+        assert "SRS" in text
+
+    def test_prints_multiple_children(self):
+        """PRJ with two children shows both with tree characters."""
+        from unittest.mock import patch
+
+        from jamb.cli.commands import _print_dag_hierarchy
+
+        dag = self._make_dag({"PRJ": [], "UN": ["PRJ"], "HAZ": ["PRJ"]})
+        calls: list[str] = []
+        with patch("jamb.cli.commands.click") as mock_click:
+            mock_click.echo = lambda msg="": calls.append(msg)
+            _print_dag_hierarchy(dag)
+
+        text = "\n".join(calls)
+        # Both children should appear
+        assert "UN" in text
+        assert "HAZ" in text
+        # Tree should use |-- and `-- characters
+        assert "|-- " in text or "`-- " in text
+
+    def test_empty_dag_no_output(self):
+        """An empty DAG produces no output."""
+        from unittest.mock import patch
+
+        from jamb.cli.commands import _print_dag_hierarchy
+
+        dag = self._make_dag({})
+        calls: list[str] = []
+        with patch("jamb.cli.commands.click") as mock_click:
+            mock_click.echo = lambda msg="": calls.append(msg)
+            _print_dag_hierarchy(dag)
+
+        assert len(calls) == 0

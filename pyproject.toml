@@ -1,6 +1,6 @@
 [project]
 name = "jamb"
-version = "0.1.0"
+dynamic = ["version"]
 description = "IEC 62304 requirements traceability for pytest"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -38,6 +38,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/jamb/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jamb"]

@@ -998,3 +998,172 @@ class TestPytestTerminalSummary:
             "Unknown items referenced in tests:" in str(c) and "yellow=True" in str(c)
             for c in calls
         )
+
+    def test_terminal_summary_coverage_percentage_and_passing_count(self):
+        """Terminal summary shows correct coverage % and passing count."""
+        from jamb.pytest_plugin.collector import pytest_terminal_summary
+
+        config = MagicMock()
+        config.option.jamb = True
+
+        item1 = Item(
+            uid="SRS001",
+            text="Covered requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        item2 = Item(
+            uid="SRS002",
+            text="Uncovered requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        cov1 = ItemCoverage(
+            item=item1,
+            linked_tests=[
+                LinkedTest(
+                    test_nodeid="test.py::test_1",
+                    item_uid="SRS001",
+                    test_outcome="passed",
+                )
+            ],
+        )
+        cov2 = ItemCoverage(item=item2, linked_tests=[])
+
+        collector = MagicMock()
+        collector.get_coverage.return_value = {"SRS001": cov1, "SRS002": cov2}
+        collector.unknown_items = set()
+        config.pluginmanager.get_plugin.return_value = collector
+
+        terminal = MagicMock()
+
+        pytest_terminal_summary(terminal, 0, config)
+
+        calls = [str(c) for c in terminal.write_line.call_args_list]
+        assert any("Covered by pytest tests: 1 (50.0%)" in c for c in calls)
+        assert any("All tests passing: 1" in c for c in calls)
+        # Uncovered item listed in red
+        assert any("SRS002" in c and "red=True" in c for c in calls)
+
+
+# =========================================================================
+# Gap 4 — Failure message truncation precision
+# =========================================================================
+
+
+class TestMakeReportTruncationPrecision:
+    """Precision tests for failure message truncation."""
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_makereport_truncation_preserves_first_500_chars(
+        self, mock_build_graph, mock_discover
+    ):
+        """Truncated note contains first 500 chars and
+        '(truncated)' but not chars beyond."""
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", active=True)
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(test_nodeid="test.py::test_fail", item_uid="SRS001")
+        )
+
+        mock_item = MagicMock()
+        mock_item.nodeid = "test.py::test_fail"
+        mock_item.stash = {}
+
+        mock_call = MagicMock()
+
+        mock_report = MagicMock()
+        mock_report.when = "call"
+        mock_report.outcome = "failed"
+        mock_report.failed = True
+        mock_report.skipped = False
+        mock_report.longreprtext = "A" * 500 + "B" * 500
+
+        mock_outcome = MagicMock()
+        mock_outcome.get_result.return_value = mock_report
+
+        gen = collector.pytest_runtest_makereport(mock_item, mock_call)
+        next(gen)
+        try:
+            gen.send(mock_outcome)
+        except StopIteration:
+            pass
+
+        failure_note = [m for m in collector.test_links[0].notes if "[FAILURE]" in m][0]
+        assert "A" * 500 in failure_note
+        assert "(truncated)" in failure_note
+        assert "B" not in failure_note
+
+
+# =========================================================================
+# Gap 5 — xfail with empty reason
+# =========================================================================
+
+
+class TestMakeReportXfailEmptyReason:
+    """Edge case: xfail with empty (falsy) reason."""
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_makereport_xfail_empty_reason_falls_through(
+        self, mock_build_graph, mock_discover
+    ):
+        """wasxfail='' (falsy) + skipped=True produces [SKIPPED] not [XFAIL]."""
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", active=True)
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(test_nodeid="test.py::test_xfail_empty", item_uid="SRS001")
+        )
+
+        mock_item = MagicMock()
+        mock_item.nodeid = "test.py::test_xfail_empty"
+        mock_item.stash = {}
+
+        mock_call = MagicMock()
+
+        mock_report = MagicMock()
+        mock_report.when = "call"
+        mock_report.outcome = "skipped"
+        mock_report.failed = False
+        mock_report.skipped = True
+        mock_report.wasxfail = ""  # falsy
+        mock_report.longreprtext = "Skipped for reason"
+
+        mock_outcome = MagicMock()
+        mock_outcome.get_result.return_value = mock_report
+
+        gen = collector.pytest_runtest_makereport(mock_item, mock_call)
+        next(gen)
+        try:
+            gen.send(mock_outcome)
+        except StopIteration:
+            pass
+
+        notes = collector.test_links[0].notes
+        assert any("[SKIPPED]" in n for n in notes)
+        assert not any("[XFAIL]" in n for n in notes)

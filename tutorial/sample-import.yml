@@ -3,54 +3,47 @@ items:
 - header: Alert Preferences
   links:
   - PRJ001
-  text: 'User shall be able to configure personal alert preferences
-
+  text: |
+    User shall be able to configure personal alert preferences
     for different vital sign types.
-
-    '
   uid: UN006
+  
 - header: Customizable Thresholds
   links:
   - UN006
-  text: 'System shall allow users to customize alert thresholds
-
+  text: |
+    System shall allow users to customize alert thresholds
     per vital sign type within clinically safe ranges.
-
-    '
   uid: SYS009
+
 - header: Preference Storage
   links:
   - SYS009
-  text: 'Software shall store user alert preferences in the database
-
+  text: |
+    Software shall store user alert preferences in the database
     with per-vital-sign threshold configurations.
-
-    '
   uid: SRS016
+
 - header: Threshold Validation
   links:
   - SYS009
-  text: 'Software shall validate custom thresholds against
-
+  text: |
+    Software shall validate custom thresholds against
     clinically safe minimum and maximum bounds.
-
-    '
   uid: SRS017
+
 - header: Unsafe Custom Thresholds
   links:
   - PRJ001
-  text: 'Custom alert thresholds outside safe ranges could mask
-
+  text: |
+    Custom alert thresholds outside safe ranges could mask
     critical patient conditions.
-
-    '
   uid: HAZ003
+
 - header: Threshold Bounds Enforcement
   links:
   - HAZ003
-  text: 'System shall enforce clinically validated minimum and maximum
-
+  text: |
+    System shall enforce clinically validated minimum and maximum
     bounds on all user-configurable thresholds.
-
-    '
   uid: RC003

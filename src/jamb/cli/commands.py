@@ -18,13 +18,17 @@ def _find_item_path(
 
     Returns (item_path, document_prefix) or (None, None) if not found.
     """
+    import re
+
     from jamb.storage import discover_documents
 
     dag = discover_documents(root)
-    import re
 
     for prefix, doc_path in dag.document_paths.items():
-        pattern = re.compile(rf"^{re.escape(prefix)}", re.IGNORECASE)
+        config = dag.documents[prefix]
+        pattern = re.compile(
+            rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE
+        )
         if pattern.match(uid):
             item_path = doc_path / f"{uid}.yml"
             if item_path.exists():
@@ -180,7 +184,7 @@ def info(documents: str | None, root: Path | None) -> None:
             doc_path = dag.document_paths.get(prefix)
             count = 0
             if doc_path:
-                items = read_document_items(doc_path, prefix)
+                items = read_document_items(doc_path, prefix, sep=config.sep)
                 count = len(items)
             parents_str = ", ".join(config.parents) if config.parents else "(root)"
             click.echo(f"  - {prefix}: {count} active items (parents: {parents_str})")
@@ -466,7 +470,7 @@ def doc_list(root: Path | None) -> None:
             doc_path = dag.document_paths.get(prefix)
             count = 0
             if doc_path:
-                items = read_document_items(doc_path, prefix)
+                items = read_document_items(doc_path, prefix, sep=config.sep)
                 count = len(items)
             parents_str = ", ".join(config.parents) if config.parents else "(root)"
             click.echo(f"  {prefix}: {count} active items (parents: {parents_str})")
@@ -565,7 +569,9 @@ def item_add(
                 write_item(item_data, item_path)
                 click.echo(f"Added item: {uid}")
         else:
-            existing = read_document_items(doc_path, prefix, include_inactive=True)
+            existing = read_document_items(
+                doc_path, prefix, include_inactive=True, sep=config.sep
+            )
             existing_uids = [i["uid"] for i in existing]
 
             for _ in range(count):
@@ -618,7 +624,8 @@ def item_list(prefix: str | None, root: Path | None) -> None:
             doc_path = dag.document_paths.get(p)
             if not doc_path:
                 continue
-            items = read_document_items(doc_path, p)
+            config = dag.documents[p]
+            items = read_document_items(doc_path, p, sep=config.sep)
             if items:
                 click.echo(f"\n{p} ({len(items)} items):")
                 for item_data in items:
@@ -987,7 +994,11 @@ def _resolve_label_to_item_paths(label: str, dag) -> list[tuple[Path, str]]:
 
     if label.lower() == "all":
         for prefix, doc_path in dag.document_paths.items():
-            items = read_document_items(doc_path, prefix, include_inactive=True)
+            config = dag.documents.get(prefix)
+            sep = config.sep if config else ""
+            items = read_document_items(
+                doc_path, prefix, include_inactive=True, sep=sep
+            )
             for item_data in items:
                 result.append((doc_path / f"{item_data['uid']}.yml", prefix))
         return result
@@ -995,7 +1006,9 @@ def _resolve_label_to_item_paths(label: str, dag) -> list[tuple[Path, str]]:
     # Try as document prefix first
     if label in dag.document_paths:
         doc_path = dag.document_paths[label]
-        items = read_document_items(doc_path, label, include_inactive=True)
+        config = dag.documents.get(label)
+        sep = config.sep if config else ""
+        items = read_document_items(doc_path, label, include_inactive=True, sep=sep)
         for item_data in items:
             result.append((doc_path / f"{item_data['uid']}.yml", label))
         return result
@@ -1141,12 +1154,20 @@ def _publish_markdown_stdout(prefix: str) -> None:
         items.sort(key=lambda i: i.uid)
         click.echo(f"# {prefix}\n")
         for item_obj in items:
-            if item_obj.header:
-                click.echo(f"## {item_obj.uid}: {item_obj.header}\n")
+            item_type = getattr(item_obj, "type", "requirement")
+            if item_type == "heading":
+                heading_display = item_obj.header if item_obj.header else item_obj.uid
+                click.echo(f"## {item_obj.uid}: {heading_display}\n")
             else:
-                click.echo(f"## {item_obj.uid}\n")
-            if item_obj.text:
-                click.echo(f"{item_obj.text}\n")
+                if item_obj.header:
+                    click.echo(f"## {item_obj.uid}: {item_obj.header}\n")
+                else:
+                    click.echo(f"## {item_obj.uid}\n")
+                if item_obj.text:
+                    if item_type == "info":
+                        click.echo(f"*{item_obj.text}*\n")
+                    else:
+                        click.echo(f"{item_obj.text}\n")
             if item_obj.links:
                 click.echo(f"*Links: {', '.join(item_obj.links)}*\n")
             children = graph.item_children.get(item_obj.uid, [])
@@ -1181,12 +1202,22 @@ def _publish_markdown(prefix: str, path: str) -> None:
             items.sort(key=lambda i: i.uid)
             lines.append(f"# {p}\n")
             for item_obj in items:
-                if item_obj.header:
-                    lines.append(f"## {item_obj.uid}: {item_obj.header}\n")
+                item_type = getattr(item_obj, "type", "requirement")
+                if item_type == "heading":
+                    heading_display = (
+                        item_obj.header if item_obj.header else item_obj.uid
+                    )
+                    lines.append(f"## {item_obj.uid}: {heading_display}\n")
                 else:
-                    lines.append(f"## {item_obj.uid}\n")
-                if item_obj.text:
-                    lines.append(f"{item_obj.text}\n")
+                    if item_obj.header:
+                        lines.append(f"## {item_obj.uid}: {item_obj.header}\n")
+                    else:
+                        lines.append(f"## {item_obj.uid}\n")
+                    if item_obj.text:
+                        if item_type == "info":
+                            lines.append(f"*{item_obj.text}*\n")
+                        else:
+                            lines.append(f"{item_obj.text}\n")
                 if item_obj.links:
                     link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links]
                     lines.append(f"*Links: {', '.join(link_parts)}*\n")

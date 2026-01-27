@@ -6,6 +6,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from docx.shared import RGBColor
 
 from jamb.core.models import Item, TraceabilityGraph
 
@@ -112,19 +113,30 @@ def render_docx(
             doc.add_heading(f"{current_doc}", level=1)
 
         # Create heading with UID and optional header
-        if item.header:
-            heading_text = f"{item.uid}: {item.header}"
-        else:
-            heading_text = item.uid
+        item_type = getattr(item, "type", "requirement")
 
-        heading = doc.add_heading(heading_text, level=2)
+        if item_type == "heading":
+            heading_display = item.header if item.header else item.uid
+            heading = doc.add_heading(heading_display, level=1)
+        else:
+            if item.header:
+                heading_text = f"{item.uid}: {item.header}"
+            else:
+                heading_text = item.uid
+            heading = doc.add_heading(heading_text, level=2)
 
         # Add bookmark for this item so links can reference it
         _add_bookmark(heading, item.uid)
 
         # Add item text
         if item.text:
-            doc.add_paragraph(item.text)
+            if item_type == "info":
+                para = doc.add_paragraph()
+                run = para.add_run(item.text)
+                run.italic = True
+                run.font.color.rgb = RGBColor(0x7F, 0x8C, 0x8D)
+            else:
+                doc.add_paragraph(item.text)
 
         # Add links section with hyperlinks
         if include_child_links and item.links:

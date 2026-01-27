@@ -2,7 +2,7 @@
 
 import yaml
 
-from jamb.storage.reorder import insert_items, reorder_document
+from jamb.storage.reorder import _update_links_in_file, insert_items, reorder_document
 
 
 def _write_item(doc_path, uid, text="req", links=None):
@@ -162,6 +162,52 @@ class TestReorderDocument:
         assert data1["text"] == "was-second"
         assert data2["text"] == "was-third"
 
+    def test_preserves_custom_attributes(self, tmp_path):
+        """Custom attributes in items are preserved after reorder."""
+        doc_path = _make_doc(tmp_path)
+        # Write item with custom attribute
+        (doc_path / "SRS002.yml").write_text(
+            "active: true\ntype: requirement\ntext: req\npriority: high\n"
+        )
+        _write_item(doc_path, "SRS003")
+
+        reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
+
+        data = yaml.safe_load((doc_path / "SRS001.yml").read_text())
+        assert data["priority"] == "high"
+
+    def test_single_item_non_sequential(self, tmp_path):
+        """5a: Single item at non-sequential UID (SRS005 -> SRS001)."""
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS005", text="only item")
+
+        stats = reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
+        assert stats == {"renamed": 1, "unchanged": 0}
+        assert (doc_path / "SRS001.yml").exists()
+        assert not (doc_path / "SRS005.yml").exists()
+        data = yaml.safe_load((doc_path / "SRS001.yml").read_text())
+        assert data["text"] == "only item"
+
+
+class TestUpdateLinksInFile:
+    """Tests for _update_links_in_file helper."""
+
+    def test_no_links_key(self, tmp_path):
+        """5c: File with no 'links' key — no crash, file unchanged."""
+        f = tmp_path / "SRS001.yml"
+        f.write_text("active: true\ntext: req\n")
+        original = f.read_text()
+        _update_links_in_file(f, {"SRS002": "SRS003"})
+        assert f.read_text() == original
+
+    def test_empty_links_list(self, tmp_path):
+        """5d: File with empty links list — no crash, file unchanged."""
+        f = tmp_path / "SRS001.yml"
+        f.write_text("active: true\ntext: req\nlinks: []\n")
+        original = f.read_text()
+        _update_links_in_file(f, {"SRS002": "SRS003"})
+        assert f.read_text() == original
+
 
 class TestInsertItems:
     """Tests for insert_items function."""
@@ -243,6 +289,42 @@ class TestInsertItems:
         # SRS001 unchanged
         assert yaml.safe_load((doc_path / "SRS001.yml").read_text())["text"] == "first"
 
+    def test_insert_at_position_beyond_count(self, tmp_path):
+        """Insert at position > item count: no items shifted."""
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001", text="first")
+        _write_item(doc_path, "SRS002", text="second")
+
+        new_uids = insert_items(
+            doc_path,
+            "SRS",
+            3,
+            "",
+            position=10,
+            count=1,
+            all_doc_paths={"SRS": doc_path},
+        )
+
+        assert new_uids == ["SRS010"]
+        # Existing items unchanged
+        assert yaml.safe_load((doc_path / "SRS001.yml").read_text())["text"] == "first"
+        assert yaml.safe_load((doc_path / "SRS002.yml").read_text())["text"] == "second"
+
+    def test_insert_at_position_1(self, tmp_path):
+        """Insert at position 1 shifts all items."""
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001", text="first")
+        _write_item(doc_path, "SRS002", text="second")
+
+        new_uids = insert_items(
+            doc_path, "SRS", 3, "", position=1, count=1, all_doc_paths={"SRS": doc_path}
+        )
+
+        assert new_uids == ["SRS001"]
+        # Old SRS001 -> SRS002, old SRS002 -> SRS003
+        assert yaml.safe_load((doc_path / "SRS002.yml").read_text())["text"] == "first"
+        assert yaml.safe_load((doc_path / "SRS003.yml").read_text())["text"] == "second"
+
     def test_insert_rejects_broken_links(self, tmp_path):
         """Document has a broken link, insert_items raises ValueError."""
         import pytest
@@ -265,3 +347,60 @@ class TestInsertItems:
         # No files should have been renamed
         assert (doc_path / "SRS001.yml").exists()
         assert (doc_path / "SRS002.yml").exists()
+
+
+class TestReorderEdgeCases:
+    """Edge case tests for reorder_document."""
+
+    def test_prefix_with_separator_in_prefix(self, tmp_path):
+        """Prefix 'A-B' with sep '-' — separator appears within the prefix itself."""
+        doc_path = tmp_path / "doc"
+        doc_path.mkdir()
+        (doc_path / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: A-B\n  sep: '-'\n"
+        )
+        # Write items using the composite prefix
+        _write_item(doc_path, "A-B-003")
+        _write_item(doc_path, "A-B-007")
+
+        stats = reorder_document(doc_path, "A-B", 3, "-", {"A-B": doc_path})
+        assert stats["renamed"] == 2
+        assert (doc_path / "A-B-001.yml").exists()
+        assert (doc_path / "A-B-002.yml").exists()
+        assert not (doc_path / "A-B-003.yml").exists()
+        assert not (doc_path / "A-B-007.yml").exists()
+
+    def test_reorder_preserves_link_hashes(self, tmp_path):
+        """Reorder with items that have link_hashes
+        (dict-form links) — hashes preserved."""
+        doc_path = _make_doc(tmp_path)
+        other_path = _make_doc(tmp_path, "other")
+        (other_path / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n"
+        )
+        # OTH001 links to SRS003 with a hash
+        (other_path / "OTH001.yml").write_text(
+            "active: true\ntext: req\nlinks:\n- SRS003: abc123hash\n"
+        )
+        _write_item(doc_path, "SRS001")
+        _write_item(doc_path, "SRS003", text="target")
+
+        all_docs = {"SRS": doc_path, "OTH": other_path}
+        reorder_document(doc_path, "SRS", 3, "", all_docs)
+
+        # SRS003 should have become SRS002
+        assert (doc_path / "SRS002.yml").exists()
+        assert not (doc_path / "SRS003.yml").exists()
+
+        # OTH001's link should now reference SRS002 with hash preserved
+        data = yaml.safe_load((other_path / "OTH001.yml").read_text())
+        link_entry = data["links"][0]
+        assert isinstance(link_entry, dict)
+        assert "SRS002" in link_entry
+        assert link_entry["SRS002"] == "abc123hash"
+
+    # NOTE: _check_broken_links does NOT perform cycle detection.
+    # It only verifies that link targets exist as files on disk.
+    # Cycle detection is handled by the validation module
+    # (_check_item_link_cycles). Therefore, a "circular link cycle"
+    # test is not applicable to the reorder module.

@@ -34,3 +34,119 @@ class TestDiscoverDocuments:
         doc_dir = self._make_doc(tmp_path, "srs", "SRS")
         dag = discover_documents(tmp_path)
         assert dag.document_paths["SRS"] == doc_dir
+
+    def test_skips_invalid_yaml(self, tmp_path):
+        """Invalid .jamb.yml file is silently skipped."""
+        bad_dir = tmp_path / "bad"
+        bad_dir.mkdir()
+        (bad_dir / ".jamb.yml").write_text(": invalid: yaml: {{}")
+        dag = discover_documents(tmp_path)
+        assert len(dag.documents) == 0
+
+    def test_skips_config_missing_prefix(self, tmp_path):
+        """Config file without prefix is silently skipped."""
+        bad_dir = tmp_path / "no_prefix"
+        bad_dir.mkdir()
+        (bad_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n")
+        dag = discover_documents(tmp_path)
+        assert len(dag.documents) == 0
+
+    def test_nested_directories(self, tmp_path):
+        """Discovers documents nested several levels deep."""
+        nested = tmp_path / "a" / "b" / "c"
+        nested.mkdir(parents=True)
+        settings = {"prefix": "DEEP", "digits": 3, "sep": ""}
+        (nested / ".jamb.yml").write_text(yaml.dump({"settings": settings}))
+
+        dag = discover_documents(tmp_path)
+        assert "DEEP" in dag.documents
+        assert dag.document_paths["DEEP"] == nested
+
+    def test_raises_on_nonexistent_root(self, tmp_path):
+        """Non-existent root directory raises FileNotFoundError."""
+        import pytest
+
+        with pytest.raises(FileNotFoundError):
+            discover_documents(tmp_path / "nonexistent")
+
+    def test_multiple_documents_at_same_level(self, tmp_path):
+        """Multiple documents at the same directory level."""
+        self._make_doc(tmp_path, "srs", "SRS")
+        self._make_doc(tmp_path, "sys", "SYS")
+        self._make_doc(tmp_path, "un", "UN")
+
+        dag = discover_documents(tmp_path)
+        assert len(dag.documents) == 3
+        assert all(p in dag.documents for p in ["SRS", "SYS", "UN"])
+
+    def test_duplicate_prefix_overwrites(self, tmp_path):
+        """8a: Duplicate prefix in two dirs — second overwrites first."""
+        self._make_doc(tmp_path, "aaa_srs", "SRS")
+        dir2 = self._make_doc(tmp_path, "zzz_srs", "SRS")
+
+        dag = discover_documents(tmp_path)
+        # Both dirs have prefix "SRS"; the last one processed wins
+        assert "SRS" in dag.documents
+        # Since _find_config_files returns sorted paths, zzz comes after aaa
+        assert dag.document_paths["SRS"] == dir2
+
+    def test_symlink_to_document_directory(self, tmp_path):
+        """Symlinked directory with .jamb.yml is discovered."""
+        real_dir = tmp_path / "real_srs"
+        self._make_doc(tmp_path, "real_srs", "SRS")
+        link_dir = tmp_path / "linked_srs"
+        link_dir.symlink_to(real_dir)
+
+        dag = discover_documents(tmp_path)
+        assert "SRS" in dag.documents
+
+    def test_deeply_nested_five_levels(self, tmp_path):
+        """Document at a/b/c/d/e/.jamb.yml is found."""
+        deep = tmp_path / "a" / "b" / "c" / "d" / "e"
+        deep.mkdir(parents=True)
+        settings = {"prefix": "DEEP5", "digits": 3, "sep": ""}
+        (deep / ".jamb.yml").write_text(yaml.dump({"settings": settings}))
+
+        dag = discover_documents(tmp_path)
+        assert "DEEP5" in dag.documents
+        assert dag.document_paths["DEEP5"] == deep
+
+    def test_root_is_file_raises(self, tmp_path):
+        """Passing a file path as root raises FileNotFoundError."""
+        import pytest
+
+        f = tmp_path / "somefile.txt"
+        f.write_text("hello")
+
+        with pytest.raises(FileNotFoundError):
+            discover_documents(f)
+
+    def test_config_load_raises_unexpected_exception_skipped(
+        self, tmp_path, monkeypatch
+    ):
+        """Monkeypatched load_document_config raising
+        RuntimeError is silently skipped."""
+        doc_dir = tmp_path / "bad"
+        doc_dir.mkdir()
+        (doc_dir / ".jamb.yml").write_text(
+            yaml.dump({"settings": {"prefix": "BAD", "digits": 3}})
+        )
+
+        from jamb.storage import discovery
+
+        def _explode(path):
+            raise RuntimeError("unexpected failure")
+
+        monkeypatch.setattr(discovery, "load_document_config", _explode)
+
+        dag = discover_documents(tmp_path)
+        assert len(dag.documents) == 0
+
+    def test_empty_jamb_yml_skipped(self, tmp_path):
+        """Empty .jamb.yml file is silently skipped."""
+        doc_dir = tmp_path / "empty"
+        doc_dir.mkdir()
+        (doc_dir / ".jamb.yml").write_text("")
+
+        dag = discover_documents(tmp_path)
+        assert len(dag.documents) == 0

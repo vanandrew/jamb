@@ -63,3 +63,60 @@ class TestGetRequirementMarkers:
         uids = get_requirement_markers(mock_item)
 
         assert uids == []
+
+    def test_integer_uid_included(self):
+        """Integer arg is included (extend doesn't filter by type)."""
+        mock_item = MagicMock()
+        mock_marker = MagicMock()
+        mock_marker.args = (42,)
+        mock_item.iter_markers.return_value = [mock_marker]
+
+        uids = get_requirement_markers(mock_item)
+
+        assert uids == [42]
+
+    def test_whitespace_uid_returned_as_is(self):
+        """Whitespace in UID is not stripped."""
+        mock_item = MagicMock()
+        mock_marker = MagicMock()
+        mock_marker.args = ("SRS 001",)
+        mock_item.iter_markers.return_value = [mock_marker]
+
+        uids = get_requirement_markers(mock_item)
+
+        assert uids == ["SRS 001"]
+
+    def test_none_argument_included(self):
+        """None argument is included."""
+        mock_item = MagicMock()
+        mock_marker = MagicMock()
+        mock_marker.args = (None,)
+        mock_item.iter_markers.return_value = [mock_marker]
+
+        uids = get_requirement_markers(mock_item)
+
+        assert uids == [None]
+
+    def test_empty_string_argument(self):
+        """Empty string argument is included."""
+        mock_item = MagicMock()
+        mock_marker = MagicMock()
+        mock_marker.args = ("",)
+        mock_item.iter_markers.return_value = [mock_marker]
+
+        uids = get_requirement_markers(mock_item)
+
+        assert uids == [""]
+
+    def test_duplicate_uids_not_deduplicated(self):
+        """Same UID from two markers appears twice."""
+        mock_item = MagicMock()
+        mock_marker1 = MagicMock()
+        mock_marker1.args = ("SRS001",)
+        mock_marker2 = MagicMock()
+        mock_marker2.args = ("SRS001",)
+        mock_item.iter_markers.return_value = [mock_marker1, mock_marker2]
+
+        uids = get_requirement_markers(mock_item)
+
+        assert uids == ["SRS001", "SRS001"]
