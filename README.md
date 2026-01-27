@@ -59,9 +59,9 @@ jamb doc delete PREFIX
 # List all documents
 jamb doc list
 
-# Reorder items in a document
-jamb doc reorder PREFIX
-jamb doc reorder SRS --auto     # Automatic reordering
+# Renumber item UIDs sequentially to fill gaps
+jamb reorder PREFIX
+jamb reorder SRS
 ```
 
 ### Item Management
@@ -74,7 +74,7 @@ jamb item list PREFIX           # Items in a specific document
 # Add a new item
 jamb item add PREFIX
 jamb item add SRS --count 3     # Add multiple items
-jamb item add SRS --level 1.2   # Specify level
+jamb item add SRS --after SRS003  # Insert after a specific item
 
 # Remove an item
 jamb item remove UID
@@ -84,15 +84,6 @@ jamb item edit UID
 
 # Show item details
 jamb item show UID
-
-# Import items from CSV/Excel
-jamb item import PREFIX PATH
-jamb item import SRS ./requirements.csv --map "text=Description"
-
-# Export items to CSV/Excel
-jamb item export PREFIX PATH
-jamb item export SRS ./export.xlsx --xlsx
-jamb item export SRS ./export.csv --csv
 ```
 
 ### Link Management
@@ -221,11 +212,20 @@ test_documents = ["SRS"]
 # Fail pytest if any test spec items lack coverage
 fail_uncovered = false
 
+# Require all linked tests to pass (not just exist)
+require_all_pass = true
+
 # Output path for traceability matrix
 matrix_output = "matrix.html"
 
 # Matrix format: "html", "markdown", or "json"
 matrix_format = "html"
+
+# Glob patterns for test files to exclude
+exclude_patterns = []
+
+# Document prefixes to exclude from "Traces To" column
+trace_to_ignore = []
 ```
 
 ## CI Setup (GitHub Actions)

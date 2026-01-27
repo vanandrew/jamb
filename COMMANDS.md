@@ -13,12 +13,12 @@ Complete reference for all `jamb` CLI commands.
   - [jamb publish](#jamb-publish)
   - [jamb export](#jamb-export)
   - [jamb import](#jamb-import)
+  - [jamb reorder](#jamb-reorder)
 - [Document Commands](#document-commands)
   - [jamb doc](#jamb-doc)
   - [jamb doc create](#jamb-doc-create)
   - [jamb doc delete](#jamb-doc-delete)
   - [jamb doc list](#jamb-doc-list)
-  - [jamb doc reorder](#jamb-doc-reorder)
 - [Item Commands](#item-commands)
   - [jamb item](#jamb-item)
   - [jamb item add](#jamb-item-add)
@@ -26,8 +26,6 @@ Complete reference for all `jamb` CLI commands.
   - [jamb item edit](#jamb-item-edit)
   - [jamb item show](#jamb-item-show)
   - [jamb item list](#jamb-item-list)
-  - [jamb item import](#jamb-item-import)
-  - [jamb item export](#jamb-item-export)
 - [Link Commands](#link-commands)
   - [jamb link](#jamb-link)
   - [jamb link add](#jamb-link-add)
@@ -63,6 +61,7 @@ Commands:
   item      Manage items.
   link      Manage item links.
   publish   Publish a document.
+  reorder   Renumber item UIDs sequentially to fill gaps.
   review    Manage item reviews.
   validate  Validate the requirements tree.
 ```
@@ -183,8 +182,9 @@ Usage: jamb validate [OPTIONS]
 
   Validate the requirements tree.
 
-  Runs validation to check for issues like:
-    - Missing parent documents
+  Checks for issues like:
+    - Cycles in document hierarchy
+    - Invalid or missing links
     - Suspect links (items needing re-review)
     - Items without required links
 
@@ -195,7 +195,6 @@ Usage: jamb validate [OPTIONS]
 Options:
   -v, --verbose             Enable verbose logging (can be repeated)
   -q, --quiet               Only display errors and prompts
-  -L, --no-level-check      Do not validate document levels
   -C, --no-child-check      Do not validate child (reverse) links
   -S, --no-suspect-check    Do not check for suspect links
   -W, --no-review-check     Do not check item review status
@@ -349,6 +348,34 @@ jamb import requirements.yml --verbose
 
 ---
 
+### jamb reorder
+
+```
+Usage: jamb reorder [OPTIONS] PREFIX
+
+  Renumber item UIDs sequentially to fill gaps.
+
+  PREFIX is the document identifier (e.g., SRS, UT).
+
+  Items are sorted by current UID and renumbered to form a contiguous sequence
+  (e.g., SRS001, SRS002, ...).  All cross-document links that reference
+  renamed UIDs are updated automatically.
+
+Options:
+  --help  Show this message and exit.
+```
+
+**Example:**
+```bash
+# Renumber SRS items to fill gaps
+jamb reorder SRS
+
+# Renumber UT items
+jamb reorder UT
+```
+
+---
+
 ## Document Commands
 
 ### jamb doc
@@ -362,10 +389,9 @@ Options:
   --help  Show this message and exit.
 
 Commands:
-  create   Create a new document.
-  delete   Delete a document.
-  list     List all documents in the tree.
-  reorder  Reorder items in a document.
+  create  Create a new document.
+  delete  Delete a document.
+  list    List all documents in the tree.
 ```
 
 ---
@@ -448,32 +474,6 @@ jamb doc list --root ./examples/advanced
 
 ---
 
-### jamb doc reorder
-
-```
-Usage: jamb doc reorder [OPTIONS] PREFIX
-
-  Reorder items in a document.
-
-  PREFIX is the document identifier (e.g., SRS, UT).
-
-Options:
-  -a, --auto    Automatically reorder items
-  -m, --manual  Manually reorder items
-  --help        Show this message and exit.
-```
-
-**Example:**
-```bash
-# Automatically reorder items (fixes duplicate level warnings)
-jamb doc reorder SRS --auto
-
-# Manually reorder items (opens editor)
-jamb doc reorder SRS --manual
-```
-
----
-
 ## Item Commands
 
 ### jamb item
@@ -489,8 +489,6 @@ Options:
 Commands:
   add     Add a new item to a document.
   edit    Edit an item in the default editor.
-  export  Export items to a file.
-  import  Import items from a file.
   list    List items in a document or all documents.
   remove  Remove an item by UID.
   show    Display item details.
@@ -508,8 +506,9 @@ Usage: jamb item add [OPTIONS] PREFIX
   PREFIX is the document to add the item to (e.g., SRS, UT).
 
 Options:
-  -l, --level TEXT     Item level (e.g., 1.2)
   -c, --count INTEGER  Number of items to add
+  --after TEXT         Insert after this UID
+  --before TEXT        Insert before this UID
   --help               Show this message and exit.
 ```
 
@@ -518,11 +517,14 @@ Options:
 # Add a single item
 jamb item add SRS
 
-# Add an item at a specific level
-jamb item add SRS --level 1.2
-
 # Add multiple items at once
 jamb item add SRS --count 5
+
+# Insert after a specific item
+jamb item add SRS --after SRS003
+
+# Insert before a specific item
+jamb item add SRS --before SRS005
 ```
 
 ---
@@ -619,60 +621,6 @@ jamb item list SRS
 
 # List items from a specific project
 jamb item list --root ./examples/advanced
-```
-
----
-
-### jamb item import
-
-```
-Usage: jamb item import [OPTIONS] PREFIX PATH
-
-  Import items from a file.
-
-  PREFIX is the document to import into.
-  PATH is the path to the import file (CSV, TSV, XLSX).
-
-Options:
-  -f, --file TEXT  Path to import file
-  -m, --map TEXT   Column mapping (e.g., 'text=Description')
-  --help           Show this message and exit.
-```
-
-**Example:**
-```bash
-# Import items from CSV
-jamb item import SRS requirements.csv
-
-# Import with column mapping
-jamb item import SRS reqs.xlsx --map "text=Description" --map "header=Title"
-```
-
----
-
-### jamb item export
-
-```
-Usage: jamb item export [OPTIONS] PREFIX PATH
-
-  Export items to a file.
-
-  PREFIX is the document to export.
-  PATH is the output file path.
-
-Options:
-  --xlsx  Export as Excel file
-  --csv   Export as CSV file
-  --help  Show this message and exit.
-```
-
-**Example:**
-```bash
-# Export to Excel
-jamb item export SRS requirements.xlsx --xlsx
-
-# Export to CSV
-jamb item export SRS requirements.csv --csv
 ```
 
 ---

@@ -337,19 +337,32 @@ The `links` field shows upstream, and you can find downstream items by searching
 
 ### Clearing Suspect Status
 
-After reviewing that the downstream items are still valid:
+After reviewing that the downstream items are still valid, you need to do two things: mark the items as reviewed (updates the reviewed hash) and clear the suspect links (updates the link hashes).
 
 ```bash
-# Review individual items
+# Mark items as reviewed and clear their suspect links
 jamb review mark SRS001
+jamb review clear SRS001
+
 jamb review mark SRS002
+jamb review clear SRS002
+
 jamb review mark SRS003
+jamb review clear SRS003
 
-# Or review all items in a document at once
+# Or do it for an entire document at once
 jamb review mark SRS
+jamb review clear SRS
 
-# Or review all items in all documents
+# Or all documents
 jamb review mark all
+jamb review clear all
+```
+
+You can also clear suspect links to a specific parent only:
+
+```bash
+jamb review clear SRS001 SYS001
 ```
 
 Verify clean state:
@@ -545,10 +558,11 @@ The coverage report shows:
 
 **Problem**: `jamb validate` shows suspect link warnings.
 
-**Solution**: Review the changed requirement and its downstream items, then mark as reviewed:
+**Solution**: Review the changed requirement and its downstream items, then mark as reviewed and clear the suspect links:
 
 ```bash
 jamb review mark <UID>
+jamb review clear <UID>
 ```
 
 ### Missing Test Coverage
@@ -722,7 +736,7 @@ This updates text, header, and links while preserving other fields. The `reviewe
 2. **Link**: Connect requirements with `jamb link add`
 3. **Validate**: Check structure with `jamb info` and `jamb validate`
 4. **Test**: Run `pytest --jamb` to verify coverage
-5. **Review**: Clear suspect links with `jamb review mark`
+5. **Review**: Mark items reviewed with `jamb review mark` and clear suspect links with `jamb review clear`
 6. **Publish**: Generate documentation with `jamb publish`
 
 ### Key Commands Reference
@@ -739,6 +753,7 @@ This updates text, header, and links while preserving other fields. The `reviewe
 | Document info | `jamb info` |
 | Check coverage | `jamb check` |
 | Review item | `jamb review mark UID` |
+| Clear suspect links | `jamb review clear UID` |
 | Publish HTML | `jamb publish all ./docs --html` |
 | Import batch | `jamb import file.yml` |
 | Export | `jamb export file.yml` |
