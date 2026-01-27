@@ -65,6 +65,9 @@ def init() -> None:
         +-- HAZ (Hazards)
             +-- RC (Risk Controls)
 
+    Also creates an initial PRJ001 heading item using the project name
+    from pyproject.toml (falls back to the current directory name).
+
     \b
     If pyproject.toml exists, adds [tool.jamb] configuration.
     """
@@ -116,6 +119,9 @@ def init() -> None:
             )
             sys.exit(1)
 
+    # Create initial PRJ001 item from project name
+    _create_initial_prj_item(reqs_dir / "prj")
+
     # Update pyproject.toml if it exists
     pyproject_path = Path.cwd() / "pyproject.toml"
     if pyproject_path.exists():
@@ -123,6 +129,47 @@ def init() -> None:
 
     click.echo("\nInitialization complete!")
     click.echo("Run 'jamb info' to see your document structure.")
+
+
+def _create_initial_prj_item(prj_path: Path) -> None:
+    """Create a PRJ001 heading item using the project name from pyproject.toml.
+
+    Reads the project name from ``[project].name`` in pyproject.toml.
+    If pyproject.toml is missing or has no project name, falls back to
+    the current directory name.
+
+    Args:
+        prj_path: Path to the PRJ document directory.
+    """
+    import yaml
+
+    project_name = Path.cwd().name  # fallback
+    pyproject_path = Path.cwd() / "pyproject.toml"
+    if pyproject_path.exists():
+        try:
+            import tomlkit
+
+            content = pyproject_path.read_text()
+            doc = tomlkit.parse(content)
+            if "project" in doc and "name" in doc["project"]:
+                project_name = str(doc["project"]["name"])
+        except Exception:
+            pass  # fall back to directory name
+
+    item_path = prj_path / "PRJ001.yml"
+    if item_path.exists():
+        return
+
+    item_data = {
+        "active": True,
+        "header": project_name,
+        "type": "heading",
+        "text": project_name,
+    }
+    with open(item_path, "w") as f:
+        yaml.dump(item_data, f, default_flow_style=False, sort_keys=False)
+
+    click.echo(f"Created item: PRJ001 ({project_name})")
 
 
 def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
@@ -154,7 +201,7 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
 
         # Add [tool.jamb] section
         jamb_config = tomlkit.table()
-        jamb_config["test_documents"] = ["SRS", "SYS"]
+        jamb_config["test_documents"] = ["SRS"]
         jamb_config["trace_to_ignore"] = ["PRJ"]
         cast(Table, doc["tool"])["jamb"] = jamb_config
 
@@ -723,7 +770,7 @@ def item_edit(uid: str, tool: str | None) -> None:
         click.echo(f"Error: Item '{uid}' not found", err=True)
         sys.exit(1)
 
-    editor = tool or os.environ.get("EDITOR", "vim")
+    editor: str = tool if tool else os.environ.get("EDITOR", "vim")
     result = subprocess.run([editor, str(item_path)])
     sys.exit(result.returncode)
 
@@ -1592,6 +1639,19 @@ def import_yaml_cmd(file: Path, dry_run: bool, update: bool, verbose: bool) -> N
     """Import documents and items from a YAML file.
 
     FILE is the path to a YAML file containing documents and items to create.
+
+    \b
+    Expected YAML schema:
+        documents:                # optional
+          - prefix: SRS           # required - document prefix
+            path: reqs/srs        # required - directory path
+            parents: [SYS]        # optional - parent document prefixes
+            digits: 3             # optional - UID digit count (default: 3)
+        items:                    # optional
+          - uid: SRS001           # required - unique item identifier
+            text: "requirement"   # required - item text
+            header: "Title"       # optional - section header
+            links: [SYS001]       # optional - linked parent item UIDs
 
     \b
     Examples:
