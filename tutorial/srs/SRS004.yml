@@ -1,8 +1,8 @@
 active: true
-header: 'Session Token'
+header: Session Token
 level: 4
 links:
-- SYS002: Ms5Y6lJtvalfZLX-Syib9o41h1pv6v7JVExaMpStff0
-reviewed: uYuKOwoAmO52yC6nQFMNGDk6xwiHYQTvcv1tPjg3_mw=
+- SYS002: 7-Tt5w8AeZbmg7S_OJRndIVAuUpG-6_IC2oV1NSShIs
 text: |
   Software shall generate JWT tokens with 1-hour expiry.
+reviewed: PAUmD2oE-sbAuPRIdD9gJpJ2fkMUShXVrEGZvZVmJLc

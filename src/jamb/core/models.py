@@ -16,6 +16,7 @@ class Item:
     level: float = 1.0
     links: list[str] = field(default_factory=list)
     reviewed: str | None = None
+    derived: bool = False
     custom_attributes: dict = field(default_factory=dict)
 
     @property

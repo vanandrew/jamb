@@ -1,8 +1,8 @@
 active: true
-header: 'Vital Sign Validation'
+header: Vital Sign Validation
 level: 1
 links:
-- HAZ001: oMDEpSjIeNzCKkuza1xyZ68t5tRfLhqjM3oJVfFV1LE
-reviewed: 7UK4ZCVH4SIb0gpZ9aC46ylHgHjSUIknK_pueyLawFs=
+- HAZ001: Sgy0aCkSMhMQfhFLak5h9PURNXrde5X8AyreLJoogUI
 text: |
   System shall validate vital sign data against physiological ranges before display.
+reviewed: C_8bU_QFuNDQNh873QJvgHvbnGuWZR-0vfEcDQSquMc

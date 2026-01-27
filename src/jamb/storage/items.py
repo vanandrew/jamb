@@ -8,6 +8,27 @@ from pathlib import Path
 import yaml
 
 
+class _BlockScalarDumper(yaml.SafeDumper):
+    """YAML dumper that uses literal block scalar style for multiline strings."""
+
+
+def _str_representer(dumper: _BlockScalarDumper, data: str) -> yaml.ScalarNode:
+    if "\n" in data:
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+
+_BlockScalarDumper.add_representer(str, _str_representer)
+
+
+def dump_yaml(data: dict, stream, **kwargs) -> None:
+    """Dump YAML using block scalar style for multiline strings."""
+    kwargs.setdefault("default_flow_style", False)
+    kwargs.setdefault("sort_keys", False)
+    kwargs.setdefault("allow_unicode", True)
+    yaml.dump(data, stream, Dumper=_BlockScalarDumper, **kwargs)
+
+
 def read_item(path: Path, document_prefix: str) -> dict:
     """Read an item YAML file and return a normalized dict.
 
@@ -53,6 +74,7 @@ def read_item(path: Path, document_prefix: str) -> dict:
         "header",
         "links",
         "reviewed",
+        "derived",
     }
     custom_attributes = {k: v for k, v in data.items() if k not in standard_fields}
 
@@ -67,6 +89,7 @@ def read_item(path: Path, document_prefix: str) -> dict:
         "links": links,
         "link_hashes": link_hashes,
         "reviewed": data.get("reviewed"),
+        "derived": data.get("derived", False),
         "custom_attributes": custom_attributes,
     }
 
@@ -111,14 +134,15 @@ def write_item(item_data: dict, path: Path, extra_fields: dict | None = None) ->
     if reviewed:
         output["reviewed"] = reviewed
 
+    if item_data.get("derived", False):
+        output["derived"] = True
+
     if extra_fields:
         output.update(extra_fields)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        yaml.dump(
-            output, f, default_flow_style=False, sort_keys=False, allow_unicode=True
-        )
+        dump_yaml(output, f)
 
 
 def read_document_items(

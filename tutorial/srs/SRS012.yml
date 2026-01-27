@@ -1,8 +1,8 @@
 active: true
-header: 'Threshold Check'
+header: Threshold Check
 level: 12
 links:
-- SYS006: qZRlrejDwmwIIsNTt8zf_sJFYpYbWiGXgaweZebKVy0
-reviewed: mTQGUHhHQEwxJTZsjKQcaGw1sGZg1y3QEwVV15f8C_M=
+- SYS006: MHyoj0191ThgJNQivdcMN2YObV6_yacem7Q4hLeX1_g
 text: |
   Software shall compare values against configurable thresholds.
+reviewed: vIbOJ_mTpFpq2NJ16Lhmd2UqxepPukO2k76Ze7NIBBI

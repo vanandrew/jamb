@@ -1,8 +1,8 @@
 active: true
-header: 'Query Optimization'
+header: Query Optimization
 level: 10
 links:
-- SYS005: jtbB4FO_xerym6ZJUC1CHp6cd-mqc8rNzc6d6X62qGA
-reviewed: yCGjJEYlaklOb_O48MXCLKVcQAQVUfygK7vlK_QztjA=
+- SYS005: Xxjm-ZlDzEQL7vwgnNI9KbsWxeYMSJGNuxtYTvLC1q0
 text: |
   Software shall use indexed queries for date range lookups.
+reviewed: KDyGw-zztw8X1L6xXuKZAmSD9c5TAtQraJKkFr7PA90

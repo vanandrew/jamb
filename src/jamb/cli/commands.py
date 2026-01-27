@@ -8,6 +8,8 @@ from pathlib import Path
 import click
 import yaml
 
+from jamb.storage.items import dump_yaml
+
 
 def _find_item_path(
     uid: str, root: Path | None = None
@@ -467,7 +469,7 @@ def doc_reorder(prefix: str, auto: bool, manual: bool) -> None:
                     data = yaml.safe_load(f) or {}
                 data["level"] = str(float(idx))
                 with open(item_path, "w") as f:
-                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                    dump_yaml(data, f)
 
             click.echo(f"Reordered {len(items)} items in {prefix}")
         else:
@@ -654,50 +656,6 @@ def item_show(uid: str) -> None:
         sys.exit(1)
 
 
-@item.command("import")
-@click.argument("prefix")
-@click.argument("path")
-@click.option("--file", "-f", "file_path", help="Path to import file")
-@click.option(
-    "--map", "-m", "mapping", help="Column mapping (e.g., 'text=Description')"
-)
-def item_import(
-    prefix: str, path: str, file_path: str | None, mapping: str | None
-) -> None:
-    """Import items from a file.
-
-    PREFIX is the document to import into.
-    PATH is the path to the import file (CSV, TSV, XLSX).
-    """
-    # Native item import not yet implemented, show helpful message
-    click.echo(f"Item import for {prefix} from {path}")
-    if file_path:
-        click.echo(f"  File: {file_path}")
-    if mapping:
-        click.echo(f"  Mapping: {mapping}")
-    click.echo("Note: Use 'jamb import <file.yml>' for YAML import.")
-
-
-@item.command("export")
-@click.argument("prefix")
-@click.argument("path")
-@click.option("--xlsx", is_flag=True, help="Export as Excel file")
-@click.option("--csv", is_flag=True, help="Export as CSV file")
-def item_export(prefix: str, path: str, xlsx: bool, csv: bool) -> None:
-    """Export items to a file.
-
-    PREFIX is the document to export.
-    PATH is the output file path.
-    """
-    # Native item export not yet implemented, show helpful message
-    click.echo(f"Item export for {prefix} to {path}")
-    if xlsx:
-        click.echo("  Format: XLSX")
-    if csv:
-        click.echo("  Format: CSV")
-    click.echo("Note: Use 'jamb export <file.yml>' for YAML export.")
-
-
 # =============================================================================
 # Link Management Commands
 # =============================================================================
@@ -738,7 +696,7 @@ def link_add(child: str, parent: str) -> None:
     data["links"] = links
 
     with open(item_path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        dump_yaml(data, f)
 
     click.echo(f"Linked: {child} -> {parent}")
 
@@ -776,7 +734,7 @@ def link_remove(child: str, parent: str) -> None:
 
     data["links"] = new_links
     with open(item_path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        dump_yaml(data, f)
 
     click.echo(f"Unlinked: {child} -> {parent}")
 
@@ -822,7 +780,7 @@ def review_mark(label: str) -> None:
                 raw = yaml.safe_load(f) or {}
             raw["reviewed"] = content_hash
             with open(item_path, "w") as f:
-                yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+                dump_yaml(raw, f)
             count += 1
             click.echo(f"marked item {data['uid']} as reviewed")
 
@@ -895,7 +853,7 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
             if updated:
                 raw["links"] = new_links
                 with open(item_path, "w") as f:
-                    yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+                    dump_yaml(raw, f)
                 count += 1
 
         click.echo(f"Cleared suspect links on {count} items")
@@ -934,10 +892,27 @@ def review_reset(label: str, root: Path | None) -> None:
             with open(item_path) as f:
                 data = yaml.safe_load(f) or {}
 
+            changed = False
             if "reviewed" in data:
                 del data["reviewed"]
+                changed = True
+
+            # Strip link hashes, keeping just the UIDs
+            links = data.get("links", [])
+            if links:
+                new_links = []
+                for entry in links:
+                    if isinstance(entry, dict):
+                        new_links.extend(entry.keys())
+                    else:
+                        new_links.append(entry)
+                data["links"] = new_links
+                if new_links != links:
+                    changed = True
+
+            if changed:
                 with open(item_path, "w") as f:
-                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                    dump_yaml(data, f)
                 click.echo(f"reset item {item_path.stem} to unreviewed")
                 count += 1
 

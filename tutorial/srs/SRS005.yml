@@ -1,8 +1,8 @@
 active: true
-header: 'Session Refresh'
+header: Session Refresh
 level: 5
 links:
-- SYS002: Ms5Y6lJtvalfZLX-Syib9o41h1pv6v7JVExaMpStff0
-reviewed: QxXHK4bNGw6FeelkiBRc_2hi1NFZD_owSlSBCtmiVDo=
+- SYS002: 7-Tt5w8AeZbmg7S_OJRndIVAuUpG-6_IC2oV1NSShIs
 text: |
   Software shall refresh tokens on activity within 15 minutes of expiry.
+reviewed: VJWQnxsFuZUwnXz1tWfwqLzR-kVU_N8WGVvzJV7PTSU

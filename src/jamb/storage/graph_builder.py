@@ -55,6 +55,7 @@ def build_traceability_graph(
                 header=raw["header"],
                 links=raw["links"],
                 reviewed=raw["reviewed"],
+                derived=raw["derived"],
                 custom_attributes=raw.get("custom_attributes", {}),
             )
             graph.add_item(item)

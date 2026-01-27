@@ -847,33 +847,6 @@ class TestItemEditWithMock:
         assert "SRS001.yml" in captured_cmd[1]
 
 
-class TestItemImportExportWithMock:
-    """Tests for item import/export commands (native, no subprocess)."""
-
-    def test_item_import(self, runner):
-        """Test item import prints informational message."""
-        result = runner.invoke(cli, ["item", "import", "SRS", "import.csv"])
-
-        assert result.exit_code == 0
-        assert "Item import for SRS from import.csv" in result.output
-
-    def test_item_export_xlsx(self, runner):
-        """Test item export with --xlsx flag prints informational message."""
-        result = runner.invoke(cli, ["item", "export", "SRS", "out.xlsx", "--xlsx"])
-
-        assert result.exit_code == 0
-        assert "Item export for SRS to out.xlsx" in result.output
-        assert "XLSX" in result.output
-
-    def test_item_export_csv(self, runner):
-        """Test item export with --csv flag prints informational message."""
-        result = runner.invoke(cli, ["item", "export", "SRS", "out.csv", "--csv"])
-
-        assert result.exit_code == 0
-        assert "Item export for SRS to out.csv" in result.output
-        assert "CSV" in result.output
-
-
 class TestLinkCommandsWithMock:
     """Tests for link add/remove commands (native, no subprocess)."""
 
@@ -1375,30 +1348,6 @@ class TestItemShowWithHeader:
         assert "Error" in result.output
 
 
-class TestItemImportWithOptions:
-    """Tests for item import command with file and map options (native)."""
-
-    def test_item_import_with_file_option(self, runner):
-        """Test item import with --file option prints informational message."""
-        result = runner.invoke(
-            cli, ["item", "import", "SRS", "data.csv", "--file", "alt.csv"]
-        )
-
-        assert result.exit_code == 0
-        assert "Item import for SRS from data.csv" in result.output
-        assert "File: alt.csv" in result.output
-
-    def test_item_import_with_map_option(self, runner):
-        """Test item import with --map option prints informational message."""
-        result = runner.invoke(
-            cli, ["item", "import", "SRS", "data.csv", "--map", "text=Description"]
-        )
-
-        assert result.exit_code == 0
-        assert "Item import for SRS from data.csv" in result.output
-        assert "Mapping: text=Description" in result.output
-
-
 class TestInitCommand:
     """Tests for jamb init command."""
 
@@ -1659,6 +1608,38 @@ class TestReviewResetCommand:
         assert (
             "not a valid" in result.output.lower() or "error" in result.output.lower()
         )
+
+    def test_review_reset_strips_link_hashes(self, runner, jamb_project):
+        """Test review reset also strips link hashes from items."""
+        import os
+
+        import yaml
+
+        # Write an item with reviewed hash and link hashes
+        srs_file = jamb_project / "srs" / "SRS001.yml"
+        srs_file.write_text(
+            "active: true\n"
+            "text: Some requirement\n"
+            "links:\n"
+            "- SYS001: abc123hash\n"
+            "reviewed: somehash\n"
+        )
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(jamb_project)
+            result = runner.invoke(
+                cli, ["review", "reset", "SRS001"], catch_exceptions=False
+            )
+        finally:
+            os.chdir(original_cwd)
+
+        assert result.exit_code == 0
+        with open(srs_file) as f:
+            data = yaml.safe_load(f)
+        assert "reviewed" not in data
+        # Links should be plain UIDs, not dicts with hashes
+        assert data["links"] == ["SYS001"]
 
     def test_review_reset_no_items_need_reset(self, runner, jamb_project):
         """Test review reset when no items need resetting."""

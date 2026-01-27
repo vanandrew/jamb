@@ -1,8 +1,8 @@
 active: true
-header: 'Alert Severity Indicators'
+header: Alert Severity Indicators
 level: 17
 links:
-- SYS007: OdrJiLZBIzCRWVtrbyn6JroGDPfRRj5_aaicsxsk7Ys
-reviewed: z7aisYSopx7yoqmWb0zFKmoz7LhxL_G1kkFVhBVvpCk=
+- SYS007: f-5nSgOBao3FeFBNsSNxSdTCV21uiXnihRTKV4S8tP8
 text: |
   Software shall display alert notifications with color-coded severity indicators (red for critical, yellow for warning, blue for informational).
+reviewed: lW0gtGicnZ6KW60LMMvxFNTQB-B8jgpdicnaRbS68Nw

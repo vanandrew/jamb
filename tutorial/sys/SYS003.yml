@@ -1,8 +1,8 @@
 active: true
-header: 'Real-time Display'
+header: Real-time Display
 level: 3
 links:
-- UN002: B15glMSrXkLGOHgULD8jgirt7jkVJ6WtiXeqDgcdIlE
-reviewed: 5WduhMEfRmEQqN3px2ORpkE9LPKA0lpEiG4fh17iRpM=
+- UN002: QPDHS5Wn4GWJpJ7h0M9myOa9CYZJGhy7pd2oOZ0XSZc
 text: |
   System shall display vital signs updated every 5 seconds.
+reviewed: ghGw49wrPqbI3jb31ZOiU2QYivbesL5VZyPW35-0oEw
