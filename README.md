@@ -1,3 +1,10 @@
+[![CI](https://github.com/vanandrew/jamb/actions/workflows/ci.yml/badge.svg)](https://github.com/vanandrew/jamb/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/vanandrew/jamb/graph/badge.svg?token=RL7H4DG3YO)](https://codecov.io/gh/vanandrew/jamb)
+[![PyPI - Version](https://img.shields.io/pypi/v/jamb)](https://pypi.org/project/jamb/)
+[![Python](https://img.shields.io/pypi/pyversions/jamb)](https://pypi.org/project/jamb/)
+[![License](https://img.shields.io/pypi/l/jamb)](https://pypi.org/project/jamb/)
+[![Docs](https://readthedocs.org/projects/jamb/badge/?version=latest)](https://jamb.readthedocs.io)
+
 # <img src="docs/_static/icon-light.svg" alt="jamb icon" width="40" style="vertical-align: middle;" class="only-light"> jamb
 
 IEC 62304 requirements traceability for pytest.
