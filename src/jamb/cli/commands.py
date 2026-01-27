@@ -141,6 +141,8 @@ def _create_initial_prj_item(prj_path: Path) -> None:
     Args:
         prj_path: Path to the PRJ document directory.
     """
+    from typing import cast
+
     import yaml
 
     project_name = Path.cwd().name  # fallback
@@ -148,11 +150,14 @@ def _create_initial_prj_item(prj_path: Path) -> None:
     if pyproject_path.exists():
         try:
             import tomlkit
+            from tomlkit.items import Table
 
             content = pyproject_path.read_text()
             doc = tomlkit.parse(content)
-            if "project" in doc and "name" in doc["project"]:
-                project_name = str(doc["project"]["name"])
+            if "project" in doc:
+                project_table = cast(Table, doc["project"])
+                if "name" in project_table:
+                    project_name = str(project_table["name"])
         except Exception:
             pass  # fall back to directory name
 
