@@ -1,9 +1,14 @@
 """Filesystem discovery for jamb document trees."""
 
+import logging
 from pathlib import Path
+
+import yaml
 
 from jamb.storage.document_config import load_document_config
 from jamb.storage.document_dag import DocumentDAG
+
+logger = logging.getLogger("jamb")
 
 
 def discover_documents(root: Path | None = None) -> DocumentDAG:
@@ -30,7 +35,8 @@ def discover_documents(root: Path | None = None) -> DocumentDAG:
     for config_path in _find_config_files(root):
         try:
             config = load_document_config(config_path)
-        except (ValueError, Exception):
+        except (ValueError, yaml.YAMLError, OSError) as e:
+            logger.debug("Skipping %s: %s", config_path, e)
             continue
 
         dag.documents[config.prefix] = config

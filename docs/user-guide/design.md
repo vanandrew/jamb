@@ -30,20 +30,21 @@ graph TD
     Storage --> Core
     Storage --> Config[config]
     Storage --> YamlIO[yaml_io]
-
-    style Core fill:#e8f5e9,stroke:#388e3c
 ```
 
 **Design rationale.** Domain models in `core/` have zero I/O dependencies, making them easy to test in isolation. All filesystem interaction is confined to `storage/`, so the rest of the codebase works with pure in-memory data structures.
 
 ## Domain Models
 
-The core domain lives in `core/models.py`:
+The core domain lives in `core/models.py`.
 
-- **`Item`** -- A single requirement, informational note, or heading. Key fields: `uid`, `text`, `document_prefix`, `type`, `links`, `header`, `reviewed`, `derived`.
-- **`LinkedTest`** -- A test-to-requirement link. Records `test_nodeid`, `item_uid`, `test_outcome`, plus optional `notes`, `test_actions`, and `expected_results` captured via the `jamb_log` fixture.
-- **`ItemCoverage`** -- Pairs an `Item` with its `LinkedTest` list and exposes `is_covered` / `all_tests_passed` properties.
-- **`TraceabilityGraph`** -- The complete bidirectional graph. Stores items by UID and maintains two adjacency lists (`item_parents`, `item_children`) plus a document-level DAG (`document_parents`). Provides BFS-based `get_ancestors()` and `get_descendants()` traversals.
+`Item` represents a single requirement, informational note, or heading. Its key fields are `uid`, `text`, `document_prefix`, `type`, `links`, `header`, `reviewed`, and `derived`.
+
+`LinkedTest` models a test-to-requirement link. It records `test_nodeid`, `item_uid`, and `test_outcome`, plus optional `notes`, `test_actions`, and `expected_results` captured via the `jamb_log` fixture.
+
+`ItemCoverage` pairs an `Item` with its `LinkedTest` list and exposes `is_covered` / `all_tests_passed` properties.
+
+`TraceabilityGraph` is the complete bidirectional graph. It stores items by UID and maintains two adjacency lists (`item_parents`, `item_children`) plus a document-level DAG (`document_parents`). It provides BFS-based `get_ancestors()` and `get_descendants()` traversals.
 
 `TraceabilityGraph` uses adjacency lists rather than a matrix because the graph is sparse -- most items link to only one or two parents.
 
@@ -63,17 +64,8 @@ graph TD
     UN --> SYS[SYS<br/>System Requirements]
     SYS --> SRS[SRS<br/>Software Requirements]
     HAZ --> RC[RC<br/>Risk Controls]
-    SRS -.-> RC
-
-    style PRJ fill:#e3f2fd,stroke:#1565c0
-    style UN fill:#e3f2fd,stroke:#1565c0
-    style SYS fill:#e3f2fd,stroke:#1565c0
-    style SRS fill:#e3f2fd,stroke:#1565c0
-    style HAZ fill:#fff3e0,stroke:#e65100
-    style RC fill:#fff3e0,stroke:#e65100
+    RC --> SRS
 ```
-
-The dashed line from SRS to RC shows that a document can have multiple parents -- RC traces to both HAZ and SRS.
 
 ## Data Flow
 
@@ -90,9 +82,6 @@ flowchart LR
     DAG --> GB["graph_builder.py<br/>build_traceability_graph()"]
     GB --> Items["items.py<br/>read_document_items()"]
     Items --> TG["TraceabilityGraph"]
-
-    style FS fill:#f5f5f5,stroke:#616161
-    style TG fill:#e8f5e9,stroke:#388e3c
 ```
 
 ## pytest Integration Lifecycle
@@ -141,10 +130,7 @@ Key hooks in order:
 
 When an item's content changes, any items that link *to* it may become outdated. jamb detects this through content hashing.
 
-**Hash computation** (`storage/items.py: compute_content_hash()`):
-- Concatenates `text`, `header`, sorted `links`, and `type` with `|` as delimiter.
-- Computes a SHA-256 digest.
-- Encodes as URL-safe base64 (padding stripped).
+**Hash computation** (`storage/items.py: compute_content_hash()`): the function concatenates `text`, `header`, sorted `links`, and `type` with `|` as delimiter, computes a SHA-256 digest, and encodes it as URL-safe base64 with padding stripped.
 
 **Why hashing over timestamps?** Hashes are deterministic across git clones -- every developer and CI runner computes the same hash for the same content. Timestamps would break on fresh clones or rebases.
 
@@ -162,9 +148,6 @@ flowchart TD
     Next --> Loop
     Flag --> Loop
     Loop -- "No stored hash" --> Warn["Warn: link not verified"]
-
-    style Flag fill:#fff3e0,stroke:#e65100
-    style Warn fill:#fff3e0,stroke:#e65100
 ```
 
 ## Matrix & Publishing

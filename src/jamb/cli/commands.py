@@ -110,7 +110,7 @@ def init() -> None:
             click.echo(
                 f"Created document: {config.prefix} at reqs/{config.prefix.lower()}"
             )
-        except Exception as e:
+        except (OSError, ValueError) as e:
             click.echo(
                 f"Error: Failed to create {config.prefix} document: {e}", err=True
             )
@@ -162,7 +162,7 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
         pyproject_path.write_text(tomlkit.dumps(doc))
         click.echo("Added [tool.jamb] configuration to pyproject.toml")
 
-    except Exception as e:
+    except (OSError, tomlkit.exceptions.TOMLKitError) as e:
         click.echo(f"Warning: Could not update pyproject.toml: {e}", err=True)
 
 
@@ -206,7 +206,7 @@ def info(documents: str | None, root: Path | None) -> None:
         click.echo("\nDocument hierarchy:")
         _print_dag_hierarchy(dag)
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -303,7 +303,7 @@ def check(documents: str | None, root: Path | None) -> None:
             total = sum(len(graph.get_items_by_document(p)) for p in test_docs)
             click.echo(f"\nAll {total} items in test documents have linked tests.")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -337,8 +337,8 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
                                 arg.value, str
                             ):
                                 linked.add(arg.value)
-        except Exception:
-            pass  # Skip files that can't be parsed
+        except (SyntaxError, OSError):
+            continue  # Skip unreadable/unparseable test files
 
     return linked
 
@@ -404,7 +404,7 @@ def reorder(prefix: str) -> None:
             f"{stats['unchanged']} unchanged"
         )
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -458,7 +458,7 @@ def doc_create(
         save_document_config(config, doc_path)
         parents_str = f" (parents: {', '.join(parent)})" if parent else ""
         click.echo(f"Created document: {prefix} at {path}{parents_str}")
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -489,7 +489,7 @@ def doc_delete(prefix: str, root: Path | None) -> None:
         shutil.rmtree(doc_path)
         click.echo(f"Deleted document: {prefix}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -521,7 +521,7 @@ def doc_list(root: Path | None) -> None:
         click.echo("\nHierarchy:")
         _print_dag_hierarchy(dag)
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -635,7 +635,7 @@ def item_add(
                 existing_uids.append(uid)
                 click.echo(f"Added item: {uid}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -683,7 +683,7 @@ def item_list(prefix: str | None, root: Path | None) -> None:
                     text = text.replace("\n", " ").strip()
                     click.echo(f"  {item_data['uid']}: {text}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -757,7 +757,7 @@ def item_show(uid: str) -> None:
             click.echo(f"Reviewed: {data['reviewed']}")
         click.echo(f"\nText:\n{data['text']}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -901,7 +901,7 @@ def review_mark(label: str) -> None:
         else:
             click.echo(f"marked {count} items as reviewed")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -970,7 +970,7 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
 
         click.echo(f"Cleared suspect links on {count} items")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1033,7 +1033,7 @@ def review_reset(label: str, root: Path | None) -> None:
         else:
             click.echo(f"reset {count} items to unreviewed")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1210,7 +1210,7 @@ def _publish_html(prefix: str, path: str, include_links: bool) -> None:
         output_path.write_text(html_content)
         click.echo(f"Published to {output_path}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1256,7 +1256,7 @@ def _publish_markdown_stdout(prefix: str) -> None:
             if children:
                 click.echo(f"*Linked from: {', '.join(children)}*\n")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1323,7 +1323,7 @@ def _publish_markdown(prefix: str, path: str) -> None:
         output_path.write_text("\n".join(lines))
         click.echo(f"Published to {output_path}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1364,7 +1364,7 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
         output_path.write_bytes(docx_bytes)
         click.echo(f"Published to {output_path}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1496,7 +1496,7 @@ def validate(
             click.echo(f"\nValidation failed with {errors_count} errors")
             sys.exit(1)
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1570,7 +1570,7 @@ def export_yaml(
 
         click.echo(f"Exported to {output}")
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
@@ -1642,7 +1642,7 @@ def import_yaml_cmd(file: Path, dry_run: bool, update: bool, verbose: bool) -> N
                 f"Skipped {stats['skipped']} existing items (use --update to modify)"
             )
 
-    except Exception as e:
+    except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 

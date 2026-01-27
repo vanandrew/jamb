@@ -4,18 +4,9 @@
 
 Both tools store requirements as individual YAML files in git and detect suspect links via content hashing. The main differences:
 
-**jamb advantages**
+jamb's main strengths are its native pytest integration (`@pytest.mark.requirement`, `jamb_log`, auto-generated matrices from test runs), a DAG document hierarchy that allows multiple parents per document instead of doorstop's strict tree, IEC 62304 scaffolding via `jamb init`, and `pyproject.toml`-based configuration.
 
-- Native pytest integration (`@pytest.mark.requirement`, `jamb_log`, auto-generated matrices from test runs)
-- DAG document hierarchy (multiple parents per document vs doorstop's strict tree)
-- IEC 62304 scaffolding (`jamb init`)
-- `pyproject.toml` configuration
-
-**doorstop advantages**
-
-- Desktop GUI and web server
-- LaTeX/PDF publishing
-- Longer track record (~10+ years, larger community)
+doorstop offers a desktop GUI and web server, LaTeX/PDF publishing, and a longer track record (~10+ years, larger community).
 
 In short, jamb is designed around the pytest workflow; doorstop is a more general-purpose requirements management tool.
 

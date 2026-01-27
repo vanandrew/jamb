@@ -6,12 +6,7 @@ IEC 62304 requires integration with the risk management process defined by ISO 1
 Software-related hazards must be identified, risks evaluated, and risk controls
 implemented as part of the software development lifecycle.
 
-Key requirements include:
-
-- Identifying software items that could contribute to hazardous situations.
-- Defining risk control measures for identified hazards.
-- Verifying that risk controls are implemented and effective.
-- Tracing from hazards through risk controls to software requirements and their tests.
+Key requirements include identifying software items that could contribute to hazardous situations, defining risk control measures for identified hazards, verifying that risk controls are implemented and effective, and tracing from hazards through risk controls to software requirements and their tests.
 
 The risk management process runs in parallel with software development. As new hazards are
 identified or risks change, the software requirements and design must be updated
@@ -22,11 +17,7 @@ accordingly.
 The default jamb document hierarchy includes document types specifically for risk
 management:
 
-- **HAZ (Hazards)** -- documents that capture identified hazards. HAZ items describe
-  potential hazardous situations and their causes. They link to project requirements (PRJ)
-  to show which aspects of the system give rise to each hazard.
-- **RC (Risk Controls)** -- documents that define the measures taken to reduce risk. RC
-  items describe how each hazard is controlled and link to the HAZ items they mitigate.
+**HAZ (Hazards)** documents capture identified hazards. HAZ items describe potential hazardous situations and their causes, and they link to project requirements (PRJ) to show which aspects of the system give rise to each hazard. **RC (Risk Controls)** documents define the measures taken to reduce risk. RC items describe how each hazard is controlled and link to the HAZ items they mitigate.
 
 This structure mirrors the ISO 14971 process: identify hazards, then define controls for
 those hazards.

@@ -380,7 +380,7 @@ class TestCreateDocument:
             patch("jamb.storage.document_config.save_document_config") as mock_save,
         ):
             mock_exists.return_value = False
-            mock_save.side_effect = Exception("Write failed")
+            mock_save.side_effect = OSError("Write failed")
 
             messages = []
             result = _create_document(

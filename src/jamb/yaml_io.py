@@ -326,7 +326,7 @@ def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
     doc_path = Path(path)
     try:
         save_document_config(config, doc_path)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         echo(f"  Error creating document {prefix}: {e}")
         return "error"
 

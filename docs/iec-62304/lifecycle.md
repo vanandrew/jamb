@@ -41,11 +41,8 @@ Planning
 ```
 
 The key principle is that each level of specification is verified by a corresponding level
-of testing:
-
-- **Requirements** are verified by **system testing**
-- **Architecture** is verified by **integration testing**
-- **Detailed design** is verified by **unit verification**
+of testing: requirements are verified by system testing, architecture by integration testing,
+and detailed design by unit verification.
 
 This structure ensures that every design decision has a corresponding verification
 activity, creating a closed loop from specification to proof.

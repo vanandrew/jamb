@@ -1179,7 +1179,7 @@ class TestInfoErrorHandling:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("No documents found"),
+            side_effect=ValueError("No documents found"),
         ):
             result = runner.invoke(cli, ["info"])
 
@@ -1242,7 +1242,7 @@ class TestCheckWithConfigDocuments:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("No documents found"),
+            side_effect=ValueError("No documents found"),
         ):
             result = runner.invoke(cli, ["check"])
 
@@ -1259,7 +1259,7 @@ class TestDocListErrorHandling:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("No documents found"),
+            side_effect=ValueError("No documents found"),
         ):
             result = runner.invoke(cli, ["doc", "list"])
 
@@ -1278,7 +1278,7 @@ class TestExportErrorHandling:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("No documents found"),
+            side_effect=ValueError("No documents found"),
         ):
             result = runner.invoke(cli, ["export", str(output_path)])
 
@@ -1391,7 +1391,7 @@ class TestItemListWithPrefix:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("No documents found"),
+            side_effect=ValueError("No documents found"),
         ):
             result = runner.invoke(cli, ["item", "list"])
 
@@ -1435,7 +1435,7 @@ class TestItemShowWithHeader:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("Item not found"),
+            side_effect=ValueError("Item not found"),
         ):
             result = runner.invoke(cli, ["item", "show", "NONEXISTENT"])
 
@@ -1758,7 +1758,7 @@ class TestReviewResetCommand:
 
         with patch(
             "jamb.storage.discover_documents",
-            side_effect=Exception("Discovery error"),
+            side_effect=ValueError("Discovery error"),
         ):
             result = runner.invoke(cli, ["review", "reset", "SRS001"])
 

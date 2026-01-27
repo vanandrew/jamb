@@ -1,5 +1,6 @@
 """Tests for jamb.storage.items module."""
 
+import pytest
 import yaml
 
 from jamb.storage.items import (
@@ -121,6 +122,13 @@ class TestReadItem:
         assert data["type"] == "requirement"
         assert data["header"] == ""
 
+    def test_raises_on_yaml_syntax_error(self, tmp_path):
+        """Malformed YAML content causes yaml.YAMLError to propagate."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text(": bad: {{")
+        with pytest.raises(yaml.YAMLError):
+            read_item(item_path, "SRS")
+
 
 class TestWriteItem:
     def test_writes_basic_item(self, tmp_path):
@@ -219,6 +227,13 @@ class TestReadDocumentItems:
         items = read_document_items(tmp_path, "API", sep="-")
         assert len(items) == 2
         assert items[0]["uid"] == "API-0001"
+
+    def test_raises_on_yaml_syntax_error(self, tmp_path):
+        """A malformed YAML item file causes yaml.YAMLError to propagate."""
+        (tmp_path / "SRS001.yml").write_text("active: true\ntext: Valid\n")
+        (tmp_path / "SRS002.yml").write_text(": bad: {{")
+        with pytest.raises(yaml.YAMLError):
+            read_document_items(tmp_path, "SRS")
 
 
 class TestNextUid:

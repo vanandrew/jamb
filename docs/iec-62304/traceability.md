@@ -2,12 +2,7 @@
 
 ## Bidirectional Traceability
 
-IEC 62304 requires tracing in both directions through the development lifecycle:
-
-- **Forward traceability**: from requirements to design to code to tests. This answers
-  the question "how is this requirement implemented and verified?"
-- **Backward traceability**: from tests to code to design to requirements. This answers
-  the question "why does this test exist, and what requirement does it verify?"
+IEC 62304 requires tracing in both directions through the development lifecycle. **Forward traceability** runs from requirements to design to code to tests, answering the question "how is this requirement implemented and verified?" **Backward traceability** runs from tests to code to design to requirements, answering the question "why does this test exist, and what requirement does it verify?"
 
 Every requirement must trace to its parent (where it came from) and to the tests that
 verify it (proving it works). Gaps in either direction indicate incomplete coverage and
@@ -16,13 +11,7 @@ are findings in an audit.
 ## How jamb's Document DAG Implements Traceability
 
 Documents in jamb form a directed acyclic graph (DAG) that represents the hierarchy of
-specifications:
-
-- **PRJ** (project requirements) sit at the top
-- **UN** (user needs) link upward to PRJ items
-- **SYS** (system requirements) link upward to UN items
-- **SRS** (software requirements) link upward to SYS items
-- **Tests** link to SRS items via `@pytest.mark.requirement`
+specifications. PRJ (project requirements) sits at the top, with UN (user needs) linking upward to PRJ items, SYS (system requirements) linking upward to UN items, and SRS (software requirements) linking upward to SYS items. Tests link to SRS items via `@pytest.mark.requirement`.
 
 Items link *upward* to parent items, establishing backward traceability from detailed
 requirements to high-level needs. The pytest plugin links tests *downward* to requirements,
@@ -50,12 +39,7 @@ Every change is surfaced and must be explicitly addressed.
 
 ## Trace Completeness with `jamb validate`
 
-The `jamb validate` command checks the entire traceability chain for completeness:
-
-- **Unlinked items**: items that should have parent links but do not.
-- **Broken links**: links that reference items that no longer exist.
-- **Missing coverage**: requirements that have no tests linked to them.
-- **Suspect links**: links where the upstream item has changed since the link was created.
+The `jamb validate` command checks the entire traceability chain for completeness, looking for unlinked items (items that should have parent links but do not), broken links (references to items that no longer exist), missing coverage (requirements with no tests linked to them), and suspect links (where the upstream item has changed since the link was created).
 
 Running `jamb validate` before a release provides evidence that the traceability chain is
 complete and that all changes have been assessed. This is a key audit artifact for

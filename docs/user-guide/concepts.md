@@ -25,9 +25,7 @@ PRJ (Project Requirements) - root
     └── RC (Risk Controls)
 ```
 
-Each document lives in its own directory and contains:
-- A `.jamb.yml` configuration file (prefix, parent documents, UID formatting)
-- Individual YAML files for each item (e.g., `SRS001.yml`, `SRS002.yml`)
+Each document lives in its own directory and contains a `.jamb.yml` configuration file (defining the prefix, parent documents, and UID formatting) alongside individual YAML files for each item (e.g., `SRS001.yml`, `SRS002.yml`).
 
 ### Custom Hierarchies
 
@@ -46,15 +44,7 @@ jamb doc create RC reqs/rc --parent HAZ
 
 ## Items and Types
 
-An **item** is a single requirement, hazard, risk control, or other traceable entity. Each item has:
-
-- **UID** -- unique identifier (e.g., `SRS001`) composed of the document prefix and a sequential number
-- **Text** -- the requirement statement
-- **Header** -- optional short title
-- **Links** -- references to parent items in upstream documents
-- **Active** -- whether the item is active (`true`) or deactivated (`false`)
-- **Reviewed** -- a content hash indicating the item has been reviewed
-- **Derived** -- flag for requirements that don't trace to a parent document (see below)
+An **item** is a single requirement, hazard, risk control, or other traceable entity. Every item is identified by a **UID** (e.g., `SRS001`), composed of the document prefix and a sequential number. The item's **text** holds the requirement statement, and an optional **header** provides a short title for listings and the traceability matrix. **Links** are references to parent items in upstream documents. The **active** flag controls whether the item participates in validation and coverage checks, **reviewed** stores a content hash indicating when the item was last reviewed, and **derived** marks requirements that intentionally don't trace to a parent document (see below).
 
 Items are stored as individual YAML files. See {doc}`yaml-format` for the full field reference.
 
@@ -145,20 +135,11 @@ text: |
   Software shall validate all input against buffer overflow attacks.
 ```
 
-**When to use `derived: true`:**
-- Requirements from risk/hazard analysis
-- Security hardening requirements
-- Defensive coding requirements
-- Any requirement that implements a risk control without a corresponding system requirement
+Use `derived: true` for requirements that originate from risk or hazard analysis, security hardening requirements, defensive coding requirements, or any requirement that implements a risk control without a corresponding system requirement.
 
 ## Traceability Graph
 
-jamb builds a full traceability graph from all documents and their items. This graph is used for:
-
-- **Validation** -- checking for broken links, cycles, orphan items
-- **Coverage analysis** -- determining which requirements have linked tests
-- **Matrix generation** -- producing traceability matrices with test status
-- **Impact analysis** -- determining which downstream items are affected by a change
+jamb builds a full traceability graph from all documents and their items. The graph drives validation (checking for broken links, cycles, and orphan items), coverage analysis (determining which requirements have linked tests), matrix generation (producing traceability matrices with test status), and impact analysis (determining which downstream items are affected by a change).
 
 The graph includes both the document-level DAG (which documents trace to which) and the item-level links (which items trace to which).
 

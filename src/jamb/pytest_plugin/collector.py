@@ -45,7 +45,7 @@ class RequirementCollector:
 
             dag = discover_documents()
             self.graph = build_traceability_graph(dag)
-        except Exception as e:
+        except (ValueError, FileNotFoundError, OSError) as e:
             import warnings
 
             warnings.warn(f"Could not load requirements: {e}", stacklevel=2)

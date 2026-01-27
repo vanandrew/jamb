@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from jamb.storage.discovery import discover_documents
@@ -121,11 +122,11 @@ class TestDiscoverDocuments:
         with pytest.raises(FileNotFoundError):
             discover_documents(f)
 
-    def test_config_load_raises_unexpected_exception_skipped(
+    def test_config_load_raises_unexpected_exception_propagates(
         self, tmp_path, monkeypatch
     ):
-        """Monkeypatched load_document_config raising
-        RuntimeError is silently skipped."""
+        """Unexpected exceptions (e.g. RuntimeError) propagate instead of
+        being silently swallowed."""
         doc_dir = tmp_path / "bad"
         doc_dir.mkdir()
         (doc_dir / ".jamb.yml").write_text(
@@ -139,8 +140,8 @@ class TestDiscoverDocuments:
 
         monkeypatch.setattr(discovery, "load_document_config", _explode)
 
-        dag = discover_documents(tmp_path)
-        assert len(dag.documents) == 0
+        with pytest.raises(RuntimeError, match="unexpected failure"):
+            discover_documents(tmp_path)
 
     def test_empty_jamb_yml_skipped(self, tmp_path):
         """Empty .jamb.yml file is silently skipped."""

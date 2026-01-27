@@ -167,8 +167,4 @@ items:
 
 ### Import Behavior
 
-- **New items** are created with the specified fields
-- **Existing items** are skipped by default; use `--update` to overwrite
-- When updating, `text`, `header`, and `links` are replaced; `active` and other fields are preserved
-- The `reviewed` hash is cleared on updated items, marking them for re-review
-- Use `--dry-run` to preview changes before applying
+New items are created with the specified fields. Existing items are skipped by default; use `--update` to overwrite them. When updating, the `text`, `header`, and `links` fields are replaced with values from the import file, while `active` and other fields are preserved. The `reviewed` hash is cleared on updated items, marking them for re-review. Use `--dry-run` to preview changes before applying.

@@ -3,7 +3,7 @@
 import importlib.metadata
 
 project = "jamb"
-copyright = "2024, Andrew Van"
+copyright = "2026, Andrew Van"
 author = "Andrew Van"
 release = importlib.metadata.version("jamb")
 version = release
@@ -61,8 +61,16 @@ suppress_warnings = ["myst.xref_missing"]
 # -- HTML output ---------------------------------------------------------------
 
 html_title = "jamb"
+html_favicon = "_static/icon-light.svg"
+html_static_path = ["_static"]
+html_css_files = ["custom.css"]
 html_theme = "pydata_sphinx_theme"
 html_theme_options = {
+    "logo": {
+        "image_light": "_static/icon-light.svg",
+        "image_dark": "_static/icon-dark.svg",
+    },
+    "navbar_align": "left",
     "show_nav_level": 2,
     "icon_links": [
         {

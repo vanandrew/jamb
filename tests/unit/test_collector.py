@@ -73,7 +73,7 @@ class TestRequirementCollectorInit:
         self, mock_discover, mock_pytest_config
     ):
         """Test collector handles missing requirements gracefully."""
-        mock_discover.side_effect = Exception("No requirements found")
+        mock_discover.side_effect = FileNotFoundError("No requirements found")
 
         with pytest.warns(UserWarning, match="Could not load requirements"):
             collector = RequirementCollector(mock_pytest_config)

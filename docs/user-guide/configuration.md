@@ -1,5 +1,7 @@
 # Configuration
 
+jamb uses a two-level configuration model. Project-wide settings live in `pyproject.toml` under the `[tool.jamb]` section, controlling behavior like which documents require test coverage, matrix output format, and CI enforcement options. Per-document settings live in a `.jamb.yml` file inside each document directory, defining the document's prefix, parent relationships, and UID formatting. The sections below describe both levels in detail.
+
 ## Project Configuration (`pyproject.toml`)
 
 jamb is configured in `pyproject.toml` under the `[tool.jamb]` section:
