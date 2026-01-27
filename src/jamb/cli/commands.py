@@ -1627,8 +1627,30 @@ def export_yaml(
         sys.exit(1)
 
 
+_IMPORT_TEMPLATE = """\
+# Example jamb import file
+# Usage: jamb import requirements.yml
+documents:               # optional - create new documents
+  - prefix: SRS
+    path: reqs/srs
+    parents: [SYS]       # optional
+    digits: 3            # optional, default: 3
+
+items:                   # optional - create new items
+  - uid: SRS001
+    text: "Requirement text here"
+    header: "Section Title"  # optional
+    links: [SYS001]         # optional - parent item UIDs
+"""
+
+
 @cli.command("import")
-@click.argument("file", type=click.Path(exists=True, path_type=Path))
+@click.argument(
+    "file",
+    type=click.Path(exists=True, path_type=Path),
+    required=False,
+    default=None,
+)
 @click.option(
     "--dry-run",
     is_flag=True,
@@ -1640,7 +1662,18 @@ def export_yaml(
     help="Update existing items instead of skipping them",
 )
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-def import_yaml_cmd(file: Path, dry_run: bool, update: bool, verbose: bool) -> None:
+@click.option(
+    "--template",
+    is_flag=True,
+    help="Output a starter YAML template to stdout",
+)
+def import_yaml_cmd(
+    file: Path | None,
+    dry_run: bool,
+    update: bool,
+    verbose: bool,
+    template: bool,
+) -> None:
     """Import documents and items from a YAML file.
 
     FILE is the path to a YAML file containing documents and items to create.
@@ -1663,7 +1696,16 @@ def import_yaml_cmd(file: Path, dry_run: bool, update: bool, verbose: bool) -> N
         jamb import requirements.yml
         jamb import requirements.yml --dry-run
         jamb import requirements.yml --update
+        jamb import --template > requirements.yml
     """
+    if template:
+        click.echo(_IMPORT_TEMPLATE, nl=False)
+        return
+
+    if file is None:
+        click.echo("Error: Missing argument 'FILE'.", err=True)
+        sys.exit(1)
+
     from jamb.yaml_io import import_from_yaml
 
     try:
