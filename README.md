@@ -1,4 +1,4 @@
-# <img src="docs/_static/icon-light.svg" alt="jamb icon" width="40" style="vertical-align: middle;" class="only-light"><img src="docs/_static/icon-dark.svg" alt="jamb icon" width="40" style="vertical-align: middle;" class="only-dark"> jamb
+# <img src="docs/_static/icon-light.svg" alt="jamb icon" width="40" style="vertical-align: middle;" class="only-light"> jamb
 
 IEC 62304 requirements traceability for pytest.
 
