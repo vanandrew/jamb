@@ -5,7 +5,7 @@ This tutorial covers requirements traceability workflows for regulated software 
 ## Prerequisites
 
 - Python 3.10+
-- Git (doorstop requires a git repository)
+- Git (for version-controlled requirements)
 - Basic understanding of requirements traceability
 
 Install jamb:
@@ -113,9 +113,9 @@ This example project implements a patient vital signs monitoring system with two
 - **2 Hazards (HAZ001-HAZ002)**: Identified hazardous situations → link to PRJ
 - **2 Risk Controls (RC001-RC002)**: Mitigations for identified hazards → link to HAZ
 
-Both hierarchies share the same project root (PRJ), allowing a single doorstop tree.
+Both hierarchies share the same project root (PRJ), allowing a unified hierarchy.
 
-**Cross-linking:** Some SRS items also link to RC items, demonstrating that a software requirement can trace to both its functional parent (SYS) and a risk control (RC). This shows doorstop's support for multi-parent traceability.
+**Cross-linking:** Some SRS items also link to RC items, demonstrating that a software requirement can trace to both its functional parent (SYS) and a risk control (RC). This shows jamb's support for multi-parent traceability.
 
 ### Exploring the Hierarchy
 
@@ -271,7 +271,7 @@ jamb import sample-import.yml --update
 
 When updating:
 - Text, header, and links are replaced with values from the import file
-- Fields not in the import file (like `active`, `normative`) are preserved
+- Fields not in the import file (like `active`) are preserved
 - The `reviewed` status is cleared, marking the item as needing re-review
 
 Preview updates before applying:
@@ -471,7 +471,7 @@ jobs:
       - name: Install dependencies
         run: pip install jamb pytest
 
-      - name: Validate doorstop configuration
+      - name: Validate requirements
         run: jamb validate
 
       - name: Check requirement coverage

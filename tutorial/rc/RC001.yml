@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Vital Sign Validation
+header: 'Vital Sign Validation'
 level: 1
 links:
-- HAZ001: gT0LG2TaC3Quy7ta4XrFt0FzuF3_Ud09wURU7lyY9tE=
-normative: true
-ref: ''
+- HAZ001: oMDEpSjIeNzCKkuza1xyZ68t5tRfLhqjM3oJVfFV1LE
 reviewed: 7UK4ZCVH4SIb0gpZ9aC46ylHgHjSUIknK_pueyLawFs=
 text: |
   System shall validate vital sign data against physiological ranges before display.

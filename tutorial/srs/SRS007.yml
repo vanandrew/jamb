@@ -1,13 +1,9 @@
 active: true
-derived: false
-header: |
-  Data Polling
+header: 'Data Polling'
 level: 7
 links:
-- RC001: -7nCkt8OCo-8Xf7Jc28kOQquXA9oWBXZIuBN4GESouQ=
-- SYS003: OYzpZN4P1bFv7Ml2GysBCv0PltRcgRu6utN9dgzHB10=
-normative: true
-ref: ''
+- RC001: kwHbQQR8DK8VPlULkitCnTBy6Syt2Szs4S8SKIegr9Y
+- SYS003: ez_JaZegu4Xct8a1BiFJHXkQayVC_CmTHDG5AVr02QE
 reviewed: j21HnwR4KBp0KILRnxrfXEjy2SCENkIp4hB-bMXm_T4=
 text: |
   Software shall poll device API every 5 seconds.

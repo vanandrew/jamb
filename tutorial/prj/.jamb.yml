@@ -1,5 +1,4 @@
 settings:
-  digits: 3
-  itemformat: yaml
   prefix: PRJ
+  digits: 3
   sep: ''

@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Vital Signs Monitoring
+header: 'Vital Signs Monitoring'
 level: 2
 links:
-- PRJ001: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
-normative: true
-ref: ''
+- PRJ001: Mq6bF-I7s2EHIxhnGU_VrqIEZdorrU-ZNb1xjrNbip0
 reviewed: jGze8V07Ld7qVJWYAlCaGRgMgwE68c7nVGShlQYoFbA=
 text: |
   User shall be able to view real-time patient vital signs.

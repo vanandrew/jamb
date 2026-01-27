@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Export Formats
+header: 'Export Formats'
 level: 8
 links:
-- UN005: hg4UBT-UuYE9Tg4ObFUu4IU-KT5tQBMt8KHfCsJhdsw=
-normative: true
-ref: ''
+- UN005: pgKTVSZV8T4cDeERvNJjDEygpciwYTHU7RMcpR8uI48
 reviewed: L8C0l9CAITo2zycQNBNw1qs1UPtbFql76s0xUwLyDwQ=
 text: |
   System shall export data in CSV and PDF formats.

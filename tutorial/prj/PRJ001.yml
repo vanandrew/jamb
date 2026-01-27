@@ -1,11 +1,7 @@
 active: true
-derived: false
-header: |
-  Patient Monitoring System
+header: 'Patient Monitoring System'
 level: 1
 links: []
-normative: true
-ref: ''
 reviewed: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
 text: |
   The Patient Monitoring System shall provide real-time vital signs monitoring,

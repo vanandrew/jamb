@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  WebSocket Connection
+header: 'WebSocket Connection'
 level: 6
 links:
-- SYS003: OYzpZN4P1bFv7Ml2GysBCv0PltRcgRu6utN9dgzHB10=
-normative: true
-ref: ''
+- SYS003: ez_JaZegu4Xct8a1BiFJHXkQayVC_CmTHDG5AVr02QE
 reviewed: 4WcpLOIpL3hux3Fh73m7Ft9klz77BxmJbJ-qT-om4QA=
 text: |
   Software shall establish WebSocket for real-time data push.

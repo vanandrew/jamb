@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Alert Notification Failure
+header: 'Alert Notification Failure'
 level: 2
 links:
-- PRJ001: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
-normative: true
-ref: ''
+- PRJ001: Mq6bF-I7s2EHIxhnGU_VrqIEZdorrU-ZNb1xjrNbip0
 reviewed: Z_X1a9jX8ANoXBhQqBAVGF8TNIhcosTWv2P-Vo7ilV4=
 text: |
   Delayed or missed alert notification could result in failure to respond to critical patient condition.

@@ -4,7 +4,7 @@ import io
 
 from docx import Document
 
-from jamb.core.models import Item
+from jamb.core.models import Item, TraceabilityGraph
 from jamb.publish.formats.docx import render_docx
 
 
@@ -215,3 +215,26 @@ class TestRenderDocx:
         paragraphs = [p.text for p in doc.paragraphs]
         full_text = " ".join(paragraphs)
         assert "Links:" in full_text
+
+    def test_render_docx_child_links_with_graph(self):
+        """Test that child links appear when graph is provided."""
+        graph = TraceabilityGraph()
+        un_item = Item(uid="UN001", text="Customer need", document_prefix="UN")
+        srs_item = Item(
+            uid="SRS001",
+            text="Software req",
+            document_prefix="SRS",
+            links=["UN001"],
+        )
+        graph.add_item(un_item)
+        graph.add_item(srs_item)
+
+        items = [un_item, srs_item]
+        result = render_docx(items, "Requirements Document", graph=graph)
+
+        doc = Document(io.BytesIO(result))
+        paragraphs = [p.text for p in doc.paragraphs]
+        full_text = " ".join(paragraphs)
+
+        # UN001 should have "Linked from:" showing SRS001
+        assert "Linked from:" in full_text

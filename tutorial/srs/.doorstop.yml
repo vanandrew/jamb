@@ -1,6 +1,0 @@
-settings:
-  digits: 3
-  itemformat: yaml
-  parent: SYS
-  prefix: SRS
-  sep: ''

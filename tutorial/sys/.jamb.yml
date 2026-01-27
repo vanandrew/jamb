@@ -1,0 +1,6 @@
+settings:
+  prefix: SYS
+  digits: 3
+  sep: ''
+  parents:
+    - UN

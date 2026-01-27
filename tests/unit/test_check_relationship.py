@@ -182,17 +182,17 @@ def _build_test_graph() -> TraceabilityGraph:
 
 
 def _mock_trace_setup(monkeypatch, graph=None):
-    """Monkeypatch discover_tree and build_traceability_graph for CLI tests."""
+    """Monkeypatch discover_documents and build_traceability_graph for CLI tests."""
     if graph is None:
         graph = _build_test_graph()
 
     monkeypatch.setattr(
-        "jamb.doorstop.discovery.discover_tree",
+        "jamb.storage.discover_documents",
         lambda root=None: None,
     )
     monkeypatch.setattr(
-        "jamb.doorstop.reader.build_traceability_graph",
-        lambda tree, **kwargs: graph,
+        "jamb.storage.build_traceability_graph",
+        lambda dag, **kwargs: graph,
     )
     return graph
 
@@ -379,7 +379,7 @@ class TestTraceOneToOne:
 
     def test_skips_non_normative_items(self, monkeypatch):
         graph = TraceabilityGraph()
-        a1 = Item(uid="A001", text="A1", document_prefix="A", normative=False, links=[])
+        a1 = Item(uid="A001", text="A1", document_prefix="A", type="info", links=[])
         graph.add_item(a1)
         graph.set_document_parent("A", None)
         graph.set_document_parent("B", "A")

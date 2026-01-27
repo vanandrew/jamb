@@ -1,0 +1,44 @@
+"""Filesystem discovery for jamb document trees."""
+
+from pathlib import Path
+
+from jamb.storage.document_config import load_document_config
+from jamb.storage.document_dag import DocumentDAG
+
+
+def discover_documents(root: Path | None = None) -> DocumentDAG:
+    """Walk filesystem for .jamb.yml files and build a DAG.
+
+    Args:
+        root: Root directory to search. Defaults to current working directory.
+
+    Returns:
+        DocumentDAG containing all discovered documents.
+
+    Raises:
+        FileNotFoundError: If root directory does not exist.
+    """
+    if root is None:
+        root = Path.cwd()
+
+    root = root.resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"Root directory not found: {root}")
+
+    dag = DocumentDAG()
+
+    for config_path in _find_config_files(root):
+        try:
+            config = load_document_config(config_path)
+        except (ValueError, Exception):
+            continue
+
+        dag.documents[config.prefix] = config
+        dag.document_paths[config.prefix] = config_path.parent
+
+    return dag
+
+
+def _find_config_files(root: Path) -> list[Path]:
+    """Find all .jamb.yml files under root."""
+    return sorted(root.rglob(".jamb.yml"))

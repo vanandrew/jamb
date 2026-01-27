@@ -1,25 +1,34 @@
 """CLI commands for jamb."""
 
 import ast
-import subprocess
+import os
 import sys
 from pathlib import Path
 
 import click
+import yaml
 
 
-def _run_doorstop(*args: str) -> int:
-    """Run a doorstop command, passing through all arguments.
+def _find_item_path(
+    uid: str, root: Path | None = None
+) -> tuple[Path | None, str | None]:
+    """Find the filesystem path of an item YAML file.
 
-    Args:
-        *args: Command arguments to pass to doorstop.
-
-    Returns:
-        The exit code from the doorstop command.
+    Returns (item_path, document_prefix) or (None, None) if not found.
     """
-    cmd = ["doorstop", *args]
-    result = subprocess.run(cmd)
-    return result.returncode
+    from jamb.storage import discover_documents
+
+    dag = discover_documents(root)
+    import re
+
+    for prefix, doc_path in dag.document_paths.items():
+        pattern = re.compile(rf"^{re.escape(prefix)}", re.IGNORECASE)
+        if pattern.match(uid):
+            item_path = doc_path / f"{uid}.yml"
+            if item_path.exists():
+                return item_path, prefix
+
+    return None, None
 
 
 @click.group()
@@ -38,14 +47,16 @@ def init() -> None:
 
     \b
       PRJ (Project Requirements) - root
-      ├── UN (User Needs)
-      │   └── SYS (System Requirements)
-      │       └── SRS (Software Requirements Specification)
-      └── HAZ (Hazards)
-          └── RC (Risk Controls)
+      +-- UN (User Needs)
+      |   +-- SYS (System Requirements)
+      |       +-- SRS (Software Requirements Specification)
+      +-- HAZ (Hazards)
+          +-- RC (Risk Controls)
 
     If pyproject.toml exists, adds [tool.jamb] configuration.
     """
+    from jamb.storage.document_config import DocumentConfig, save_document_config
+
     reqs_dir = Path.cwd() / "reqs"
 
     # Check if reqs folder already exists with documents
@@ -53,7 +64,7 @@ def init() -> None:
         existing_docs = []
         for doc_name in ["prj", "un", "sys", "srs", "haz", "rc"]:
             doc_path = reqs_dir / doc_name
-            if doc_path.exists() and (doc_path / ".doorstop.yml").exists():
+            if doc_path.exists() and (doc_path / ".jamb.yml").exists():
                 existing_docs.append(doc_name.upper())
         if existing_docs:
             click.echo(
@@ -69,26 +80,28 @@ def init() -> None:
     reqs_dir.mkdir(exist_ok=True)
     click.echo(f"Created directory: {reqs_dir}")
 
-    # Create documents using doorstop
+    # Create documents
     documents = [
-        ("PRJ", "reqs/prj", None),
-        ("UN", "reqs/un", "PRJ"),
-        ("SYS", "reqs/sys", "UN"),
-        ("SRS", "reqs/srs", "SYS"),
-        ("HAZ", "reqs/haz", "PRJ"),
-        ("RC", "reqs/rc", "HAZ"),
+        DocumentConfig(prefix="PRJ", parents=[], digits=3),
+        DocumentConfig(prefix="UN", parents=["PRJ"], digits=3),
+        DocumentConfig(prefix="SYS", parents=["UN"], digits=3),
+        DocumentConfig(prefix="SRS", parents=["SYS", "RC"], digits=3),
+        DocumentConfig(prefix="HAZ", parents=["PRJ"], digits=3),
+        DocumentConfig(prefix="RC", parents=["HAZ"], digits=3),
     ]
 
-    for prefix, path, parent in documents:
-        args = ["create", prefix, path, "--digits", "3"]
-        if parent:
-            args.extend(["--parent", parent])
-
-        result = _run_doorstop(*args)
-        if result != 0:
-            click.echo(f"Error: Failed to create {prefix} document", err=True)
-            sys.exit(result)
-        click.echo(f"Created document: {prefix} at {path}")
+    for config in documents:
+        doc_path = reqs_dir / config.prefix.lower()
+        try:
+            save_document_config(config, doc_path)
+            click.echo(
+                f"Created document: {config.prefix} at reqs/{config.prefix.lower()}"
+            )
+        except Exception as e:
+            click.echo(
+                f"Error: Failed to create {config.prefix} document: {e}", err=True
+            )
+            sys.exit(1)
 
     # Update pyproject.toml if it exists
     pyproject_path = Path.cwd() / "pyproject.toml"
@@ -148,47 +161,56 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
     help="Project root directory",
 )
 def info(documents: str | None, root: Path | None) -> None:
-    """Display doorstop document information.
+    """Display document information.
 
     Shows document structure, hierarchy, and item counts.
     """
-    from jamb.doorstop.discovery import discover_tree
+    from jamb.storage import discover_documents
+    from jamb.storage.items import read_document_items
 
     _ = documents  # Reserved for future filtering functionality
 
     try:
-        tree = discover_tree(root)
-        click.echo(f"Found doorstop tree with {len(tree.documents)} documents:")
-        for doc in tree.documents:
-            parent = doc.parent or "(root)"
-            count = sum(1 for item in doc if item.active)
-            click.echo(f"  - {doc.prefix}: {count} active items (parent: {parent})")
+        dag = discover_documents(root)
+        click.echo(f"Found {len(dag.documents)} documents:")
+        for prefix in dag.topological_sort():
+            config = dag.documents[prefix]
+            doc_path = dag.document_paths.get(prefix)
+            count = 0
+            if doc_path:
+                items = read_document_items(doc_path, prefix)
+                count = len(items)
+            parents_str = ", ".join(config.parents) if config.parents else "(root)"
+            click.echo(f"  - {prefix}: {count} active items (parents: {parents_str})")
 
         # Show hierarchy
         click.echo("\nDocument hierarchy:")
-        _print_hierarchy(tree)
+        _print_dag_hierarchy(dag)
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 
-def _print_hierarchy(tree, prefix: str = "", doc=None) -> None:
-    """Print document hierarchy as a tree."""
-    if doc is None:
-        # Find root documents
-        roots = [d for d in tree.documents if d.parent is None]
-        for i, root_doc in enumerate(roots):
-            is_last = i == len(roots) - 1
-            click.echo(f"{prefix}{'`-- ' if is_last else '|-- '}{root_doc.prefix}")
-            _print_hierarchy(tree, prefix + ("    " if is_last else "|   "), root_doc)
-    else:
-        # Find children of this document
-        children = [d for d in tree.documents if d.parent == doc.prefix]
-        for i, child in enumerate(children):
-            is_last = i == len(children) - 1
-            click.echo(f"{prefix}{'`-- ' if is_last else '|-- '}{child.prefix}")
-            _print_hierarchy(tree, prefix + ("    " if is_last else "|   "), child)
+def _print_dag_hierarchy(dag, prefix: str = "", nodes: list[str] | None = None) -> None:
+    """Print document hierarchy as a tree (DAG-aware)."""
+    if nodes is None:
+        nodes = dag.get_root_documents() or []
+
+    for i, node in enumerate(nodes):
+        is_last = i == len(nodes) - 1
+        config = dag.documents[node]
+        parents_info = ""
+        if config.parents:
+            parents_info = f" (parents: {', '.join(config.parents)})"
+        click.echo(f"{prefix}{'`-- ' if is_last else '|-- '}{node}{parents_info}")
+        children = dag.get_children(node)
+        if children:
+            _print_dag_hierarchy(
+                dag,
+                prefix + ("    " if is_last else "|   "),
+                children,
+            )
 
 
 @cli.command()
@@ -206,18 +228,17 @@ def check(documents: str | None, root: Path | None) -> None:
     """Check test coverage without running tests.
 
     Scans test files for @pytest.mark.requirement markers and
-    reports which doorstop items have linked tests.
+    reports which items have linked tests.
 
     Note: This does a static scan and doesn't run tests.
     For full coverage including test outcomes, use pytest --jamb.
     """
     from jamb.config.loader import load_config
-    from jamb.doorstop.discovery import discover_tree
-    from jamb.doorstop.reader import build_traceability_graph
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
-        tree = discover_tree(root)
-        graph = build_traceability_graph(tree)
+        dag = discover_documents(root)
+        graph = build_traceability_graph(dag)
         config = load_config()
 
         # Determine test documents to check
@@ -238,7 +259,11 @@ def check(documents: str | None, root: Path | None) -> None:
         uncovered = []
         for prefix in test_docs:
             for item in graph.get_items_by_document(prefix):
-                if item.normative and item.active and item.uid not in linked_items:
+                if (
+                    item.type == "requirement"
+                    and item.active
+                    and item.uid not in linked_items
+                ):
                     uncovered.append(item)
 
         if uncovered:
@@ -257,8 +282,6 @@ def check(documents: str | None, root: Path | None) -> None:
 
 def _scan_tests_for_requirements(root: Path) -> set[str]:
     """Scan test files for requirement markers."""
-    import ast
-
     linked: set[str] = set()
 
     # Find test files
@@ -305,42 +328,79 @@ def _is_requirement_marker(node: ast.Call) -> bool:
 
 @cli.group()
 def doc() -> None:
-    """Manage doorstop documents."""
+    """Manage documents."""
     pass
 
 
 @doc.command("create")
 @click.argument("prefix")
 @click.argument("path")
-@click.option("--parent", "-p", help="Parent document prefix")
+@click.option(
+    "--parent", "-p", multiple=True, help="Parent document prefix (repeatable for DAG)"
+)
 @click.option(
     "--digits", "-d", default=3, type=int, help="Number of digits for item IDs"
 )
 @click.option("--sep", "-s", default="", help="Separator between prefix and number")
 def doc_create(
-    prefix: str, path: str, parent: str | None, digits: int, sep: str
+    prefix: str, path: str, parent: tuple[str, ...], digits: int, sep: str
 ) -> None:
     """Create a new document.
 
     PREFIX is the document identifier (e.g., SRS, UT).
     PATH is the directory where the document will be created.
+
+    Supports multiple parents for DAG hierarchy:
+        jamb doc create SRS reqs/srs --parent SYS --parent RC
     """
-    args = ["create", prefix, path, "--digits", str(digits)]
-    if parent:
-        args.extend(["--parent", parent])
-    if sep:
-        args.extend(["--sep", sep])
-    sys.exit(_run_doorstop(*args))
+    from jamb.storage.document_config import DocumentConfig, save_document_config
+
+    config = DocumentConfig(
+        prefix=prefix,
+        parents=list(parent),
+        digits=digits,
+        sep=sep,
+    )
+
+    doc_path = Path(path)
+    try:
+        save_document_config(config, doc_path)
+        parents_str = f" (parents: {', '.join(parent)})" if parent else ""
+        click.echo(f"Created document: {prefix} at {path}{parents_str}")
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @doc.command("delete")
 @click.argument("prefix")
-def doc_delete(prefix: str) -> None:
+@click.option(
+    "--root",
+    type=click.Path(exists=True, path_type=Path),
+    help="Project root directory",
+)
+def doc_delete(prefix: str, root: Path | None) -> None:
     """Delete a document.
 
     PREFIX is the document identifier to delete (e.g., SRS, UT).
     """
-    sys.exit(_run_doorstop("delete", prefix))
+    from jamb.storage import discover_documents
+
+    try:
+        dag = discover_documents(root)
+        if prefix not in dag.document_paths:
+            click.echo(f"Error: Document '{prefix}' not found", err=True)
+            sys.exit(1)
+
+        doc_path = dag.document_paths[prefix]
+        import shutil
+
+        shutil.rmtree(doc_path)
+        click.echo(f"Deleted document: {prefix}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @doc.command("list")
@@ -351,18 +411,24 @@ def doc_delete(prefix: str) -> None:
 )
 def doc_list(root: Path | None) -> None:
     """List all documents in the tree."""
-    from jamb.doorstop.discovery import discover_tree
+    from jamb.storage import discover_documents
+    from jamb.storage.items import read_document_items
 
     try:
-        tree = discover_tree(root)
-        click.echo(f"Found {len(tree.documents)} documents:")
-        for doc in tree.documents:
-            parent = doc.parent or "(root)"
-            count = sum(1 for item in doc if item.active)
-            click.echo(f"  {doc.prefix}: {count} active items (parent: {parent})")
+        dag = discover_documents(root)
+        click.echo(f"Found {len(dag.documents)} documents:")
+        for prefix in dag.topological_sort():
+            config = dag.documents[prefix]
+            doc_path = dag.document_paths.get(prefix)
+            count = 0
+            if doc_path:
+                items = read_document_items(doc_path, prefix)
+                count = len(items)
+            parents_str = ", ".join(config.parents) if config.parents else "(root)"
+            click.echo(f"  {prefix}: {count} active items (parents: {parents_str})")
 
         click.echo("\nHierarchy:")
-        _print_hierarchy(tree)
+        _print_dag_hierarchy(dag)
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -378,12 +444,40 @@ def doc_reorder(prefix: str, auto: bool, manual: bool) -> None:
 
     PREFIX is the document identifier (e.g., SRS, UT).
     """
-    args = ["reorder", prefix]
-    if auto:
-        args.append("--auto")
-    if manual:
-        args.append("--manual")
-    sys.exit(_run_doorstop(*args))
+    from jamb.storage import discover_documents
+    from jamb.storage.items import read_document_items
+
+    _ = manual  # manual mode not yet implemented natively
+
+    try:
+        dag = discover_documents()
+        if prefix not in dag.document_paths:
+            click.echo(f"Error: Document '{prefix}' not found", err=True)
+            sys.exit(1)
+
+        doc_path = dag.document_paths[prefix]
+        items = read_document_items(doc_path, prefix, include_inactive=True)
+
+        if auto:
+            # Sort by current level, then reassign sequential levels
+            items.sort(key=lambda i: (i["level"], i["uid"]))
+            for idx, item_data in enumerate(items, start=1):
+                item_path = doc_path / f"{item_data['uid']}.yml"
+                with open(item_path) as f:
+                    data = yaml.safe_load(f) or {}
+                data["level"] = str(float(idx))
+                with open(item_path, "w") as f:
+                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+            click.echo(f"Reordered {len(items)} items in {prefix}")
+        else:
+            click.echo(f"Items in {prefix}:")
+            for item_data in items:
+                click.echo(f"  {item_data['uid']} (level {item_data['level']})")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 # =============================================================================
@@ -393,7 +487,7 @@ def doc_reorder(prefix: str, auto: bool, manual: bool) -> None:
 
 @cli.group()
 def item() -> None:
-    """Manage doorstop items."""
+    """Manage items."""
     pass
 
 
@@ -406,12 +500,36 @@ def item_add(prefix: str, level: str | None, count: int) -> None:
 
     PREFIX is the document to add the item to (e.g., SRS, UT).
     """
-    args = ["add", prefix]
-    if level:
-        args.extend(["--level", level])
-    if count > 1:
-        args.extend(["--count", str(count)])
-    sys.exit(_run_doorstop(*args))
+    from jamb.storage import discover_documents
+    from jamb.storage.items import next_uid, read_document_items, write_item
+
+    try:
+        dag = discover_documents()
+        if prefix not in dag.document_paths:
+            click.echo(f"Error: Document '{prefix}' not found", err=True)
+            sys.exit(1)
+
+        config = dag.documents[prefix]
+        doc_path = dag.document_paths[prefix]
+        existing = read_document_items(doc_path, prefix, include_inactive=True)
+        existing_uids = [i["uid"] for i in existing]
+
+        for _ in range(count):
+            uid = next_uid(prefix, config.digits, existing_uids, config.sep)
+            item_data = {
+                "active": True,
+                "type": "requirement",
+                "level": float(level) if level else 1.0,
+                "text": "",
+            }
+            item_path = doc_path / f"{uid}.yml"
+            write_item(item_data, item_path)
+            existing_uids.append(uid)
+            click.echo(f"Added item: {uid}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @item.command("list")
@@ -426,27 +544,35 @@ def item_list(prefix: str | None, root: Path | None) -> None:
 
     PREFIX is optional - if provided, only list items in that document.
     """
-    from jamb.doorstop.discovery import discover_tree
+    from jamb.storage import discover_documents
+    from jamb.storage.items import read_document_items
 
     try:
-        tree = discover_tree(root)
+        dag = discover_documents(root)
 
         if prefix:
-            # List items in specific document
-            doc = tree.find_document(prefix)
-            docs = [doc]
+            if prefix not in dag.document_paths:
+                click.echo(f"Error: Document '{prefix}' not found", err=True)
+                sys.exit(1)
+            prefixes = [prefix]
         else:
-            # List all documents
-            docs = tree.documents
+            prefixes = dag.topological_sort()
 
-        for doc in docs:
-            items = [item for item in doc if item.active]
+        for p in prefixes:
+            doc_path = dag.document_paths.get(p)
+            if not doc_path:
+                continue
+            items = read_document_items(doc_path, p)
             if items:
-                click.echo(f"\n{doc.prefix} ({len(items)} items):")
-                for item in items:
-                    text = item.text[:60] + "..." if len(item.text) > 60 else item.text
+                click.echo(f"\n{p} ({len(items)} items):")
+                for item_data in items:
+                    text = (
+                        item_data["text"][:60] + "..."
+                        if len(item_data["text"]) > 60
+                        else item_data["text"]
+                    )
                     text = text.replace("\n", " ").strip()
-                    click.echo(f"  {item.uid}: {text}")
+                    click.echo(f"  {item_data['uid']}: {text}")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -460,7 +586,13 @@ def item_remove(uid: str) -> None:
 
     UID is the item identifier (e.g., SRS001, UT002).
     """
-    sys.exit(_run_doorstop("remove", uid))
+    item_path, _ = _find_item_path(uid)
+    if item_path is None:
+        click.echo(f"Error: Item '{uid}' not found", err=True)
+        sys.exit(1)
+
+    item_path.unlink()
+    click.echo(f"Removed item: {uid}")
 
 
 @item.command("edit")
@@ -475,10 +607,16 @@ def item_edit(uid: str, tool: str | None) -> None:
 
     UID is the item identifier (e.g., SRS001, UT002).
     """
-    args = ["edit", uid]
-    if tool:
-        args.extend(["--tool", tool])
-    sys.exit(_run_doorstop(*args))
+    import subprocess
+
+    item_path, _ = _find_item_path(uid)
+    if item_path is None:
+        click.echo(f"Error: Item '{uid}' not found", err=True)
+        sys.exit(1)
+
+    editor = tool or os.environ.get("EDITOR", "vim")
+    result = subprocess.run([editor, str(item_path)])
+    sys.exit(result.returncode)
 
 
 @item.command("show")
@@ -488,22 +626,28 @@ def item_show(uid: str) -> None:
 
     UID is the item identifier (e.g., SRS001, UT002).
     """
-    from jamb.doorstop.discovery import discover_tree
+    from jamb.storage.items import read_item
 
     try:
-        tree = discover_tree()
-        found_item = tree.find_item(uid)
+        item_path, prefix = _find_item_path(uid)
+        if item_path is None or prefix is None:
+            click.echo(f"Error: Item '{uid}' not found", err=True)
+            sys.exit(1)
 
-        click.echo(f"UID: {found_item.uid}")
-        click.echo(f"Document: {found_item.document.prefix}")
-        click.echo(f"Active: {found_item.active}")
-        click.echo(f"Normative: {found_item.normative}")
-        click.echo(f"Level: {found_item.level}")
-        if found_item.header:
-            click.echo(f"Header: {found_item.header}")
-        if found_item.links:
-            click.echo(f"Links: {', '.join(str(link) for link in found_item.links)}")
-        click.echo(f"\nText:\n{found_item.text}")
+        data = read_item(item_path, prefix)
+
+        click.echo(f"UID: {data['uid']}")
+        click.echo(f"Document: {data['document_prefix']}")
+        click.echo(f"Active: {data['active']}")
+        click.echo(f"Type: {data['type']}")
+        click.echo(f"Level: {data['level']}")
+        if data.get("header"):
+            click.echo(f"Header: {data['header']}")
+        if data.get("links"):
+            click.echo(f"Links: {', '.join(data['links'])}")
+        if data.get("reviewed"):
+            click.echo(f"Reviewed: {data['reviewed']}")
+        click.echo(f"\nText:\n{data['text']}")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
@@ -525,12 +669,13 @@ def item_import(
     PREFIX is the document to import into.
     PATH is the path to the import file (CSV, TSV, XLSX).
     """
-    args = ["import", prefix, path]
+    # Native item import not yet implemented, show helpful message
+    click.echo(f"Item import for {prefix} from {path}")
     if file_path:
-        args.extend(["--file", file_path])
+        click.echo(f"  File: {file_path}")
     if mapping:
-        args.extend(["--map", mapping])
-    sys.exit(_run_doorstop(*args))
+        click.echo(f"  Mapping: {mapping}")
+    click.echo("Note: Use 'jamb import <file.yml>' for YAML import.")
 
 
 @item.command("export")
@@ -544,12 +689,13 @@ def item_export(prefix: str, path: str, xlsx: bool, csv: bool) -> None:
     PREFIX is the document to export.
     PATH is the output file path.
     """
-    args = ["export", prefix, path]
+    # Native item export not yet implemented, show helpful message
+    click.echo(f"Item export for {prefix} to {path}")
     if xlsx:
-        args.append("--xlsx")
+        click.echo("  Format: XLSX")
     if csv:
-        args.append("--csv")
-    sys.exit(_run_doorstop(*args))
+        click.echo("  Format: CSV")
+    click.echo("Note: Use 'jamb export <file.yml>' for YAML export.")
 
 
 # =============================================================================
@@ -572,7 +718,29 @@ def link_add(child: str, parent: str) -> None:
     CHILD is the child item UID (e.g., SRS001).
     PARENT is the parent item UID (e.g., SYS001).
     """
-    sys.exit(_run_doorstop("link", child, parent))
+    item_path, prefix = _find_item_path(child)
+    if item_path is None:
+        click.echo(f"Error: Item '{child}' not found", err=True)
+        sys.exit(1)
+
+    with open(item_path) as f:
+        data = yaml.safe_load(f) or {}
+
+    links = data.get("links", [])
+    # Check if link already exists
+    for entry in links:
+        link_uid = entry if isinstance(entry, str) else next(iter(entry))
+        if str(link_uid) == parent:
+            click.echo(f"Link already exists: {child} -> {parent}")
+            return
+
+    links.append(parent)
+    data["links"] = links
+
+    with open(item_path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+    click.echo(f"Linked: {child} -> {parent}")
 
 
 @link.command("remove")
@@ -584,7 +752,33 @@ def link_remove(child: str, parent: str) -> None:
     CHILD is the child item UID (e.g., SRS001).
     PARENT is the parent item UID (e.g., SYS001).
     """
-    sys.exit(_run_doorstop("unlink", child, parent))
+    item_path, prefix = _find_item_path(child)
+    if item_path is None:
+        click.echo(f"Error: Item '{child}' not found", err=True)
+        sys.exit(1)
+
+    with open(item_path) as f:
+        data = yaml.safe_load(f) or {}
+
+    links = data.get("links", [])
+    new_links = []
+    removed = False
+    for entry in links:
+        link_uid = entry if isinstance(entry, str) else next(iter(entry))
+        if str(link_uid) == parent:
+            removed = True
+        else:
+            new_links.append(entry)
+
+    if not removed:
+        click.echo(f"Link not found: {child} -> {parent}", err=True)
+        sys.exit(1)
+
+    data["links"] = new_links
+    with open(item_path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+    click.echo(f"Unlinked: {child} -> {parent}")
 
 
 # =============================================================================
@@ -611,7 +805,35 @@ def review_mark(label: str) -> None:
         jamb review mark SRS      # Mark all items in SRS document
         jamb review mark all      # Mark all items in all documents
     """
-    sys.exit(_run_doorstop("review", label))
+    from jamb.storage import discover_documents
+    from jamb.storage.items import compute_content_hash, read_item
+
+    try:
+        dag = discover_documents()
+        items_to_mark = _resolve_label_to_item_paths(label, dag)
+
+        count = 0
+        for item_path, prefix in items_to_mark:
+            data = read_item(item_path, prefix)
+            content_hash = compute_content_hash(data)
+
+            # Read raw YAML and set reviewed field
+            with open(item_path) as f:
+                raw = yaml.safe_load(f) or {}
+            raw["reviewed"] = content_hash
+            with open(item_path, "w") as f:
+                yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+            count += 1
+            click.echo(f"marked item {data['uid']} as reviewed")
+
+        if count == 0:
+            click.echo("no items to mark")
+        else:
+            click.echo(f"marked {count} items as reviewed")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @review.command("clear")
@@ -630,9 +852,57 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
         jamb review clear all           # Clear all suspect links
         jamb review clear SRS001 CUS001 # Clear only link to CUS001
     """
-    args = ["clear", label]
-    args.extend(parents)
-    sys.exit(_run_doorstop(*args))
+    from jamb.storage import discover_documents
+    from jamb.storage.items import compute_content_hash, read_item
+
+    try:
+        dag = discover_documents()
+        items_to_clear = _resolve_label_to_item_paths(label, dag)
+        parent_set = set(parents) if parents else None
+
+        count = 0
+        for item_path, _prefix in items_to_clear:
+            # Read raw YAML
+            with open(item_path) as f:
+                raw = yaml.safe_load(f) or {}
+
+            links = raw.get("links", [])
+            updated = False
+
+            # Update link hashes for specified parents (or all)
+            new_links = []
+            for entry in links:
+                if isinstance(entry, dict):
+                    link_uid = next(iter(entry))
+                elif isinstance(entry, str):
+                    link_uid = entry
+                else:
+                    link_uid = str(entry)
+
+                if parent_set is None or str(link_uid) in parent_set:
+                    # Compute current hash for the linked item
+                    linked_path, linked_prefix = _find_item_path(str(link_uid))
+                    if linked_path and linked_prefix:
+                        linked_data = read_item(linked_path, linked_prefix)
+                        new_hash = compute_content_hash(linked_data)
+                        new_links.append({str(link_uid): new_hash})
+                        updated = True
+                    else:
+                        new_links.append(entry)
+                else:
+                    new_links.append(entry)
+
+            if updated:
+                raw["links"] = new_links
+                with open(item_path, "w") as f:
+                    yaml.dump(raw, f, default_flow_style=False, sort_keys=False)
+                count += 1
+
+        click.echo(f"Cleared suspect links on {count} items")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @review.command("reset")
@@ -653,39 +923,22 @@ def review_reset(label: str, root: Path | None) -> None:
         jamb review reset SRS      # Reset all items in SRS document
         jamb review reset all      # Reset all items in all documents
     """
-    from jamb.doorstop.discovery import discover_tree
+    from jamb.storage import discover_documents
 
     try:
-        tree = discover_tree(root)
+        dag = discover_documents(root)
+        items_to_reset = _resolve_label_to_item_paths(label, dag)
 
-        # Determine which items to reset
-        items_to_reset = []
-        if label.lower() == "all":
-            for doc in tree.documents:
-                items_to_reset.extend(doc)
-        else:
-            # Try as document prefix first
-            try:
-                doc = tree.find_document(label)
-                items_to_reset.extend(doc)
-            except Exception:
-                # Try as item UID
-                try:
-                    item = tree.find_item(label)
-                    items_to_reset.append(item)
-                except Exception:
-                    click.echo(
-                        f"Error: '{label}' is not a valid item or document", err=True
-                    )
-                    sys.exit(1)
-
-        # Reset each item
         count = 0
-        for item in items_to_reset:
-            if item.reviewed:
-                item.reviewed = None
-                item.save()
-                click.echo(f"reset item {item.uid} to unreviewed")
+        for item_path, _prefix in items_to_reset:
+            with open(item_path) as f:
+                data = yaml.safe_load(f) or {}
+
+            if "reviewed" in data:
+                del data["reviewed"]
+                with open(item_path, "w") as f:
+                    yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+                click.echo(f"reset item {item_path.stem} to unreviewed")
                 count += 1
 
         if count == 0:
@@ -698,8 +951,39 @@ def review_reset(label: str, root: Path | None) -> None:
         sys.exit(1)
 
 
+def _resolve_label_to_item_paths(label: str, dag) -> list[tuple[Path, str]]:
+    """Resolve a label (UID, prefix, or 'all') to list of (item_path, prefix) tuples."""
+    from jamb.storage.items import read_document_items
+
+    result: list[tuple[Path, str]] = []
+
+    if label.lower() == "all":
+        for prefix, doc_path in dag.document_paths.items():
+            items = read_document_items(doc_path, prefix, include_inactive=True)
+            for item_data in items:
+                result.append((doc_path / f"{item_data['uid']}.yml", prefix))
+        return result
+
+    # Try as document prefix first
+    if label in dag.document_paths:
+        doc_path = dag.document_paths[label]
+        items = read_document_items(doc_path, label, include_inactive=True)
+        for item_data in items:
+            result.append((doc_path / f"{item_data['uid']}.yml", label))
+        return result
+
+    # Try as item UID
+    for prefix, doc_path in dag.document_paths.items():
+        item_path = doc_path / f"{label}.yml"
+        if item_path.exists():
+            return [(item_path, prefix)]
+
+    click.echo(f"Error: '{label}' is not a valid item or document", err=True)
+    sys.exit(1)
+
+
 # =============================================================================
-# Publish Command (doorstop passthrough)
+# Publish Command
 # =============================================================================
 
 
@@ -708,10 +992,7 @@ def review_reset(label: str, root: Path | None) -> None:
 @click.argument("path", required=False)
 @click.option("--html", "-H", is_flag=True, help="Output HTML")
 @click.option("--markdown", "-m", is_flag=True, help="Output Markdown")
-@click.option("--latex", "-l", is_flag=True, help="Output LaTeX")
-@click.option("--text", "-t", is_flag=True, help="Output text (default when no path)")
 @click.option("--docx", "-d", is_flag=True, help="Output DOCX (Word document)")
-@click.option("--template", help="Template file for custom formatting")
 @click.option(
     "--no-child-links", "-C", is_flag=True, help="Do not include child links on items"
 )
@@ -720,10 +1001,7 @@ def publish(
     path: str | None,
     html: bool,
     markdown: bool,
-    latex: bool,
-    text: bool,
     docx: bool,
-    template: str | None,
     no_child_links: bool,
 ) -> None:
     """Publish a document.
@@ -733,7 +1011,9 @@ def publish(
 
     For a traceability matrix with test coverage, use: pytest --jamb --jamb-matrix PATH
     """
-    # Handle DOCX export (custom jamb functionality)
+    include_links = not no_child_links
+
+    # Handle DOCX export
     if docx:
         if not path:
             click.echo(
@@ -743,96 +1023,189 @@ def publish(
             click.echo("Example: jamb publish SRS output.docx --docx", err=True)
             sys.exit(1)
 
-        _publish_docx(prefix, path, not no_child_links)
+        _publish_docx(prefix, path, include_links)
         return
 
-    # Validate: "all" requires an output path (doorstop limitation)
+    # Handle HTML export
+    if html:
+        if not path:
+            click.echo("Error: --html requires an output PATH", err=True)
+            sys.exit(1)
+        _publish_html(prefix, path, include_links)
+        return
+
+    # Handle Markdown export natively
+    if markdown:
+        if not path:
+            click.echo("Error: --markdown requires an output PATH", err=True)
+            sys.exit(1)
+        _publish_markdown(prefix, path)
+        return
+
+    # Validate: "all" requires an output path
     if prefix.lower() == "all" and not path:
         click.echo(
-            "Error: 'all' requires an output PATH "
-            "(doorstop cannot display multiple documents to terminal)",
+            "Error: 'all' requires an output PATH",
             err=True,
         )
-        click.echo("Example: jamb publish all ./docs --html", err=True)
+        click.echo("Example: jamb publish all ./docs --docx", err=True)
         sys.exit(1)
 
-    args = ["publish", prefix]
+    # Auto-detect format from file extension
     if path:
-        args.append(path)
-    if html:
-        args.append("--html")
-    if markdown:
-        args.append("--markdown")
-    if latex:
-        args.append("--latex")
-    if text:
-        args.append("--text")
-    if template:
-        args.extend(["--template", template])
-    if no_child_links:
-        args.append("--no-child-links")
-    sys.exit(_run_doorstop(*args))
+        if path.endswith(".html") or path.endswith(".htm"):
+            _publish_html(prefix, path, include_links)
+        elif path.endswith(".docx"):
+            _publish_docx(prefix, path, include_links)
+        else:
+            _publish_markdown(prefix, path)
+    else:
+        _publish_markdown_stdout(prefix)
 
 
-def _get_document_hierarchy_order(tree) -> list[str]:
-    """Get document prefixes in hierarchy order.
-
-    Returns prefixes in depth-first order, with parents before children.
-    """
-    order = []
-    docs_by_parent: dict[str | None, list] = {}
-
-    # Group documents by parent
-    for doc in tree.documents:
-        parent = doc.parent if doc.parent else None
-        if parent not in docs_by_parent:
-            docs_by_parent[parent] = []
-        docs_by_parent[parent].append(doc)
-
-    # DFS traversal - keeps each branch together
-    def visit(prefix: str | None) -> None:
-        children = docs_by_parent.get(prefix, [])
-        for doc in children:
-            order.append(doc.prefix)
-            visit(doc.prefix)
-
-    visit(None)  # Start from roots
-    return order
-
-
-def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
-    """Publish documents as a single DOCX file.
-
-    Args:
-        prefix: Document prefix or 'all' for all documents.
-        path: Output file path.
-        include_child_links: Whether to include child links.
-    """
-    from jamb.doorstop.discovery import discover_tree
-    from jamb.doorstop.reader import read_tree
-    from jamb.publish.formats.docx import render_docx
+def _publish_html(prefix: str, path: str, include_links: bool) -> None:
+    """Publish documents as a standalone HTML file."""
+    from jamb.core.models import Item
+    from jamb.publish.formats.html import render_html
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
-        tree = discover_tree()
+        dag = discover_documents()
+        graph = build_traceability_graph(dag)
         output_path = Path(path)
 
-        # Get document hierarchy order
-        doc_order = _get_document_hierarchy_order(tree)
+        doc_order = dag.topological_sort()
 
         if prefix.lower() == "all":
-            # Export all documents to a single file
-            items = read_tree(tree)
+            items: list[Item] = list(graph.items.values())
             title = "Requirements Document"
         else:
-            # Export single document
-            items = read_tree(tree, [prefix])
+            items = graph.get_items_by_document(prefix)
             title = f"{prefix} Requirements Document"
 
         if not items:
             click.echo(f"Error: No items found for '{prefix}'", err=True)
             sys.exit(1)
 
-        docx_bytes = render_docx(items, title, include_child_links, doc_order)
+        html_content = render_html(items, title, include_links, doc_order, graph)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(html_content)
+        click.echo(f"Published to {output_path}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+def _publish_markdown_stdout(prefix: str) -> None:
+    """Publish a document as markdown to stdout."""
+    from jamb.storage import build_traceability_graph, discover_documents
+
+    try:
+        dag = discover_documents()
+        graph = build_traceability_graph(dag)
+
+        items = graph.get_items_by_document(prefix)
+        if not items:
+            click.echo(f"Error: No items found for '{prefix}'", err=True)
+            sys.exit(1)
+
+        items.sort(key=lambda i: (i.level, i.uid))
+        click.echo(f"# {prefix}\n")
+        for item_obj in items:
+            if item_obj.header:
+                click.echo(f"## {item_obj.uid}: {item_obj.header}\n")
+            else:
+                click.echo(f"## {item_obj.uid}\n")
+            if item_obj.text:
+                click.echo(f"{item_obj.text}\n")
+            if item_obj.links:
+                click.echo(f"*Links: {', '.join(item_obj.links)}*\n")
+            children = graph.item_children.get(item_obj.uid, [])
+            if children:
+                click.echo(f"*Linked from: {', '.join(children)}*\n")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+def _publish_markdown(prefix: str, path: str) -> None:
+    """Publish a document as markdown to a file."""
+    from jamb.storage import build_traceability_graph, discover_documents
+
+    try:
+        dag = discover_documents()
+        graph = build_traceability_graph(dag)
+        output_path = Path(path)
+
+        if prefix.lower() == "all":
+            prefixes = dag.topological_sort()
+        else:
+            prefixes = [prefix]
+
+        lines: list[str] = []
+        for p in prefixes:
+            items = graph.get_items_by_document(p)
+            if not items:
+                continue
+
+            items.sort(key=lambda i: (i.level, i.uid))
+            lines.append(f"# {p}\n")
+            for item_obj in items:
+                if item_obj.header:
+                    lines.append(f"## {item_obj.uid}: {item_obj.header}\n")
+                else:
+                    lines.append(f"## {item_obj.uid}\n")
+                if item_obj.text:
+                    lines.append(f"{item_obj.text}\n")
+                if item_obj.links:
+                    link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links]
+                    lines.append(f"*Links: {', '.join(link_parts)}*\n")
+                children = graph.item_children.get(item_obj.uid, [])
+                if children:
+                    child_parts = [f"[{uid}](#{uid})" for uid in children]
+                    lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
+                lines.append("")
+
+        if not lines:
+            click.echo(f"Error: No items found for '{prefix}'", err=True)
+            sys.exit(1)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("\n".join(lines))
+        click.echo(f"Published to {output_path}")
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
+    """Publish documents as a single DOCX file."""
+    from jamb.core.models import Item
+    from jamb.publish.formats.docx import render_docx
+    from jamb.storage import build_traceability_graph, discover_documents
+
+    try:
+        dag = discover_documents()
+        graph = build_traceability_graph(dag)
+        output_path = Path(path)
+
+        doc_order = dag.topological_sort()
+
+        if prefix.lower() == "all":
+            items: list[Item] = list(graph.items.values())
+            title = "Requirements Document"
+        else:
+            items = graph.get_items_by_document(prefix)
+            title = f"{prefix} Requirements Document"
+
+        if not items:
+            click.echo(f"Error: No items found for '{prefix}'", err=True)
+            sys.exit(1)
+
+        docx_bytes = render_docx(items, title, include_child_links, doc_order, graph)
         output_path.write_bytes(docx_bytes)
         click.echo(f"Published to {output_path}")
 
@@ -842,7 +1215,7 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
 
 
 # =============================================================================
-# Doorstop Passthrough Command
+# Validate Command
 # =============================================================================
 
 
@@ -860,40 +1233,16 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
     help="Only display errors and prompts",
 )
 @click.option(
-    "--no-reformat",
-    "-F",
-    is_flag=True,
-    help="Do not reformat item files during validation",
-)
-@click.option(
-    "--reorder",
-    "-r",
-    is_flag=True,
-    help="Reorder document levels during validation",
-)
-@click.option(
     "--no-level-check",
     "-L",
     is_flag=True,
     help="Do not validate document levels",
 )
 @click.option(
-    "--no-ref-check",
-    "-R",
-    is_flag=True,
-    help="Do not validate external file references",
-)
-@click.option(
     "--no-child-check",
     "-C",
     is_flag=True,
     help="Do not validate child (reverse) links",
-)
-@click.option(
-    "--strict-child-check",
-    "-Z",
-    is_flag=True,
-    help="Require child (reverse) links from every document",
 )
 @click.option(
     "--no-suspect-check",
@@ -929,12 +1278,8 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
 def validate(
     verbose: int,
     quiet: bool,
-    no_reformat: bool,
-    reorder: bool,
     no_level_check: bool,
-    no_ref_check: bool,
     no_child_check: bool,
-    strict_child_check: bool,
     no_suspect_check: bool,
     no_review_check: bool,
     skip_prefix: tuple[str, ...],
@@ -944,8 +1289,9 @@ def validate(
     """Validate the requirements tree.
 
     \b
-    Runs doorstop validation to check for issues like:
-      - Missing parent documents
+    Checks for issues like:
+      - Cycles in document hierarchy
+      - Invalid or missing links
       - Suspect links (items needing re-review)
       - Items without required links
 
@@ -954,37 +1300,57 @@ def validate(
         jamb validate              # Run validation
         jamb validate -v           # Verbose output
         jamb validate --skip UT    # Skip unit test document
-        jamb validate -F -S        # Skip reformatting and suspect checks
+        jamb validate -S           # Skip suspect checks
     """
-    args: list[str] = []
-    for _ in range(verbose):
-        args.append("--verbose")
-    if quiet:
-        args.append("--quiet")
-    if no_reformat:
-        args.append("--no-reformat")
-    if reorder:
-        args.append("--reorder")
-    if no_level_check:
-        args.append("--no-level-check")
-    if no_ref_check:
-        args.append("--no-ref-check")
-    if no_child_check:
-        args.append("--no-child-check")
-    if strict_child_check:
-        args.append("--strict-child-check")
-    if no_suspect_check:
-        args.append("--no-suspect-check")
-    if no_review_check:
-        args.append("--no-review-check")
-    for prefix in skip_prefix:
-        args.extend(["--skip", prefix])
-    if warn_all:
-        args.append("--warn-all")
-    if error_all:
-        args.append("--error-all")
+    from jamb.storage import build_traceability_graph, discover_documents
+    from jamb.storage.validation import validate as run_validate
 
-    sys.exit(_run_doorstop(*args))
+    try:
+        dag = discover_documents()
+        graph = build_traceability_graph(dag, include_inactive=True)
+
+        issues = run_validate(
+            dag,
+            graph,
+            check_links=True,
+            check_levels=not no_level_check,
+            check_suspect=not no_suspect_check,
+            check_review=not no_review_check,
+            check_children=not no_child_check,
+            skip_prefixes=list(skip_prefix),
+        )
+
+        # Promote/demote issue levels based on flags
+        for issue in issues:
+            if warn_all and issue.level == "info":
+                issue.level = "warning"
+            if error_all and issue.level == "warning":
+                issue.level = "error"
+
+        # Display issues
+        has_errors = False
+        for issue in issues:
+            if quiet and issue.level not in ("error",):
+                continue
+            if not verbose and issue.level == "info":
+                continue
+            click.echo(str(issue))
+            if issue.level == "error":
+                has_errors = True
+
+        if not issues:
+            click.echo("Validation passed - no issues found")
+        elif not has_errors:
+            warnings_count = sum(1 for i in issues if i.level == "warning")
+            click.echo(f"\nValidation passed with {warnings_count} warnings")
+        else:
+            errors_count = sum(1 for i in issues if i.level == "error")
+            click.echo(f"\nValidation failed with {errors_count} errors")
+            sys.exit(1)
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 # =============================================================================
@@ -1034,7 +1400,6 @@ def export_yaml(
         jamb export output.yml --items SRS001 --neighbors
         jamb export output.yml --items SRS001 --neighbors --documents SRS,SYS
     """
-    from jamb.doorstop.discovery import discover_tree
     from jamb.yaml_io import export_items_to_yaml, export_to_yaml
 
     # Validate: --neighbors requires --items
@@ -1043,8 +1408,6 @@ def export_yaml(
         sys.exit(1)
 
     try:
-        tree = discover_tree(root)
-
         prefixes = None
         if documents:
             prefixes = [d.strip() for d in documents.split(",")]
@@ -1052,10 +1415,10 @@ def export_yaml(
         if items:
             # Export specific items (with optional neighbors)
             item_uids = [uid.strip() for uid in items.split(",")]
-            export_items_to_yaml(tree, output, item_uids, neighbors, prefixes)
+            export_items_to_yaml(output, item_uids, neighbors, prefixes, root)
         else:
             # Export all items (original behavior)
-            export_to_yaml(tree, output, prefixes)
+            export_to_yaml(output, prefixes, root)
 
         click.echo(f"Exported to {output}")
 
@@ -1137,6 +1500,11 @@ def import_yaml_cmd(file: Path, dry_run: bool, update: bool, verbose: bool) -> N
 
 
 # =============================================================================
+# Migration Command
+# =============================================================================
+
+
+# =============================================================================
 # Trace Commands
 # =============================================================================
 
@@ -1146,7 +1514,7 @@ def _get_active_normative_items(graph, prefix: str) -> list:
     return [
         item
         for item in graph.get_items_by_document(prefix)
-        if item.active and item.normative
+        if item.active and item.type == "requirement"
     ]
 
 
@@ -1184,12 +1552,11 @@ def trace_has_children(document: str, error: bool, root: Path | None) -> None:
 
     A child is any item from any document that links to the item.
     """
-    from jamb.doorstop.discovery import discover_tree
-    from jamb.doorstop.reader import build_traceability_graph
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
-        tree = discover_tree(root)
-        graph = build_traceability_graph(tree)
+        dag = discover_documents(root)
+        graph = build_traceability_graph(dag)
         items = _get_active_normative_items(graph, document)
 
         failures = []
@@ -1215,12 +1582,11 @@ def trace_has_children(document: str, error: bool, root: Path | None) -> None:
 )
 def trace_has_parents(document: str, error: bool, root: Path | None) -> None:
     """Check every active normative item in DOCUMENT has a parent."""
-    from jamb.doorstop.discovery import discover_tree
-    from jamb.doorstop.reader import build_traceability_graph
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
-        tree = discover_tree(root)
-        graph = build_traceability_graph(tree)
+        dag = discover_documents(root)
+        graph = build_traceability_graph(dag)
         items = _get_active_normative_items(graph, document)
 
         failures = []
@@ -1247,12 +1613,11 @@ def trace_has_parents(document: str, error: bool, root: Path | None) -> None:
 )
 def trace_links_to(source: str, target: str, error: bool, root: Path | None) -> None:
     """Check every active normative item in SOURCE links to TARGET."""
-    from jamb.doorstop.discovery import discover_tree
-    from jamb.doorstop.reader import build_traceability_graph
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
-        tree = discover_tree(root)
-        graph = build_traceability_graph(tree)
+        dag = discover_documents(root)
+        graph = build_traceability_graph(dag)
         items = _get_active_normative_items(graph, source)
 
         failures = []
@@ -1283,12 +1648,11 @@ def trace_one_to_one(doc_a: str, doc_b: str, error: bool, root: Path | None) -> 
     Every active normative item in DOC_A must have exactly one child in DOC_B,
     and every active normative item in DOC_B must link to exactly one item in DOC_A.
     """
-    from jamb.doorstop.discovery import discover_tree
-    from jamb.doorstop.reader import build_traceability_graph
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
-        tree = discover_tree(root)
-        graph = build_traceability_graph(tree)
+        dag = discover_documents(root)
+        graph = build_traceability_graph(dag)
 
         failures = []
 

@@ -13,7 +13,7 @@ except ImportError:
 class JambConfig:
     """Configuration schema for jamb."""
 
-    # Which doorstop documents represent test specifications
+    # Which documents represent test specifications
     test_documents: list[str] = field(default_factory=list)
 
     # Coverage enforcement

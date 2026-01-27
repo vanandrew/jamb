@@ -66,7 +66,8 @@ def pytest_configure(config: pytest.Config) -> None:
     # Register the requirement marker
     config.addinivalue_line(
         "markers",
-        "requirement(*uids): Mark test as implementing specified doorstop item UID(s). "
+        "requirement(*uids): Mark test as implementing specified "
+        "requirement item UID(s). "
         "Example: @pytest.mark.requirement('UT001', 'UT002')",
     )
 
@@ -101,7 +102,7 @@ def pytest_report_header(config: pytest.Config) -> list[str] | None:
         collector = config.pluginmanager.get_plugin("jamb_collector")
         if collector and collector.graph:
             return [
-                f"jamb: tracking {len(collector.graph.items)} doorstop items",
+                f"jamb: tracking {len(collector.graph.items)} requirement items",
             ]
     return None
 
@@ -141,7 +142,7 @@ def pytest_terminal_summary(
     uncovered = [
         uid
         for uid, c in coverage.items()
-        if not c.is_covered and c.item.normative and c.item.active
+        if not c.is_covered and c.item.type == "requirement" and c.item.active
     ]
     if uncovered:
         terminalreporter.write_line("")

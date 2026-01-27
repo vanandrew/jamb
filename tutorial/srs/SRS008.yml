@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Database Write
+header: 'Database Write'
 level: 8
 links:
-- SYS004: gadF53o5490Oc61u_bbD2H7YaO49W7GNHwOlGP2NCbo=
-normative: true
-ref: ''
+- SYS004: kBPJnxBqvRYfmC4sUI4QgYUjCx5egtuZam08eyVkiz0
 reviewed: y2YSx8SM8C6cwl6ZGTDZda5sESvGzKNxDmxbBPxb3Kg=
 text: |
   Software shall write vital signs to PostgreSQL with timestamp.

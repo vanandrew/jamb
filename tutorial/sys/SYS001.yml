@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Authentication
+header: 'Authentication'
 level: 1
 links:
-- UN001: KdNLg6Rzo95yd2edHNpuG2muDlawIf-Sa0YOKjGSZyA=
-normative: true
-ref: ''
+- UN001: KUBmM112wHNsaINxEiwVM6dI7Oah2pjgutPTYvxgXuE
 reviewed: 5zWI-9dfw_sUObqhKQKTbG3aeUmu6J8ejJqZz5Kz-s4=
 text: |
   System shall authenticate users with username and password.

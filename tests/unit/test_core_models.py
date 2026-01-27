@@ -35,7 +35,6 @@ class TestItem:
         item = Item(uid="TEST001", text="Test", document_prefix="TEST")
 
         assert item.active is True
-        assert item.normative is True
         assert item.header is None
         assert item.level == 1.0
         assert item.links == []
@@ -190,13 +189,13 @@ class TestTraceabilityGraph:
         """Test set_document_parent stores relationship."""
         empty_graph.set_document_parent("SRS", "SYS")
 
-        assert empty_graph.document_parents["SRS"] == "SYS"
+        assert empty_graph.document_parents["SRS"] == ["SYS"]
 
     def test_set_document_parent_root(self, empty_graph):
         """Test set_document_parent with None for root."""
         empty_graph.set_document_parent("UN", None)
 
-        assert empty_graph.document_parents["UN"] is None
+        assert empty_graph.document_parents["UN"] == []
 
     def test_get_ancestors_circular_reference(self):
         """Test get_ancestors handles circular references without infinite loop."""
@@ -502,17 +501,6 @@ class TestItemAdditionalCases:
         )
 
         assert item.level == 2.5
-
-    def test_item_non_normative(self):
-        """Test Item with normative=False."""
-        item = Item(
-            uid="SRS001",
-            text="Informative note",
-            document_prefix="SRS",
-            normative=False,
-        )
-
-        assert item.normative is False
 
 
 class TestLinkedTestAdditionalCases:

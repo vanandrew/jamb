@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Vital Sign Display Error
+header: 'Vital Sign Display Error'
 level: 1
 links:
-- PRJ001: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
-normative: true
-ref: ''
+- PRJ001: Mq6bF-I7s2EHIxhnGU_VrqIEZdorrU-ZNb1xjrNbip0
 reviewed: -Un58Oyz38uU4bfTuGsuS85ANxmCVqjR-uJ4CPgUrEg=
 text: |
   Incorrect vital sign display could lead to misdiagnosis and delayed treatment.

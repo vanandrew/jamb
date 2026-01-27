@@ -10,8 +10,6 @@ if TYPE_CHECKING:
 
 from jamb.config.loader import JambConfig, load_config
 from jamb.core.models import ItemCoverage, LinkedTest, TraceabilityGraph
-from jamb.doorstop.discovery import discover_tree
-from jamb.doorstop.reader import build_traceability_graph
 from jamb.pytest_plugin.log import JAMB_LOG_KEY
 from jamb.pytest_plugin.markers import get_requirement_markers
 
@@ -25,18 +23,19 @@ class RequirementCollector:
         self.graph: TraceabilityGraph | None = None
         self.test_links: list[LinkedTest] = []
         self.unknown_items: set[str] = set()
-        self._load_doorstop()
+        self._load_requirements()
 
-    def _load_doorstop(self) -> None:
-        """Load requirements from doorstop."""
+    def _load_requirements(self) -> None:
+        """Load requirements from the native storage layer."""
         try:
-            tree = discover_tree()
-            self.graph = build_traceability_graph(tree)
+            from jamb.storage import build_traceability_graph, discover_documents
+
+            dag = discover_documents()
+            self.graph = build_traceability_graph(dag)
         except Exception as e:
-            # If doorstop isn't configured, create empty graph
             import warnings
 
-            warnings.warn(f"Could not load doorstop tree: {e}", stacklevel=2)
+            warnings.warn(f"Could not load requirements: {e}", stacklevel=2)
             self.graph = TraceabilityGraph()
 
     @pytest.hookimpl(hookwrapper=True)
@@ -147,7 +146,11 @@ class RequirementCollector:
         """Check if all normative items in test documents have test coverage."""
         coverage = self.get_coverage()
         for cov in coverage.values():
-            if cov.item.normative and cov.item.active and not cov.is_covered:
+            if (
+                cov.item.type == "requirement"
+                and cov.item.active
+                and not cov.is_covered
+            ):
                 return False
         return True
 
@@ -172,7 +175,7 @@ def pytest_report_header(config: pytest.Config) -> list[str] | None:
         collector = config.pluginmanager.get_plugin("jamb_collector")
         if collector and collector.graph:
             return [
-                f"jamb: tracking {len(collector.graph.items)} doorstop items",
+                f"jamb: tracking {len(collector.graph.items)} requirement items",
             ]
     return None
 
@@ -214,7 +217,7 @@ def pytest_terminal_summary(
     uncovered = [
         uid
         for uid, c in coverage.items()
-        if not c.is_covered and c.item.normative and c.item.active
+        if not c.is_covered and c.item.type == "requirement" and c.item.active
     ]
     if uncovered:
         terminalreporter.write_line("")

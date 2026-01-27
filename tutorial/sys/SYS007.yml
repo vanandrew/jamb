@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Alert Notification
+header: 'Alert Notification'
 level: 7
 links:
-- UN004: e8hbF15zC_CsYDUlGTsCM-sKUmgzpP627EpGGWuOBBI=
-normative: true
-ref: ''
+- UN004: bhliXbf2HynF-bfXg2KF0VWsTmCejMKEHOvIpyqcsYE
 reviewed: SaoLneqXOlk7Fjq81Nxv81VNRl7NLlJVjtnSVFaBYqI=
 text: |
   System shall notify users of alerts via visual and audible indicators.

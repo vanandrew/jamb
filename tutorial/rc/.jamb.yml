@@ -1,0 +1,6 @@
+settings:
+  prefix: RC
+  digits: 3
+  sep: ''
+  parents:
+    - HAZ

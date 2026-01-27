@@ -46,7 +46,7 @@ def render_json(
             "text": cov.item.text,
             "header": cov.item.header,
             "document": cov.item.document_prefix,
-            "normative": cov.item.normative,
+            "normative": cov.item.type == "requirement",
             "active": cov.item.active,
             "traces_to": ancestors,
             "is_covered": cov.is_covered,

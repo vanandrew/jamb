@@ -1,8 +1,8 @@
 # jamb
 
-IEC 62304 requirements traceability for pytest, built on doorstop.
+IEC 62304 requirements traceability for pytest.
 
-jamb links your pytest tests to doorstop requirements, generating traceability matrices for regulatory compliance. It's designed for medical device software and other regulated industries where you need to prove every requirement has been tested.
+jamb links your pytest tests to requirements, generating traceability matrices for regulatory compliance. It's designed for medical device software and other regulated industries where you need to prove every requirement has been tested.
 
 ## Installation
 
@@ -10,7 +10,7 @@ jamb links your pytest tests to doorstop requirements, generating traceability m
 pip install jamb
 ```
 
-This installs jamb along with its dependencies (doorstop, pytest, click).
+This installs jamb along with its dependencies (pytest, click, pyyaml).
 
 ## Getting Started
 
@@ -20,7 +20,7 @@ This installs jamb along with its dependencies (doorstop, pytest, click).
 
 ## CLI Commands
 
-jamb provides commands for managing doorstop documents and items, plus traceability-specific features.
+jamb provides commands for managing documents and items, plus traceability-specific features.
 
 ### Validation & Coverage
 
@@ -126,7 +126,7 @@ jamb review reset SRS001
 ### Publishing
 
 ```bash
-# Publish documents using doorstop
+# Publish documents
 jamb publish PREFIX [PATH]
 jamb publish SRS                     # Print SRS to terminal
 jamb publish SRS srs.html --html     # Export as HTML
@@ -159,7 +159,7 @@ documents:
     digits: 3
   - prefix: SRS
     path: srs
-    parent: UN
+    parents: [UN]
     digits: 3
 
 items:
@@ -175,7 +175,7 @@ items:
 
 ### Marking Tests
 
-Link tests to doorstop items using `@pytest.mark.requirement`:
+Link tests to requirements using `@pytest.mark.requirement`:
 
 ```python
 import pytest
@@ -215,7 +215,7 @@ Configure jamb in `pyproject.toml`:
 
 ```toml
 [tool.jamb]
-# Which doorstop documents represent test specifications
+# Which documents represent test specifications
 test_documents = ["SRS"]
 
 # Fail pytest if any test spec items lack coverage
@@ -248,7 +248,7 @@ jobs:
       - name: Install dependencies
         run: pip install jamb
 
-      - name: Validate doorstop configuration
+      - name: Validate requirements
         run: jamb validate
 
       - name: Run tests with traceability
@@ -268,7 +268,7 @@ The HTML matrix shows:
 
 | Column | Description |
 |--------|-------------|
-| UID | The doorstop item identifier (e.g., SRS001) |
+| UID | The item identifier (e.g., SRS001) |
 | Description | The requirement text |
 | Document | Which document the item belongs to |
 | Traces To | Parent requirements this item links to |

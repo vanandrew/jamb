@@ -1,0 +1,125 @@
+"""DAG-based document hierarchy for jamb."""
+
+from collections import deque
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from jamb.storage.document_config import DocumentConfig
+
+
+@dataclass
+class DocumentDAG:
+    """Directed acyclic graph of document relationships.
+
+    Supports multiple parents per document (DAG structure).
+    """
+
+    documents: dict[str, DocumentConfig] = field(default_factory=dict)
+    document_paths: dict[str, Path] = field(default_factory=dict)
+
+    def get_parents(self, prefix: str) -> list[str]:
+        """Get parent document prefixes for a given document."""
+        config = self.documents.get(prefix)
+        if config is None:
+            return []
+        return list(config.parents)
+
+    def get_children(self, prefix: str) -> list[str]:
+        """Get child document prefixes for a given document."""
+        children = []
+        for p, config in self.documents.items():
+            if prefix in config.parents:
+                children.append(p)
+        return children
+
+    def get_root_documents(self) -> list[str]:
+        """Get documents with no parents."""
+        return [p for p, config in self.documents.items() if not config.parents]
+
+    def get_leaf_documents(self) -> list[str]:
+        """Get documents with no children."""
+        all_parents = set()
+        for config in self.documents.values():
+            all_parents.update(config.parents)
+        return [p for p in self.documents if p not in all_parents]
+
+    def topological_sort(self) -> list[str]:
+        """Return prefixes in topological order (parents before children).
+
+        Uses Kahn's algorithm. If there are cycles, remaining nodes
+        are appended at the end.
+        """
+        # Build in-degree map
+        in_degree: dict[str, int] = {p: 0 for p in self.documents}
+        children_map: dict[str, list[str]] = {p: [] for p in self.documents}
+
+        for prefix, config in self.documents.items():
+            for parent in config.parents:
+                if parent in self.documents:
+                    in_degree[prefix] += 1
+                    children_map[parent].append(prefix)
+
+        # Start with nodes that have no parents
+        queue: deque[str] = deque()
+        for prefix, degree in in_degree.items():
+            if degree == 0:
+                queue.append(prefix)
+
+        result: list[str] = []
+        while queue:
+            node = queue.popleft()
+            result.append(node)
+            for child in children_map[node]:
+                in_degree[child] -= 1
+                if in_degree[child] == 0:
+                    queue.append(child)
+
+        # Append any remaining (cycle participants)
+        for prefix in self.documents:
+            if prefix not in result:
+                result.append(prefix)
+
+        return result
+
+    def validate_acyclic(self) -> list[str]:
+        """Check for cycles in the DAG.
+
+        Returns:
+            List of error messages. Empty if no cycles.
+        """
+        self.topological_sort()
+
+        # If topological sort processed all nodes, no cycles
+        in_degree: dict[str, int] = {p: 0 for p in self.documents}
+        for prefix, config in self.documents.items():
+            for parent in config.parents:
+                if parent in self.documents:
+                    in_degree[prefix] += 1
+
+        queue: deque[str] = deque()
+        for prefix, degree in in_degree.items():
+            if degree == 0:
+                queue.append(prefix)
+
+        visited = set()
+        children_map: dict[str, list[str]] = {p: [] for p in self.documents}
+        for prefix, config in self.documents.items():
+            for parent in config.parents:
+                if parent in self.documents:
+                    children_map[parent].append(prefix)
+
+        while queue:
+            node = queue.popleft()
+            visited.add(node)
+            for child in children_map[node]:
+                in_degree[child] -= 1
+                if in_degree[child] == 0:
+                    queue.append(child)
+
+        errors = []
+        cycle_nodes = set(self.documents.keys()) - visited
+        if cycle_nodes:
+            errors.append(
+                f"Cycle detected among documents: {', '.join(sorted(cycle_nodes))}"
+            )
+        return errors

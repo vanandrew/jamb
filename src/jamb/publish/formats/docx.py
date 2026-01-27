@@ -7,7 +7,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
-from jamb.core.models import Item
+from jamb.core.models import Item, TraceabilityGraph
 
 
 def _add_bookmark(paragraph, bookmark_name: str) -> None:
@@ -61,6 +61,7 @@ def render_docx(
     title: str,
     include_child_links: bool = True,
     document_order: list[str] | None = None,
+    graph: TraceabilityGraph | None = None,
 ) -> bytes:
     """Render items as a Word document.
 
@@ -148,6 +149,20 @@ def render_docx(
                     _add_hyperlink(links_para, link_uid, link_uid)
                 else:
                     links_para.add_run(link_uid)
+
+        # Add child links section (reverse links)
+        if include_child_links and graph is not None:
+            children = graph.item_children.get(item.uid, [])
+            visible_children = [c for c in children if c in all_uids]
+            if visible_children:
+                child_para = doc.add_paragraph()
+                child_run = child_para.add_run("Linked from: ")
+                child_run.bold = True
+
+                for i, child_uid in enumerate(visible_children):
+                    if i > 0:
+                        child_para.add_run(", ")
+                    _add_hyperlink(child_para, child_uid, child_uid)
 
         # Add spacing between items
         doc.add_paragraph()

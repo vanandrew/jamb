@@ -1,4 +1,4 @@
-"""jamb - IEC 62304 requirements traceability for pytest, built on doorstop."""
+"""jamb - IEC 62304 requirements traceability for pytest."""
 
 __version__ = "0.1.0"
 

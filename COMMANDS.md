@@ -55,12 +55,12 @@ Options:
 
 Commands:
   check     Check test coverage without running tests.
-  doc       Manage doorstop documents.
+  doc       Manage documents.
   export    Export documents and items to a YAML file.
   import    Import documents and items from a YAML file.
-  info      Display doorstop document information.
+  info      Display document information.
   init      Initialize a new jamb project with default IEC 62304 documents.
-  item      Manage doorstop items.
+  item      Manage items.
   link      Manage item links.
   publish   Publish a document.
   review    Manage item reviews.
@@ -119,7 +119,7 @@ jamb init
 ```
 Usage: jamb info [OPTIONS]
 
-  Display doorstop document information.
+  Display document information.
 
   Shows document structure, hierarchy, and item counts.
 
@@ -151,7 +151,7 @@ Usage: jamb check [OPTIONS]
   Check test coverage without running tests.
 
   Scans test files for @pytest.mark.requirement markers and reports which
-  doorstop items have linked tests.
+  items have linked tests.
 
   Note: This does a static scan and doesn't run tests. For full coverage
   including test outcomes, use pytest --jamb.
@@ -183,7 +183,7 @@ Usage: jamb validate [OPTIONS]
 
   Validate the requirements tree.
 
-  Runs doorstop validation to check for issues like:
+  Runs validation to check for issues like:
     - Missing parent documents
     - Suspect links (items needing re-review)
     - Items without required links
@@ -192,17 +192,11 @@ Usage: jamb validate [OPTIONS]
       jamb validate              # Run validation
       jamb validate -v           # Verbose output
       jamb validate --skip UT    # Skip unit test document
-      jamb validate -F -S        # Skip reformatting and suspect checks
-
 Options:
   -v, --verbose             Enable verbose logging (can be repeated)
   -q, --quiet               Only display errors and prompts
-  -F, --no-reformat         Do not reformat item files during validation
-  -r, --reorder             Reorder document levels during validation
   -L, --no-level-check      Do not validate document levels
-  -R, --no-ref-check        Do not validate external file references
   -C, --no-child-check      Do not validate child (reverse) links
-  -Z, --strict-child-check  Require child (reverse) links from every document
   -S, --no-suspect-check    Do not check for suspect links
   -W, --no-review-check     Do not check item review status
   -s, --skip TEXT           Skip a document during validation (can be repeated)
@@ -221,9 +215,6 @@ jamb validate -v
 
 # Skip a document during validation
 jamb validate --skip UT
-
-# Skip reformatting and suspect link checks
-jamb validate -F -S
 
 # Treat all warnings as errors (strict mode)
 jamb validate --error-all
@@ -245,12 +236,9 @@ Usage: jamb publish [OPTIONS] PREFIX [PATH]
   pytest --jamb --jamb-matrix PATH
 
 Options:
-  -H, --html            Output HTML
+  -H, --html            Output HTML (standalone document with inline CSS and hyperlinks)
   -m, --markdown        Output Markdown
-  -l, --latex           Output LaTeX
-  -t, --text            Output text (default when no path)
   -d, --docx            Output DOCX (Word document)
-  --template TEXT       Template file for custom formatting
   -C, --no-child-links  Do not include child links on items
   --help                Show this message and exit.
 ```
@@ -258,19 +246,22 @@ Options:
 **Example:**
 ```bash
 # Publish SRS document to HTML
-jamb publish SRS --html docs/srs.html
+jamb publish SRS docs/srs.html --html
 
-# Publish all documents to markdown
-jamb publish all --markdown docs/
+# Publish all documents to HTML
+jamb publish all docs/all.html --html
 
-# Publish to text (stdout)
-jamb publish SRS --text
+# Publish to markdown file
+jamb publish SRS docs/srs.md --markdown
+
+# Print markdown to stdout (default when no format flag and no path)
+jamb publish SRS
 
 # Publish to Word document
-jamb publish SRS --docx docs/srs.docx
+jamb publish SRS docs/srs.docx --docx
 
-# Publish with custom template
-jamb publish SRS --html --template my_template.html docs/srs.html
+# Auto-detect format from file extension
+jamb publish SRS docs/srs.html
 ```
 
 ---
@@ -365,7 +356,7 @@ jamb import requirements.yml --verbose
 ```
 Usage: jamb doc [OPTIONS] COMMAND [ARGS]...
 
-  Manage doorstop documents.
+  Manage documents.
 
 Options:
   --help  Show this message and exit.
@@ -490,7 +481,7 @@ jamb doc reorder SRS --manual
 ```
 Usage: jamb item [OPTIONS] COMMAND [ARGS]...
 
-  Manage doorstop items.
+  Manage items.
 
 Options:
   --help  Show this message and exit.
@@ -889,7 +880,7 @@ text: |
   Software shall validate all input against buffer overflow attacks.
 ```
 
-This tells doorstop the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
+This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
 
 **When to use `derived: true`:**
 - Requirements that emerge from risk/hazard analysis

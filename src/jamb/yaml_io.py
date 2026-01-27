@@ -1,9 +1,8 @@
-"""YAML import/export for doorstop requirements."""
+"""YAML import/export for requirements."""
 
 from __future__ import annotations
 
 import re
-import subprocess
 from pathlib import Path
 from typing import TypedDict
 
@@ -25,27 +24,25 @@ class ItemDict(_ItemDictOptional):
 
 
 def export_items_to_yaml(
-    tree,
     output_path: Path,
     item_uids: list[str],
     include_neighbors: bool = False,
     prefixes: list[str] | None = None,
+    root: Path | None = None,
 ) -> None:
     """Export specific items (and optionally their neighbors) to YAML file.
 
     Args:
-        tree: Doorstop tree object.
         output_path: Path to write YAML file.
         item_uids: List of item UIDs to export.
-        include_neighbors: If True, include ancestors and descendants of
-            specified items.
+        include_neighbors: If True, include ancestors and descendants.
         prefixes: Optional list of document prefixes to filter by.
-            If None, no filtering.
+        root: Optional project root directory.
     """
-    from jamb.doorstop.reader import build_traceability_graph
+    from jamb.storage import build_traceability_graph, discover_documents
 
-    # Build traceability graph from tree
-    graph = build_traceability_graph(tree)
+    dag = discover_documents(root)
+    graph = build_traceability_graph(dag)
 
     # Collect UIDs to export
     uids_to_export: set[str] = set()
@@ -70,25 +67,38 @@ def export_items_to_yaml(
         if uid in graph.items:
             doc_prefixes_needed.add(graph.items[uid].document_prefix)
 
-    data = {"documents": [], "items": []}
+    data: dict = {"documents": [], "items": []}
 
-    # Get documents in dependency order (parents first)
-    docs_to_export = []
-    for doc in tree.documents:
-        if doc.prefix in doc_prefixes_needed:
-            docs_to_export.append(doc)
+    # Compute search root for relative paths
+    search_root = (root or Path.cwd()).resolve()
 
-    # Sort by parent dependency
-    docs_to_export = _sort_documents_by_dependency(docs_to_export)
-
-    for doc in docs_to_export:
-        data["documents"].append(_document_to_dict(doc))
+    # Get documents in topological order
+    for prefix in dag.topological_sort():
+        if prefix in doc_prefixes_needed:
+            config = dag.documents[prefix]
+            doc_path = dag.document_paths.get(prefix)
+            if doc_path:
+                try:
+                    rel_path = str(doc_path.resolve().relative_to(search_root))
+                except ValueError:
+                    rel_path = str(doc_path)
+            else:
+                rel_path = prefix.lower()
+            doc_dict: dict = {
+                "prefix": prefix,
+                "path": rel_path,
+            }
+            if config.parents:
+                doc_dict["parents"] = config.parents
+            data["documents"].append(doc_dict)
 
     # Export items in document order
-    for doc in docs_to_export:
-        for item in doc:
-            if item.active and str(item.uid) in uids_to_export:
-                data["items"].append(_item_to_dict(item))
+    for prefix in dag.topological_sort():
+        if prefix not in doc_prefixes_needed:
+            continue
+        for item in graph.get_items_by_document(prefix):
+            if item.active and item.uid in uids_to_export:
+                data["items"].append(_graph_item_to_dict(item))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
@@ -97,31 +107,52 @@ def export_items_to_yaml(
         )
 
 
-def export_to_yaml(tree, output_path: Path, prefixes: list[str] | None = None) -> None:
-    """Export doorstop tree to YAML file.
+def export_to_yaml(
+    output_path: Path,
+    prefixes: list[str] | None = None,
+    root: Path | None = None,
+) -> None:
+    """Export document tree to YAML file.
 
     Args:
-        tree: Doorstop tree object.
         output_path: Path to write YAML file.
-        prefixes: Optional list of document prefixes to export. If None, exports all.
+        prefixes: Optional list of document prefixes to export.
+        root: Optional project root directory.
     """
-    data = {"documents": [], "items": []}
+    from jamb.storage import build_traceability_graph, discover_documents
 
-    # Get documents in dependency order (parents first)
-    docs_to_export = []
-    for doc in tree.documents:
-        if prefixes is None or doc.prefix in prefixes:
-            docs_to_export.append(doc)
+    dag = discover_documents(root)
+    graph = build_traceability_graph(dag)
 
-    # Sort by parent dependency
-    docs_to_export = _sort_documents_by_dependency(docs_to_export)
+    data: dict = {"documents": [], "items": []}
 
-    for doc in docs_to_export:
-        data["documents"].append(_document_to_dict(doc))
+    # Compute search root for relative paths
+    search_root = (root or Path.cwd()).resolve()
 
-        for item in doc:
+    for prefix in dag.topological_sort():
+        if prefixes is not None and prefix not in prefixes:
+            continue
+
+        config = dag.documents[prefix]
+        doc_path = dag.document_paths.get(prefix)
+        if doc_path:
+            try:
+                rel_path = str(doc_path.resolve().relative_to(search_root))
+            except ValueError:
+                rel_path = str(doc_path)
+        else:
+            rel_path = prefix.lower()
+        doc_dict: dict = {
+            "prefix": prefix,
+            "path": rel_path,
+        }
+        if config.parents:
+            doc_dict["parents"] = config.parents
+        data["documents"].append(doc_dict)
+
+        for item in graph.get_items_by_document(prefix):
             if item.active:
-                data["items"].append(_item_to_dict(item))
+                data["items"].append(_graph_item_to_dict(item))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
@@ -130,61 +161,8 @@ def export_to_yaml(tree, output_path: Path, prefixes: list[str] | None = None) -
         )
 
 
-def _sort_documents_by_dependency(docs: list) -> list:
-    """Sort documents so parents come before children."""
-    result = []
-    remaining = list(docs)
-    prefixes_added = set()
-
-    # First pass: add root documents (no parent)
-    for doc in remaining[:]:
-        if doc.parent is None:
-            result.append(doc)
-            prefixes_added.add(doc.prefix)
-            remaining.remove(doc)
-
-    # Subsequent passes: add documents whose parent is already added
-    while remaining:
-        added_this_round = False
-        for doc in remaining[:]:
-            if doc.parent in prefixes_added:
-                result.append(doc)
-                prefixes_added.add(doc.prefix)
-                remaining.remove(doc)
-                added_this_round = True
-
-        if not added_this_round:
-            # Circular dependency or missing parent - add remaining as-is
-            result.extend(remaining)
-            break
-
-    return result
-
-
-def _document_to_dict(doc) -> dict:
-    """Convert doorstop document to dict with plain Python types."""
-    # Handle path - might be string or Path
-    doc_path = Path(doc.path) if isinstance(doc.path, str) else doc.path
-    if doc.tree and hasattr(doc.tree, "root"):
-        try:
-            doc_path = doc_path.relative_to(doc.tree.root)
-        except (ValueError, TypeError):
-            pass
-
-    d = {
-        "prefix": str(doc.prefix),
-        "path": str(doc_path),
-    }
-    if doc.parent:
-        d["parent"] = str(doc.parent)
-    # Get digits from config if available
-    if hasattr(doc, "_data") and "digits" in doc._data.get("settings", {}):
-        d["digits"] = doc._data["settings"]["digits"]
-    return d
-
-
-def _item_to_dict(item) -> ItemDict:
-    """Convert doorstop item to dict with plain Python types."""
+def _graph_item_to_dict(item) -> ItemDict:
+    """Convert a graph Item to dict with plain Python types."""
     d: ItemDict = {
         "uid": str(item.uid),
         "text": str(item.text),
@@ -288,13 +266,17 @@ def import_from_yaml(
 
 
 def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
-    """Create a doorstop document.
+    """Create a document from spec.
 
     Returns: 'created', 'skipped', or 'error'
     """
+    from jamb.storage.document_config import DocumentConfig, save_document_config
+
     prefix = spec["prefix"]
     path = spec["path"]
-    parent = spec.get("parent")
+    parents: list[str] = []
+    if "parents" in spec:
+        parents = spec["parents"]
     digits = spec.get("digits", 3)
 
     # Check if document already exists
@@ -304,18 +286,20 @@ def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
         return "skipped"
 
     if dry_run:
-        parent_str = f" (parent: {parent})" if parent else ""
+        parent_str = f" (parents: {', '.join(parents)})" if parents else ""
         echo(f"  Would create document: {prefix} at {path}{parent_str}")
         return "created"
 
-    # Build doorstop create command
-    args = ["doorstop", "create", prefix, path, "--digits", str(digits)]
-    if parent:
-        args.extend(["--parent", parent])
-
-    result = subprocess.run(args, capture_output=True, text=True)
-    if result.returncode != 0:
-        echo(f"  Error creating document {prefix}: {result.stderr}")
+    config = DocumentConfig(
+        prefix=prefix,
+        parents=parents,
+        digits=digits,
+    )
+    doc_path = Path(path)
+    try:
+        save_document_config(config, doc_path)
+    except Exception as e:
+        echo(f"  Error creating document {prefix}: {e}")
         return "error"
 
     if verbose:
@@ -324,7 +308,7 @@ def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
 
 
 def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -> str:
-    """Create or update a doorstop item.
+    """Create or update an item.
 
     Returns: 'created', 'updated', 'skipped', or 'error'
     """
@@ -339,7 +323,7 @@ def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -
         echo(f"  Error: Cannot determine prefix from UID: {uid}")
         return "error"
 
-    # Get document path (needed for both create and update)
+    # Get document path
     doc_path = _get_document_path(prefix)
     if not doc_path:
         echo(f"  Error: Cannot find document path for {prefix}")
@@ -368,9 +352,8 @@ def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -
         return _update_item(item_path, spec, verbose, echo)
 
     # Write new item YAML file directly
-    item_data = {
+    item_data: dict = {
         "active": True,
-        "normative": True,
         "text": text,
     }
     if header:
@@ -387,27 +370,17 @@ def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -
 
 
 def _document_exists(prefix: str) -> bool:
-    """Check if a doorstop document with the given prefix exists."""
-    result = subprocess.run(
-        ["doorstop", "list"],
-        capture_output=True,
-        text=True,
-    )
-    return prefix in result.stdout
+    """Check if a document with the given prefix exists on the filesystem."""
+    import os
 
-
-def _item_exists(uid: str) -> bool:
-    """Check if a doorstop item with the given UID exists."""
-    prefix = _extract_prefix(uid)
-    if not prefix:
-        return False
-
-    doc_path = _get_document_path(prefix)
-    if not doc_path:
-        return False
-
-    item_path = doc_path / f"{uid}.yml"
-    return item_path.exists()
+    for root_dir, _, files in os.walk("."):
+        if ".jamb.yml" in files:
+            config_path = Path(root_dir) / ".jamb.yml"
+            with open(config_path) as f:
+                config = yaml.safe_load(f)
+            if config.get("settings", {}).get("prefix") == prefix:
+                return True
+    return False
 
 
 def _extract_prefix(uid: str) -> str | None:
@@ -418,16 +391,15 @@ def _extract_prefix(uid: str) -> str | None:
 
 def _get_document_path(prefix: str) -> Path | None:
     """Get the filesystem path for a document prefix."""
-    # Find document path by searching for .doorstop.yml files
     import os
 
-    for root, _, files in os.walk("."):
-        if ".doorstop.yml" in files:
-            config_path = Path(root) / ".doorstop.yml"
+    for root_dir, _, files in os.walk("."):
+        if ".jamb.yml" in files:
+            config_path = Path(root_dir) / ".jamb.yml"
             with open(config_path) as f:
                 config = yaml.safe_load(f)
             if config.get("settings", {}).get("prefix") == prefix:
-                return Path(root)
+                return Path(root_dir)
     return None
 
 
@@ -458,13 +430,11 @@ def _update_item(item_path: Path, spec: dict, verbose: bool, echo) -> str:
         if spec["header"]:
             existing_data["header"] = spec["header"]
         elif "header" in existing_data:
-            # Empty header in spec means remove header
             del existing_data["header"]
     if "links" in spec:
         if spec["links"]:
             existing_data["links"] = spec["links"]
         elif "links" in existing_data:
-            # Empty links in spec means clear links
             del existing_data["links"]
 
     # Clear reviewed status - item needs re-review after update

@@ -5,7 +5,7 @@ import pytest
 
 def get_requirement_markers(item: pytest.Item) -> list[str]:
     """
-    Extract doorstop item UIDs from a test item's markers.
+    Extract requirement item UIDs from a test item's markers.
 
     Supports @pytest.mark.requirement('UT001', 'UT002', ...).
 
@@ -13,7 +13,7 @@ def get_requirement_markers(item: pytest.Item) -> list[str]:
         item: A pytest test item.
 
     Returns:
-        List of doorstop item UIDs found in requirement markers.
+        List of requirement item UIDs found in requirement markers.
     """
     uids: list[str] = []
 
