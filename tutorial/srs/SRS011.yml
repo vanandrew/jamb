@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Pagination
-level: 11
+header: Pagination
+type: requirement
 links:
-- SYS005: cPpSdxHOjEnD-NKbDFddlQBhvi0MnMT7IhRg4FndEBc=
-normative: true
-ref: ''
-reviewed: n7qtpuq9LpeUYurppry9V84X7wS8EW0h_RYo6nKkyQQ=
+- SYS005: Xxjm-ZlDzEQL7vwgnNI9KbsWxeYMSJGNuxtYTvLC1q0
 text: |
   Software shall paginate results with 100 records per page.
+reviewed: aJcGx6eQqOVI2i4zOh0LrKQa3ymcJMtEKbtI7RmYCGE

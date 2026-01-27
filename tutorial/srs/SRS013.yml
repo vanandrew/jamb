@@ -1,13 +1,9 @@
 active: true
-derived: false
-header: |
-  Alert Generation
-level: 13
+header: Alert Generation
+type: requirement
 links:
-- RC002: 9p2HxKn4hllhdRbNf8-Zc76G9z4mdZ9AckV-gA6drO0=
-- SYS006: M8Q4DBBfunxQ8l_yTnbdc6OlKMeuIauLLWCpHGl43-4=
-normative: true
-ref: ''
-reviewed: S01rB6Up8lJzRws1CHN2T4bxMGGMgfg67VemksRBhkQ=
+- RC002: VpqwsCm9nYfwWvwpZxRD_60F8PtOWbFXXF82ZOV9yhM
+- SYS006: MHyoj0191ThgJNQivdcMN2YObV6_yacem7Q4hLeX1_g
 text: |
   Software shall create alert records with severity levels.
+reviewed: 5FPdlzzt_abESp3ieveZlowan_2N3fLNrOfu3OBS_wU

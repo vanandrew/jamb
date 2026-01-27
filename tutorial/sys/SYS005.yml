@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Historical Query
-level: 5
+header: Historical Query
+type: requirement
 links:
-- UN003: TiaFmdX-qPpvmgEqtg_KZw02MBoFp5GrQNk5IHQTbtg=
-normative: true
-ref: ''
-reviewed: XCV6OUh1JGiJVy1iFj-kp9pRTXOapDsbCfc_PdELjZI=
+- UN003: lwBfoOCX_ppuJXHXvk_dpFiEGn4sg05LGZzuXu9dSbs
 text: |
   System shall retrieve vital signs for date ranges up to 90 days.
+reviewed: 78LFGysHpzqHZioVvuM7LteQaR-jARk-5_WOQsnAkwo

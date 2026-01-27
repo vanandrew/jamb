@@ -8,7 +8,21 @@ def render_html(
     graph: TraceabilityGraph | None,
     trace_to_ignore: frozenset[str] | set[str] = frozenset(),
 ) -> str:
-    """Render coverage as HTML traceability matrix."""
+    """Render coverage as HTML traceability matrix.
+
+    Args:
+        coverage: Dict mapping UIDs to ItemCoverage objects representing
+            each traceable item and its test linkage.
+        graph: Optional TraceabilityGraph used to resolve ancestor chains
+            for each item. When None, ancestor columns are left empty.
+        trace_to_ignore: Set of document prefixes to exclude from the
+            ancestor display.
+
+    Returns:
+        A string containing a complete HTML document with embedded CSS,
+        including a summary statistics banner and a styled table of all
+        coverage items.
+    """
     # Prepare rows
     rows = []
     for uid, cov in sorted(coverage.items()):
@@ -209,7 +223,15 @@ def render_html(
 
 
 def _escape_html(text: str) -> str:
-    """Escape HTML special characters."""
+    """Escape HTML special characters.
+
+    Args:
+        text: The plain text to escape.
+
+    Returns:
+        The string with ``&``, ``<``, ``>``, and ``"`` replaced by
+        their HTML entity equivalents.
+    """
     return (
         text.replace("&", "&amp;")
         .replace("<", "&lt;")

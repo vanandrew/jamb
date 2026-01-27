@@ -5,16 +5,17 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Item:
-    """Represents a doorstop item (requirement, test spec, etc.)."""
+    """Represents a requirements item (requirement, info, heading, etc.)."""
 
     uid: str
     text: str
     document_prefix: str
     active: bool = True
-    normative: bool = True
+    type: str = "requirement"  # "requirement", "info", "heading"
     header: str | None = None
-    level: float = 1.0
     links: list[str] = field(default_factory=list)
+    reviewed: str | None = None
+    derived: bool = False
     custom_attributes: dict = field(default_factory=dict)
 
     @property
@@ -27,7 +28,7 @@ class Item:
 
 @dataclass
 class LinkedTest:
-    """Represents a link from a pytest test to a doorstop item."""
+    """Represents a link from a pytest test to a requirements item."""
 
     test_nodeid: str
     item_uid: str
@@ -39,7 +40,7 @@ class LinkedTest:
 
 @dataclass
 class ItemCoverage:
-    """Coverage status for a single doorstop item."""
+    """Coverage status for a single requirements item."""
 
     item: Item
     linked_tests: list[LinkedTest] = field(default_factory=list)
@@ -63,7 +64,7 @@ class TraceabilityGraph:
     Graph representing the full traceability hierarchy.
 
     Stores items by UID and tracks parent-child relationships
-    based on doorstop document hierarchy and item links.
+    based on document hierarchy and item links.
     """
 
     items: dict[str, Item] = field(default_factory=dict)
@@ -71,11 +72,16 @@ class TraceabilityGraph:
     item_parents: dict[str, list[str]] = field(default_factory=dict)
     # Maps item UID -> list of child item UIDs (reverse index)
     item_children: dict[str, list[str]] = field(default_factory=dict)
-    # Maps document prefix -> parent document prefix
-    document_parents: dict[str, str | None] = field(default_factory=dict)
+    # Maps document prefix -> list of parent document prefixes (DAG)
+    document_parents: dict[str, list[str]] = field(default_factory=dict)
 
     def add_item(self, item: Item) -> None:
-        """Add an item to the graph."""
+        """Add an item to the graph.
+
+        Args:
+            item: The Item to add. Its links are used to populate the
+                parent and child reverse-index maps.
+        """
         self.items[item.uid] = item
         self.item_parents[item.uid] = item.links.copy()
         # Initialize children list for this item if not exists
@@ -89,8 +95,39 @@ class TraceabilityGraph:
                 self.item_children[parent_uid].append(item.uid)
 
     def set_document_parent(self, prefix: str, parent_prefix: str | None) -> None:
-        """Set the parent document for a document prefix."""
-        self.document_parents[prefix] = parent_prefix
+        """Set a single parent document (backward-compat wrapper).
+
+        For DAG support, use set_document_parents() instead.
+
+        Args:
+            prefix: The document prefix to set the parent for.
+            parent_prefix: The parent document prefix, or None to clear.
+        """
+        if parent_prefix is None:
+            self.document_parents[prefix] = []
+        else:
+            self.document_parents[prefix] = [parent_prefix]
+
+    def set_document_parents(self, prefix: str, parents: list[str]) -> None:
+        """Set the parent documents for a document prefix (DAG).
+
+        Args:
+            prefix: The document prefix to set parents for.
+            parents: List of parent document prefixes.
+        """
+        self.document_parents[prefix] = list(parents)
+
+    def add_document_parent(self, prefix: str, parent: str) -> None:
+        """Add a parent document to a document prefix.
+
+        Args:
+            prefix: The document prefix to add a parent to.
+            parent: The parent document prefix to add.
+        """
+        if prefix not in self.document_parents:
+            self.document_parents[prefix] = []
+        if parent not in self.document_parents[prefix]:
+            self.document_parents[prefix].append(parent)
 
     def get_ancestors(self, uid: str) -> list[Item]:
         """
@@ -168,7 +205,15 @@ class TraceabilityGraph:
         return neighbors
 
     def get_children_from_document(self, uid: str, prefix: str) -> list[Item]:
-        """Get children of uid that belong to the given document."""
+        """Get children of uid that belong to the given document.
+
+        Args:
+            uid: The parent item UID.
+            prefix: The document prefix to filter children by.
+
+        Returns:
+            List of child Item objects in the specified document.
+        """
         return [
             self.items[child_uid]
             for child_uid in self.item_children.get(uid, [])
@@ -177,7 +222,15 @@ class TraceabilityGraph:
         ]
 
     def get_parents_from_document(self, uid: str, prefix: str) -> list[Item]:
-        """Get parents of uid that belong to the given document."""
+        """Get parents of uid that belong to the given document.
+
+        Args:
+            uid: The child item UID.
+            prefix: The document prefix to filter parents by.
+
+        Returns:
+            List of parent Item objects in the specified document.
+        """
         return [
             self.items[parent_uid]
             for parent_uid in self.item_parents.get(uid, [])
@@ -186,18 +239,35 @@ class TraceabilityGraph:
         ]
 
     def get_items_by_document(self, prefix: str) -> list[Item]:
-        """Get all items belonging to a specific document."""
+        """Get all items belonging to a specific document.
+
+        Args:
+            prefix: The document prefix to filter by.
+
+        Returns:
+            List of Item objects with the given document prefix.
+        """
         return [item for item in self.items.values() if item.document_prefix == prefix]
 
     def get_root_documents(self) -> list[str]:
-        """Get document prefixes that have no parent."""
+        """Get document prefixes that have no parents.
+
+        Returns:
+            List of document prefix strings with no parent documents.
+        """
         return [
-            prefix for prefix, parent in self.document_parents.items() if parent is None
+            prefix for prefix, parents in self.document_parents.items() if not parents
         ]
 
     def get_leaf_documents(self) -> list[str]:
-        """Get document prefixes that are not parents of any other document."""
-        all_parents = set(p for p in self.document_parents.values() if p is not None)
+        """Get document prefixes that are not parents of any other document.
+
+        Returns:
+            List of document prefix strings that have no child documents.
+        """
+        all_parents: set[str] = set()
+        for parents in self.document_parents.values():
+            all_parents.update(parents)
         return [
             prefix
             for prefix in self.document_parents.keys()

@@ -209,7 +209,7 @@ class TestPytestReportHeader:
         result = pytest_report_header(mock_config)
 
         assert result is not None
-        assert "jamb: tracking 2 doorstop items" in result[0]
+        assert "jamb: tracking 2 requirement items" in result[0]
 
 
 class TestPytestTerminalSummary:

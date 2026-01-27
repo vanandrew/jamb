@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Data Storage
-level: 4
+header: Data Storage
+type: requirement
 links:
-- UN003: TiaFmdX-qPpvmgEqtg_KZw02MBoFp5GrQNk5IHQTbtg=
-normative: true
-ref: ''
-reviewed: PKT7kL8t5TXkyLDDmALemd3cNnt9bN0_eZo1awZsOng=
+- UN003: lwBfoOCX_ppuJXHXvk_dpFiEGn4sg05LGZzuXu9dSbs
 text: |
   System shall store vital signs with timestamps.
+reviewed: CtaneGYoBbcrTfiqEiCbPrQcefYCf_cv5PS2sMetAb4

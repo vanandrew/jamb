@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Login Throttling
-level: 3
+header: Login Throttling
+type: requirement
 links:
-- SYS001: BdX1MGrThHbaf77PXb5eq9EkgQzpW-MSe5vXtHAj8P0=
-normative: true
-ref: ''
-reviewed: 11WKHNdzIE4T_NDaZ-yXClCze0BEMd5Qaf2YCcUr57c=
+- SYS001: mCthQhT0-ifbzC3qKSE04UmZfP8lI6nG0hWsGJCUQ2U
 text: |
   Software shall block login after 5 failed attempts for 15 minutes.
+reviewed: 8Xq3ReENZgW8mIC2ubI-tD3mlXjnyP296JMjTuTghys

@@ -8,7 +8,20 @@ def render_markdown(
     graph: TraceabilityGraph | None,
     trace_to_ignore: frozenset[str] | set[str] = frozenset(),
 ) -> str:
-    """Render coverage as Markdown traceability matrix."""
+    """Render coverage as Markdown traceability matrix.
+
+    Args:
+        coverage: Dict mapping UIDs to ItemCoverage objects representing
+            each traceable item and its test linkage.
+        graph: Optional TraceabilityGraph used to resolve ancestor chains
+            for each item. When None, ancestor columns are left empty.
+        trace_to_ignore: Set of document prefixes to exclude from the
+            ancestor display.
+
+    Returns:
+        A string containing a Markdown document with a summary section
+        and a pipe-delimited table of all coverage items.
+    """
     # Calculate stats
     total = len(coverage)
     covered = sum(1 for c in coverage.values() if c.is_covered)

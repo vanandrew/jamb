@@ -1,52 +1,49 @@
-# Sample requirements for import demonstration
-# This file adds additional requirements to an existing project
-
-documents: []  # Use existing documents
-
+documents: []
 items:
-  # Additional user need (links to project root)
-  - uid: UN006
-    text: |
-      User shall be able to configure personal alert preferences
-      for different vital sign types.
-    header: Alert Preferences
-    links: [PRJ001]
+- header: Alert Preferences
+  links:
+  - PRJ001
+  text: |
+    User shall be able to configure personal alert preferences
+    for different vital sign types.
+  uid: UN006
+  
+- header: Customizable Thresholds
+  links:
+  - UN006
+  text: |
+    System shall allow users to customize alert thresholds
+    per vital sign type within clinically safe ranges.
+  uid: SYS009
 
-  # Additional system requirement
-  - uid: SYS009
-    text: |
-      System shall allow users to customize alert thresholds
-      per vital sign type within clinically safe ranges.
-    header: Customizable Thresholds
-    links: [UN006]
+- header: Preference Storage
+  links:
+  - SYS009
+  text: |
+    Software shall store user alert preferences in the database
+    with per-vital-sign threshold configurations.
+  uid: SRS016
 
-  # Additional software requirements
-  - uid: SRS016
-    text: |
-      Software shall store user alert preferences in the database
-      with per-vital-sign threshold configurations.
-    header: Preference Storage
-    links: [SYS009]
+- header: Threshold Validation
+  links:
+  - SYS009
+  text: |
+    Software shall validate custom thresholds against
+    clinically safe minimum and maximum bounds.
+  uid: SRS017
 
-  - uid: SRS017
-    text: |
-      Software shall validate custom thresholds against
-      clinically safe minimum and maximum bounds.
-    header: Threshold Validation
-    links: [SYS009]
+- header: Unsafe Custom Thresholds
+  links:
+  - PRJ001
+  text: |
+    Custom alert thresholds outside safe ranges could mask
+    critical patient conditions.
+  uid: HAZ003
 
-  # Additional hazard (links to project root)
-  - uid: HAZ003
-    text: |
-      Custom alert thresholds outside safe ranges could mask
-      critical patient conditions.
-    header: Unsafe Custom Thresholds
-    links: [PRJ001]
-
-  # Additional risk control
-  - uid: RC003
-    text: |
-      System shall enforce clinically validated minimum and maximum
-      bounds on all user-configurable thresholds.
-    header: Threshold Bounds Enforcement
-    links: [HAZ003]
+- header: Threshold Bounds Enforcement
+  links:
+  - HAZ003
+  text: |
+    System shall enforce clinically validated minimum and maximum
+    bounds on all user-configurable thresholds.
+  uid: RC003

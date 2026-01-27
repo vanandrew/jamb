@@ -10,7 +10,21 @@ def render_json(
     graph: TraceabilityGraph | None,
     trace_to_ignore: frozenset[str] | set[str] = frozenset(),
 ) -> str:
-    """Render coverage as JSON for machine processing."""
+    """Render coverage as JSON for machine processing.
+
+    Args:
+        coverage: Dict mapping UIDs to ItemCoverage objects representing
+            each traceable item and its test linkage.
+        graph: Optional TraceabilityGraph used to resolve ancestor chains
+            for each item. When None, ancestor lists are left empty.
+        trace_to_ignore: Set of document prefixes to exclude from the
+            ancestor display.
+
+    Returns:
+        A string containing pretty-printed JSON with a ``summary``
+        object (totals and coverage percentage) and an ``items`` object
+        keyed by UID.
+    """
     # Calculate stats
     total = len(coverage)
     covered = sum(1 for c in coverage.values() if c.is_covered)
@@ -46,7 +60,7 @@ def render_json(
             "text": cov.item.text,
             "header": cov.item.header,
             "document": cov.item.document_prefix,
-            "normative": cov.item.normative,
+            "normative": cov.item.type == "requirement",
             "active": cov.item.active,
             "traces_to": ancestors,
             "is_covered": cov.is_covered,

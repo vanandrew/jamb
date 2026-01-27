@@ -1,7 +1,6 @@
 """Shared fixtures for jamb tests."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,7 +19,6 @@ def sample_item() -> Item:
         text="Software shall validate user credentials",
         document_prefix="SRS",
         active=True,
-        normative=True,
     )
 
 
@@ -33,7 +31,6 @@ def item_with_header() -> Item:
         document_prefix="SRS",
         header="User Authentication",
         active=True,
-        normative=True,
     )
 
 
@@ -45,7 +42,6 @@ def inactive_item() -> Item:
         text="Deprecated requirement",
         document_prefix="SRS",
         active=False,
-        normative=True,
     )
 
 
@@ -213,42 +209,3 @@ version = "0.1.0"
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(content)
     return pyproject
-
-
-# =============================================================================
-# Mock Doorstop Fixtures
-# =============================================================================
-
-
-@pytest.fixture
-def mock_doorstop_item():
-    """Create a mock doorstop item."""
-    item = MagicMock()
-    item.uid = "SRS001"
-    item.text = "Test requirement text"
-    item.document.prefix = "SRS"
-    item.active = True
-    item.normative = True
-    item.header = ""
-    item.level = 1.0
-    item.links = []
-    item.data = {}
-    return item
-
-
-@pytest.fixture
-def mock_doorstop_document(mock_doorstop_item):
-    """Create a mock doorstop document."""
-    doc = MagicMock()
-    doc.prefix = "SRS"
-    doc.parent = "SYS"
-    doc.__iter__ = lambda _: iter([mock_doorstop_item])
-    return doc
-
-
-@pytest.fixture
-def mock_doorstop_tree(mock_doorstop_document):
-    """Create a mock doorstop tree."""
-    tree = MagicMock()
-    tree.documents = [mock_doorstop_document]
-    return tree

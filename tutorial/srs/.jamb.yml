@@ -1,0 +1,7 @@
+settings:
+  prefix: SRS
+  digits: 3
+  sep: ''
+  parents:
+    - SYS
+    - RC

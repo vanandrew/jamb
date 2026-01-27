@@ -35,9 +35,7 @@ class TestItem:
         item = Item(uid="TEST001", text="Test", document_prefix="TEST")
 
         assert item.active is True
-        assert item.normative is True
         assert item.header is None
-        assert item.level == 1.0
         assert item.links == []
         assert item.custom_attributes == {}
 
@@ -190,13 +188,13 @@ class TestTraceabilityGraph:
         """Test set_document_parent stores relationship."""
         empty_graph.set_document_parent("SRS", "SYS")
 
-        assert empty_graph.document_parents["SRS"] == "SYS"
+        assert empty_graph.document_parents["SRS"] == ["SYS"]
 
     def test_set_document_parent_root(self, empty_graph):
         """Test set_document_parent with None for root."""
         empty_graph.set_document_parent("UN", None)
 
-        assert empty_graph.document_parents["UN"] is None
+        assert empty_graph.document_parents["UN"] == []
 
     def test_get_ancestors_circular_reference(self):
         """Test get_ancestors handles circular references without infinite loop."""
@@ -274,6 +272,45 @@ class TestTraceabilityGraph:
         assert len(leaves) == 2
         assert "SRS" in leaves
         assert "UT" in leaves
+
+    def test_get_ancestors_dangling_parent(self):
+        """2a: Dangling parent UID (not in items dict) is excluded from ancestors."""
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS", links=["NONEXIST"])
+        graph.add_item(item)
+        ancestors = graph.get_ancestors("SRS001")
+        # NONEXIST is not in items, so it should not appear in ancestors
+        assert ancestors == []
+
+    def test_get_children_from_document_nonexistent_uid(self):
+        """2b: get_children_from_document for UID not in graph returns empty."""
+        graph = TraceabilityGraph()
+        children = graph.get_children_from_document("NONEXIST", "SRS")
+        assert children == []
+
+    def test_get_parents_from_document_nonexistent_uid(self):
+        """2b: get_parents_from_document for UID not in graph returns empty."""
+        graph = TraceabilityGraph()
+        parents = graph.get_parents_from_document("NONEXIST", "SRS")
+        assert parents == []
+
+    def test_set_document_parents_overwrites(self):
+        """2c: set_document_parents overwrites previous parents, not appends."""
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", ["SYS"])
+        graph.set_document_parents("SRS", ["UN"])
+        assert graph.document_parents["SRS"] == ["UN"]
+
+    def test_get_descendants_dangling_child(self):
+        """2e: Child UID not in items dict doesn't crash get_descendants."""
+        graph = TraceabilityGraph()
+        item = Item(uid="UN001", text="Need", document_prefix="UN", links=[])
+        graph.add_item(item)
+        # Manually inject a dangling child
+        graph.item_children["UN001"] = ["NONEXIST"]
+        descendants = graph.get_descendants("UN001")
+        # NONEXIST not in items, so not included
+        assert descendants == []
 
 
 class TestTraceabilityGraphDescendantsAndNeighbors:
@@ -477,6 +514,77 @@ class TestTraceabilityGraphDescendantsAndNeighbors:
         assert graph.item_children["UN001"].count("SYS001") == 1
 
 
+class TestTraceabilityGraphDocumentMethods:
+    """Tests for get_children_from_document,
+    get_parents_from_document, add_document_parent."""
+
+    def test_get_children_from_document(self):
+        graph = TraceabilityGraph()
+        un = Item(uid="UN001", text="Need", document_prefix="UN", links=[])
+        sys1 = Item(uid="SYS001", text="Sys1", document_prefix="SYS", links=["UN001"])
+        srs1 = Item(uid="SRS001", text="Srs1", document_prefix="SRS", links=["UN001"])
+        graph.add_item(un)
+        graph.add_item(sys1)
+        graph.add_item(srs1)
+        # Only SYS children
+        children = graph.get_children_from_document("UN001", "SYS")
+        assert len(children) == 1
+        assert children[0].uid == "SYS001"
+
+    def test_get_children_from_document_empty(self):
+        graph = TraceabilityGraph()
+        un = Item(uid="UN001", text="Need", document_prefix="UN", links=[])
+        graph.add_item(un)
+        children = graph.get_children_from_document("UN001", "SRS")
+        assert children == []
+
+    def test_get_parents_from_document(self):
+        graph = TraceabilityGraph()
+        sys1 = Item(uid="SYS001", text="Sys", document_prefix="SYS", links=[])
+        un1 = Item(uid="UN001", text="Need", document_prefix="UN", links=[])
+        srs1 = Item(
+            uid="SRS001", text="Srs", document_prefix="SRS", links=["SYS001", "UN001"]
+        )
+        graph.add_item(sys1)
+        graph.add_item(un1)
+        graph.add_item(srs1)
+        # Only SYS parents
+        parents = graph.get_parents_from_document("SRS001", "SYS")
+        assert len(parents) == 1
+        assert parents[0].uid == "SYS001"
+
+    def test_get_parents_from_document_empty(self):
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="Srs", document_prefix="SRS", links=[])
+        graph.add_item(item)
+        parents = graph.get_parents_from_document("SRS001", "SYS")
+        assert parents == []
+
+    def test_add_document_parent_new(self):
+        graph = TraceabilityGraph()
+        graph.add_document_parent("SRS", "SYS")
+        assert graph.document_parents["SRS"] == ["SYS"]
+
+    def test_add_document_parent_duplicate(self):
+        graph = TraceabilityGraph()
+        graph.add_document_parent("SRS", "SYS")
+        graph.add_document_parent("SRS", "SYS")
+        assert graph.document_parents["SRS"] == ["SYS"]
+
+    def test_add_document_parent_multiple(self):
+        graph = TraceabilityGraph()
+        graph.add_document_parent("SRS", "SYS")
+        graph.add_document_parent("SRS", "UN")
+        assert graph.document_parents["SRS"] == ["SYS", "UN"]
+
+    def test_display_text_empty_string_header(self):
+        """Empty string header should fall through to text."""
+        item = Item(
+            uid="TEST001", text="Fallback text", document_prefix="TEST", header=""
+        )
+        assert item.display_text == "Fallback text"
+
+
 class TestItemAdditionalCases:
     """Additional edge case tests for Item dataclass."""
 
@@ -491,28 +599,6 @@ class TestItemAdditionalCases:
 
         assert item.custom_attributes["priority"] == "high"
         assert item.custom_attributes["component"] == "auth"
-
-    def test_item_with_specific_level(self):
-        """Test Item with non-default level."""
-        item = Item(
-            uid="SRS001",
-            text="Requirement text",
-            document_prefix="SRS",
-            level=2.5,
-        )
-
-        assert item.level == 2.5
-
-    def test_item_non_normative(self):
-        """Test Item with normative=False."""
-        item = Item(
-            uid="SRS001",
-            text="Informative note",
-            document_prefix="SRS",
-            normative=False,
-        )
-
-        assert item.normative is False
 
 
 class TestLinkedTestAdditionalCases:
@@ -575,3 +661,46 @@ class TestItemCoverageAdditionalCases:
 
         assert coverage.is_covered is True
         assert len(coverage.linked_tests) == 2
+
+
+class TestTraceabilityGraphEdgeCases:
+    """Edge case tests for TraceabilityGraph."""
+
+    def test_orphaned_document_is_both_root_and_leaf(self):
+        """A document with no parents and no children is both root and leaf."""
+        graph = TraceabilityGraph()
+        graph.set_document_parent("SOLO", None)
+
+        roots = graph.get_root_documents()
+        leaves = graph.get_leaf_documents()
+
+        assert "SOLO" in roots
+        assert "SOLO" in leaves
+
+    def test_empty_graph_no_roots_no_leaves(self):
+        """An empty graph with no documents has no roots and no leaves."""
+        graph = TraceabilityGraph()
+
+        roots = graph.get_root_documents()
+        leaves = graph.get_leaf_documents()
+
+        assert roots == []
+        assert leaves == []
+
+    def test_all_tests_passed_with_none_outcome(self):
+        """all_tests_passed returns False when any linked test has test_outcome=None."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        passed_link = LinkedTest(
+            test_nodeid="test.py::test_pass",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        none_link = LinkedTest(
+            test_nodeid="test.py::test_pending",
+            item_uid="SRS001",
+            test_outcome=None,
+        )
+        coverage = ItemCoverage(item=item, linked_tests=[passed_link, none_link])
+
+        assert coverage.is_covered is True
+        assert coverage.all_tests_passed is False

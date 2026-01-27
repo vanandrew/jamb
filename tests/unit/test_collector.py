@@ -29,21 +29,18 @@ def mock_graph():
         text="Requirement 1",
         document_prefix="SRS",
         active=True,
-        normative=True,
     )
     item2 = Item(
         uid="SRS002",
         text="Requirement 2",
         document_prefix="SRS",
         active=True,
-        normative=True,
     )
     item3 = Item(
         uid="SRS003",
         text="Inactive requirement",
         document_prefix="SRS",
         active=False,
-        normative=True,
     )
     graph.add_item(item1)
     graph.add_item(item2)
@@ -55,12 +52,12 @@ def mock_graph():
 class TestRequirementCollectorInit:
     """Tests for RequirementCollector initialization."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
-    def test_collector_init_loads_doorstop(
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_collector_init_loads_requirements(
         self, mock_build_graph, mock_discover, mock_pytest_config, mock_graph
     ):
-        """Test collector initialization loads doorstop tree."""
+        """Test collector initialization loads requirements."""
         mock_discover.return_value = MagicMock()
         mock_build_graph.return_value = mock_graph
 
@@ -71,22 +68,22 @@ class TestRequirementCollectorInit:
         mock_discover.assert_called_once()
         mock_build_graph.assert_called_once()
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    def test_collector_init_handles_missing_doorstop(
+    @patch("jamb.storage.discover_documents")
+    def test_collector_init_handles_missing_requirements(
         self, mock_discover, mock_pytest_config
     ):
-        """Test collector handles missing doorstop gracefully."""
-        mock_discover.side_effect = Exception("No doorstop tree found")
+        """Test collector handles missing requirements gracefully."""
+        mock_discover.side_effect = FileNotFoundError("No requirements found")
 
-        with pytest.warns(UserWarning, match="Could not load doorstop tree"):
+        with pytest.warns(UserWarning, match="Could not load requirements"):
             collector = RequirementCollector(mock_pytest_config)
 
         # Should create empty graph on error
         assert collector.graph is not None
         assert len(collector.graph.items) == 0
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_collector_init_empty_test_links(
         self, mock_build_graph, mock_discover, mock_pytest_config
     ):
@@ -103,8 +100,8 @@ class TestRequirementCollectorInit:
 class TestGetTestDocuments:
     """Tests for _get_test_documents method."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_get_test_documents_from_cli_option(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -124,8 +121,8 @@ class TestGetTestDocuments:
 
         assert docs == ["SRS", "SYS"]
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_get_test_documents_from_config(
         self, mock_load_config, mock_build_graph, mock_discover, mock_graph
@@ -148,8 +145,8 @@ class TestGetTestDocuments:
 
         assert docs == ["UT", "IT"]
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_get_test_documents_defaults_to_leaf_docs(
         self, mock_load_config, mock_build_graph, mock_discover, mock_graph
@@ -177,8 +174,8 @@ class TestGetTestDocuments:
 class TestGetCoverage:
     """Tests for get_coverage method."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_get_coverage_returns_empty_when_no_graph(
         self, mock_build_graph, mock_discover, mock_pytest_config
     ):
@@ -193,8 +190,8 @@ class TestGetCoverage:
 
         assert coverage == {}
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_get_coverage_builds_coverage_for_test_docs(
         self, mock_load_config, mock_build_graph, mock_discover, mock_graph
@@ -229,8 +226,8 @@ class TestGetCoverage:
 class TestAllTestItemsCovered:
     """Tests for all_test_items_covered method."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_all_test_items_covered_true_when_all_covered(
         self, mock_load_config, mock_build_graph, mock_discover
@@ -242,7 +239,6 @@ class TestAllTestItemsCovered:
             text="Requirement",
             document_prefix="SRS",
             active=True,
-            normative=True,
         )
         graph.add_item(item)
         graph.set_document_parent("SRS", None)
@@ -266,8 +262,8 @@ class TestAllTestItemsCovered:
 
         assert collector.all_test_items_covered() is True
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_all_test_items_covered_false_when_uncovered(
         self, mock_load_config, mock_build_graph, mock_discover, mock_graph
@@ -290,8 +286,8 @@ class TestAllTestItemsCovered:
 
         assert collector.all_test_items_covered() is False
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_all_test_items_covered_ignores_inactive(
         self, mock_load_config, mock_build_graph, mock_discover, mock_graph
@@ -321,8 +317,8 @@ class TestAllTestItemsCovered:
 
         assert collector.all_test_items_covered() is True
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     def test_all_test_items_covered_ignores_non_normative(
         self, mock_load_config, mock_build_graph, mock_discover
@@ -334,14 +330,13 @@ class TestAllTestItemsCovered:
             text="Normative requirement",
             document_prefix="SRS",
             active=True,
-            normative=True,
         )
         informative_item = Item(
             uid="SRS002",
             text="Informative note",
             document_prefix="SRS",
             active=True,
-            normative=False,
+            type="info",
         )
         graph.add_item(normative_item)
         graph.add_item(informative_item)
@@ -372,8 +367,8 @@ class TestAllTestItemsCovered:
 class TestGenerateMatrix:
     """Tests for generate_matrix method."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     @patch("jamb.matrix.generator.generate_matrix")
     def test_generate_matrix_calls_generator(
@@ -406,8 +401,8 @@ class TestGenerateMatrix:
         assert call_args[0][3] == "html"
         assert "trace_to_ignore" in call_args[1]
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
     @patch("jamb.matrix.generator.generate_matrix")
     def test_generate_matrix_passes_trace_to_ignore(
@@ -443,8 +438,8 @@ class TestGenerateMatrix:
 class TestPytestCollectionModifyItems:
     """Tests for pytest_collection_modifyitems hook."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.get_requirement_markers")
     def test_collection_adds_test_links(
         self, mock_get_markers, mock_build_graph, mock_discover, mock_graph
@@ -477,8 +472,8 @@ class TestPytestCollectionModifyItems:
         assert collector.test_links[0].item_uid == "SRS001"
         assert collector.test_links[1].item_uid == "SRS002"
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.get_requirement_markers")
     def test_collection_tracks_unknown_items(
         self, mock_get_markers, mock_build_graph, mock_discover, mock_graph
@@ -511,8 +506,8 @@ class TestPytestCollectionModifyItems:
 class TestPytestRunTestMakeReport:
     """Tests for pytest_runtest_makereport hook."""
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_makereport_updates_outcome_on_pass(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -557,8 +552,8 @@ class TestPytestRunTestMakeReport:
 
         assert collector.test_links[0].test_outcome == "passed"
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_makereport_captures_failure_message(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -602,8 +597,8 @@ class TestPytestRunTestMakeReport:
         assert collector.test_links[0].test_outcome == "failed"
         assert any("[FAILURE]" in msg for msg in collector.test_links[0].notes)
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_makereport_truncates_long_failure(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -648,8 +643,8 @@ class TestPytestRunTestMakeReport:
         failure_msg = [m for m in collector.test_links[0].notes if "[FAILURE]" in m][0]
         assert "(truncated)" in failure_msg
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_makereport_captures_skip_reason(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -693,8 +688,8 @@ class TestPytestRunTestMakeReport:
 
         assert any("[SKIPPED]" in msg for msg in collector.test_links[0].notes)
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_makereport_captures_xfail(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -737,8 +732,8 @@ class TestPytestRunTestMakeReport:
 
         assert any("[XFAIL]" in msg for msg in collector.test_links[0].notes)
 
-    @patch("jamb.pytest_plugin.collector.discover_tree")
-    @patch("jamb.pytest_plugin.collector.build_traceability_graph")
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
     def test_makereport_captures_jamb_log_messages(
         self, mock_build_graph, mock_discover, mock_graph
     ):
@@ -805,7 +800,7 @@ class TestPytestReportHeader:
         result = pytest_report_header(config)
 
         assert result is not None
-        assert "jamb: tracking 2 doorstop items" in result[0]
+        assert "jamb: tracking 2 requirement items" in result[0]
 
     def test_report_header_disabled_when_no_jamb(self):
         """Test report header returns None when jamb is disabled."""
@@ -906,14 +901,12 @@ class TestPytestTerminalSummary:
             text="Covered requirement",
             document_prefix="SRS",
             active=True,
-            normative=True,
         )
         item2 = Item(
             uid="SRS002",
             text="Uncovered requirement",
             document_prefix="SRS",
             active=True,
-            normative=True,
         )
         cov1 = ItemCoverage(
             item=item1,
@@ -953,7 +946,6 @@ class TestPytestTerminalSummary:
             text="Uncovered requirement",
             document_prefix="SRS",
             active=True,
-            normative=True,
         )
         cov = ItemCoverage(item=item, linked_tests=[])
 
@@ -985,7 +977,6 @@ class TestPytestTerminalSummary:
             text="Requirement",
             document_prefix="SRS",
             active=True,
-            normative=True,
         )
         cov = ItemCoverage(
             item=item,
@@ -1007,3 +998,172 @@ class TestPytestTerminalSummary:
             "Unknown items referenced in tests:" in str(c) and "yellow=True" in str(c)
             for c in calls
         )
+
+    def test_terminal_summary_coverage_percentage_and_passing_count(self):
+        """Terminal summary shows correct coverage % and passing count."""
+        from jamb.pytest_plugin.collector import pytest_terminal_summary
+
+        config = MagicMock()
+        config.option.jamb = True
+
+        item1 = Item(
+            uid="SRS001",
+            text="Covered requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        item2 = Item(
+            uid="SRS002",
+            text="Uncovered requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        cov1 = ItemCoverage(
+            item=item1,
+            linked_tests=[
+                LinkedTest(
+                    test_nodeid="test.py::test_1",
+                    item_uid="SRS001",
+                    test_outcome="passed",
+                )
+            ],
+        )
+        cov2 = ItemCoverage(item=item2, linked_tests=[])
+
+        collector = MagicMock()
+        collector.get_coverage.return_value = {"SRS001": cov1, "SRS002": cov2}
+        collector.unknown_items = set()
+        config.pluginmanager.get_plugin.return_value = collector
+
+        terminal = MagicMock()
+
+        pytest_terminal_summary(terminal, 0, config)
+
+        calls = [str(c) for c in terminal.write_line.call_args_list]
+        assert any("Covered by pytest tests: 1 (50.0%)" in c for c in calls)
+        assert any("All tests passing: 1" in c for c in calls)
+        # Uncovered item listed in red
+        assert any("SRS002" in c and "red=True" in c for c in calls)
+
+
+# =========================================================================
+# Gap 4 — Failure message truncation precision
+# =========================================================================
+
+
+class TestMakeReportTruncationPrecision:
+    """Precision tests for failure message truncation."""
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_makereport_truncation_preserves_first_500_chars(
+        self, mock_build_graph, mock_discover
+    ):
+        """Truncated note contains first 500 chars and
+        '(truncated)' but not chars beyond."""
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", active=True)
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(test_nodeid="test.py::test_fail", item_uid="SRS001")
+        )
+
+        mock_item = MagicMock()
+        mock_item.nodeid = "test.py::test_fail"
+        mock_item.stash = {}
+
+        mock_call = MagicMock()
+
+        mock_report = MagicMock()
+        mock_report.when = "call"
+        mock_report.outcome = "failed"
+        mock_report.failed = True
+        mock_report.skipped = False
+        mock_report.longreprtext = "A" * 500 + "B" * 500
+
+        mock_outcome = MagicMock()
+        mock_outcome.get_result.return_value = mock_report
+
+        gen = collector.pytest_runtest_makereport(mock_item, mock_call)
+        next(gen)
+        try:
+            gen.send(mock_outcome)
+        except StopIteration:
+            pass
+
+        failure_note = [m for m in collector.test_links[0].notes if "[FAILURE]" in m][0]
+        assert "A" * 500 in failure_note
+        assert "(truncated)" in failure_note
+        assert "B" not in failure_note
+
+
+# =========================================================================
+# Gap 5 — xfail with empty reason
+# =========================================================================
+
+
+class TestMakeReportXfailEmptyReason:
+    """Edge case: xfail with empty (falsy) reason."""
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_makereport_xfail_empty_reason_falls_through(
+        self, mock_build_graph, mock_discover
+    ):
+        """wasxfail='' (falsy) + skipped=True produces [SKIPPED] not [XFAIL]."""
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", active=True)
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(test_nodeid="test.py::test_xfail_empty", item_uid="SRS001")
+        )
+
+        mock_item = MagicMock()
+        mock_item.nodeid = "test.py::test_xfail_empty"
+        mock_item.stash = {}
+
+        mock_call = MagicMock()
+
+        mock_report = MagicMock()
+        mock_report.when = "call"
+        mock_report.outcome = "skipped"
+        mock_report.failed = False
+        mock_report.skipped = True
+        mock_report.wasxfail = ""  # falsy
+        mock_report.longreprtext = "Skipped for reason"
+
+        mock_outcome = MagicMock()
+        mock_outcome.get_result.return_value = mock_report
+
+        gen = collector.pytest_runtest_makereport(mock_item, mock_call)
+        next(gen)
+        try:
+            gen.send(mock_outcome)
+        except StopIteration:
+            pass
+
+        notes = collector.test_links[0].notes
+        assert any("[SKIPPED]" in n for n in notes)
+        assert not any("[XFAIL]" in n for n in notes)

@@ -1,7 +1,7 @@
 [project]
 name = "jamb"
-version = "0.1.0"
-description = "IEC 62304 requirements traceability for pytest, built on doorstop"
+dynamic = ["version"]
+description = "IEC 62304 requirements traceability for pytest"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -9,7 +9,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "doorstop>=3.0, <4.0",
+    "pyyaml>=6.0",
     "pytest>=7.0",
     "click>=8.0",
     "jinja2>=3.0",
@@ -24,13 +24,6 @@ jamb = "jamb.cli.commands:cli"
 [project.entry-points.pytest11]
 jamb = "jamb.pytest_plugin.plugin"
 
-[project.optional-dependencies]
-dev = [
-    "pytest-cov",
-    "mypy",
-    "ruff",
-    "pre-commit",
-]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -38,6 +31,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/jamb/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jamb"]
@@ -50,7 +46,7 @@ trace_to_ignore = ["PRJ"]
 testpaths = ["tests"]
 addopts = "--cov=src/jamb"
 filterwarnings = [
-    "ignore:Could not load doorstop tree:UserWarning:jamb.pytest_plugin.collector",
+    "ignore:Could not load requirements:UserWarning:jamb.pytest_plugin.collector",
 ]
 
 [tool.coverage.run]
@@ -93,4 +89,15 @@ select = [
 [dependency-groups]
 dev = [
     "pytest-cov>=7.0.0",
+    "mypy",
+    "ruff",
+    "pre-commit",
+]
+docs = [
+    "sphinx>=7.0",
+    "myst-parser>=3.0",
+    "pydata-sphinx-theme>=0.15",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autobuild>=2024.0",
+    "sphinxcontrib-mermaid>=0.9",
 ]

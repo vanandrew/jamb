@@ -6,12 +6,19 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from docx.shared import RGBColor
 
-from jamb.core.models import Item
+from jamb.core.models import Item, TraceabilityGraph
 
 
 def _add_bookmark(paragraph, bookmark_name: str) -> None:
-    """Add a bookmark to a paragraph for internal linking."""
+    """Add a bookmark to a paragraph for internal linking.
+
+    Args:
+        paragraph: The docx paragraph object to add the bookmark to.
+        bookmark_name: The bookmark identifier used for internal
+            cross-references.
+    """
     # Create bookmark start
     bookmark_start = OxmlElement("w:bookmarkStart")
     bookmark_start.set(qn("w:id"), "0")
@@ -27,7 +34,13 @@ def _add_bookmark(paragraph, bookmark_name: str) -> None:
 
 
 def _add_hyperlink(paragraph, anchor: str, text: str) -> None:
-    """Add an internal hyperlink to a paragraph."""
+    """Add an internal hyperlink to a paragraph.
+
+    Args:
+        paragraph: The docx paragraph object to add the hyperlink to.
+        anchor: The bookmark name to link to.
+        text: The display text for the hyperlink.
+    """
     # Create hyperlink element
     hyperlink = OxmlElement("w:hyperlink")
     hyperlink.set(qn("w:anchor"), anchor)
@@ -61,6 +74,7 @@ def render_docx(
     title: str,
     include_child_links: bool = True,
     document_order: list[str] | None = None,
+    graph: TraceabilityGraph | None = None,
 ) -> bytes:
     """Render items as a Word document.
 
@@ -93,15 +107,12 @@ def render_docx(
     else:
         doc_order_index = {}
 
-    def get_level(item: Item) -> float:
-        return float(item.level) if hasattr(item.level, "__float__") else 1.0
-
     def get_doc_order(item: Item) -> int:
         return doc_order_index.get(item.document_prefix, 999)
 
-    # Sort items by document hierarchy, then level, then UID
+    # Sort items by document hierarchy, then UID
     sorted_items = sorted(
-        items, key=lambda x: (get_doc_order(x), x.document_prefix, get_level(x), x.uid)
+        items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid)
     )
 
     # Track current document for section headers
@@ -113,25 +124,31 @@ def render_docx(
             current_doc = item.document_prefix
             doc.add_heading(f"{current_doc}", level=1)
 
-        # Determine heading level based on item level (2-9, reserve 1 for doc headers)
-        level_value = float(item.level) if hasattr(item.level, "__float__") else 1.0
-        heading_level = min(int(level_value) + 1, 9)
-        heading_level = max(heading_level, 2)
-
         # Create heading with UID and optional header
-        if item.header:
-            heading_text = f"{item.uid}: {item.header}"
-        else:
-            heading_text = item.uid
+        item_type = getattr(item, "type", "requirement")
 
-        heading = doc.add_heading(heading_text, level=heading_level)
+        if item_type == "heading":
+            heading_display = item.header if item.header else item.uid
+            heading = doc.add_heading(heading_display, level=1)
+        else:
+            if item.header:
+                heading_text = f"{item.uid}: {item.header}"
+            else:
+                heading_text = item.uid
+            heading = doc.add_heading(heading_text, level=2)
 
         # Add bookmark for this item so links can reference it
         _add_bookmark(heading, item.uid)
 
         # Add item text
         if item.text:
-            doc.add_paragraph(item.text)
+            if item_type == "info":
+                para = doc.add_paragraph()
+                run = para.add_run(item.text)
+                run.italic = True
+                run.font.color.rgb = RGBColor(0x7F, 0x8C, 0x8D)
+            else:
+                doc.add_paragraph(item.text)
 
         # Add links section with hyperlinks
         if include_child_links and item.links:
@@ -148,6 +165,20 @@ def render_docx(
                     _add_hyperlink(links_para, link_uid, link_uid)
                 else:
                     links_para.add_run(link_uid)
+
+        # Add child links section (reverse links)
+        if include_child_links and graph is not None:
+            children = graph.item_children.get(item.uid, [])
+            visible_children = [c for c in children if c in all_uids]
+            if visible_children:
+                child_para = doc.add_paragraph()
+                child_run = child_para.add_run("Linked from: ")
+                child_run.bold = True
+
+                for i, child_uid in enumerate(visible_children):
+                    if i > 0:
+                        child_para.add_run(", ")
+                    _add_hyperlink(child_para, child_uid, child_uid)
 
         # Add spacing between items
         doc.add_paragraph()

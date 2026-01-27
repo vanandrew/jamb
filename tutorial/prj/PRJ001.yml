@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Patient Monitoring System
-level: 1
+header: Patient Monitoring System
+type: heading
 links: []
-normative: true
-ref: ''
-reviewed: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
 text: |
   The Patient Monitoring System shall provide real-time vital signs monitoring,
   alerting, and data management capabilities for clinical use.
+reviewed: XEgDC3PgF9wszzbpYggzF2OOK1q4Isd3_G3_ELQwWGY

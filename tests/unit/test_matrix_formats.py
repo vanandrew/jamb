@@ -693,3 +693,42 @@ class TestNotesInRenderers:
         md = render_markdown(coverage_with_messages, sample_graph)
 
         assert "Custom verification message" in md
+
+
+# =========================================================================
+# Gap 9 — XLSX conditional formatting (fill colors)
+# =========================================================================
+
+
+class TestXlsxConditionalFormatting:
+    """Tests for XLSX status cell fill colors."""
+
+    def test_passed_cell_has_green_fill(self, sample_coverage, sample_graph):
+        """Passed status cell has green fill (C6EFCE)."""
+        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+
+        status_cell = ws.cell(row=8, column=9)
+        assert status_cell.value == "Passed"
+        assert status_cell.fill.start_color.rgb == "00C6EFCE"
+
+    def test_failed_cell_has_red_fill(self, failed_coverage, sample_graph):
+        """Failed status cell has red fill (FFC7CE)."""
+        xlsx_bytes = render_xlsx(failed_coverage, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+
+        status_cell = ws.cell(row=8, column=9)
+        assert status_cell.value == "Failed"
+        assert status_cell.fill.start_color.rgb == "00FFC7CE"
+
+    def test_uncovered_cell_has_yellow_fill(self, uncovered_coverage, sample_graph):
+        """Uncovered status cell has yellow fill (FFEB9C)."""
+        xlsx_bytes = render_xlsx(uncovered_coverage, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+
+        status_cell = ws.cell(row=8, column=9)
+        assert status_cell.value == "Not Covered"
+        assert status_cell.fill.start_color.rgb == "00FFEB9C"

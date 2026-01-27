@@ -41,13 +41,12 @@ class TestMarkerCollection:
             """
         )
 
-        # Create minimal doorstop config for the test
         pytester.makefile(
-            ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
         )
         pytester.makefile(
             ".yml",
-            SRS001="active: true\nnormative: true\ntext: Test requirement\nlinks: []",
+            SRS001="active: true\ntext: Test requirement\nlinks: []",
         )
 
         result = pytester.runpytest("--jamb", "-v")
@@ -87,7 +86,7 @@ class TestCoverageSummary:
         result = pytester.runpytest("--jamb")
 
         # Should show coverage summary section (even if empty)
-        # The exact content depends on doorstop tree availability
+        # The exact content depends on jamb tree availability
         assert result.ret == 0
         # Output should contain some coverage-related text
         output = result.stdout.str()
@@ -109,13 +108,10 @@ class TestFailUncovered:
             """
         )
 
-        # Create doorstop config with one item
         pytester.makefile(
-            ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
         )
-        pytester.makefile(
-            ".yml", SRS001="active: true\nnormative: true\ntext: Test\nlinks: []"
-        )
+        pytester.makefile(".yml", SRS001="active: true\ntext: Test\nlinks: []")
 
         result = pytester.runpytest("--jamb", "--jamb-fail-uncovered")
 
@@ -138,13 +134,10 @@ class TestMatrixGeneration:
             """
         )
 
-        # Create doorstop config
         pytester.makefile(
-            ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
         )
-        pytester.makefile(
-            ".yml", SRS001="active: true\nnormative: true\ntext: Test\nlinks: []"
-        )
+        pytester.makefile(".yml", SRS001="active: true\ntext: Test\nlinks: []")
 
         matrix_path = pytester.path / "matrix.html"
         result = pytester.runpytest("--jamb", f"--jamb-matrix={matrix_path}")
@@ -163,9 +156,8 @@ class TestMatrixGeneration:
             """
         )
 
-        # Create doorstop config
         pytester.makefile(
-            ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
         )
 
         matrix_path = pytester.path / "matrix.md"
@@ -187,9 +179,8 @@ class TestMatrixGeneration:
             """
         )
 
-        # Create doorstop config
         pytester.makefile(
-            ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
         )
 
         matrix_path = pytester.path / "matrix.csv"
@@ -215,9 +206,8 @@ class TestMatrixGeneration:
             """
         )
 
-        # Create doorstop config
         pytester.makefile(
-            ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
         )
 
         matrix_path = pytester.path / "matrix.xlsx"
@@ -258,29 +248,14 @@ class TestUnknownItems:
         result.stdout.fnmatch_lines(["*test_unknown_item*PASSED*"])
 
 
-def _setup_git_doorstop(pytester):
-    """Initialize git repo and doorstop config in pytester directory."""
-    import subprocess
-
-    # Initialize git repo (doorstop requires this)
-    subprocess.run(["git", "init"], cwd=pytester.path, capture_output=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@test.com"],
-        cwd=pytester.path,
-        capture_output=True,
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test"],
-        cwd=pytester.path,
-        capture_output=True,
-    )
-
-    # Create doorstop config
+def _setup_jamb(pytester):
+    """Initialize jamb config in pytester directory."""
     pytester.makefile(
-        ".yml", **{".doorstop": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
+        ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
     )
     pytester.makefile(
-        ".yml", SRS001="active: true\nnormative: true\ntext: Test\nlinks: []"
+        ".yml",
+        SRS001="active: true\ntext: Test requirement\nlinks: []",
     )
 
 
@@ -305,7 +280,7 @@ class TestJambDocumentsOption:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "--jamb-documents=SRS", "-v")
 
@@ -319,7 +294,7 @@ class TestReportHeader:
     """Tests for pytest_report_header hook."""
 
     def test_report_header_shows_item_count(self, pytester):
-        """Test that report header shows doorstop item count."""
+        """Test that report header shows requirement item count."""
         pytester.makepyfile(
             """
             def test_simple():
@@ -327,7 +302,7 @@ class TestReportHeader:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "-v")
 
@@ -350,7 +325,7 @@ class TestReportHeader:
         assert result.ret == 0
         # Should not show jamb-specific header
         output = result.stdout.str()
-        assert "doorstop items" not in output
+        assert "requirement items" not in output
 
 
 class TestTerminalSummaryExtended:
@@ -368,7 +343,7 @@ class TestTerminalSummaryExtended:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "-v")
 
@@ -386,7 +361,7 @@ class TestTerminalSummaryExtended:
         # Add a second item that won't be covered
         pytester.makefile(
             ".yml",
-            SRS002="active: true\nnormative: true\ntext: Uncovered\nlinks: []",
+            SRS002="active: true\ntext: Uncovered\nlinks: []",
         )
 
         pytester.makepyfile(
@@ -399,7 +374,7 @@ class TestTerminalSummaryExtended:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "-v")
 
@@ -420,7 +395,7 @@ class TestTerminalSummaryExtended:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "-v")
 
@@ -438,7 +413,7 @@ class TestFailUncoveredExtended:
         # Add a second item that won't be covered
         pytester.makefile(
             ".yml",
-            SRS002="active: true\nnormative: true\ntext: Uncovered\nlinks: []",
+            SRS002="active: true\ntext: Uncovered\nlinks: []",
         )
 
         pytester.makepyfile(
@@ -451,7 +426,7 @@ class TestFailUncoveredExtended:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "--jamb-fail-uncovered")
 
@@ -476,7 +451,7 @@ class TestSkipAndXfailCapture:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
@@ -507,7 +482,7 @@ class TestSkipAndXfailCapture:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
@@ -537,7 +512,7 @@ class TestJambLogFixture:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         result = pytester.runpytest("--jamb", "-v")
 
@@ -559,7 +534,7 @@ class TestJambLogFixture:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
@@ -590,7 +565,7 @@ class TestJambLogFixture:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
@@ -624,7 +599,7 @@ class TestJambLogFixture:
             """
         )
 
-        _setup_git_doorstop(pytester)
+        _setup_jamb(pytester)
 
         matrix_path = pytester.path / "matrix.html"
         result = pytester.runpytest(

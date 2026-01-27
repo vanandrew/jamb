@@ -139,3 +139,109 @@ trace_to_ignore = ["PRJ", "UN"]
         config = load_config(pyproject)
 
         assert config.trace_to_ignore == ["PRJ", "UN"]
+
+    def test_load_config_wrong_type_test_documents(self, tmp_path):
+        """9a: test_documents as string instead of list — documents behavior."""
+        content = """
+[tool.jamb]
+test_documents = "SRS"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        # TOML parser returns "SRS" as a string, load_config passes it through
+        assert config.test_documents == "SRS"
+
+
+class TestLoadConfigTypeEdgeCases:
+    """Document current behavior: no type validation on config values."""
+
+    def test_test_documents_as_dict(self, tmp_path):
+        """test_documents = {SRS = true} passes through as dict."""
+        content = """
+[tool.jamb]
+test_documents = {SRS = true}
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        assert config.test_documents == {"SRS": True}
+
+    def test_fail_uncovered_as_string(self, tmp_path):
+        """fail_uncovered = 'yes' passes through as string."""
+        content = """
+[tool.jamb]
+fail_uncovered = "yes"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        assert config.fail_uncovered == "yes"
+
+    def test_matrix_format_as_int(self, tmp_path):
+        """matrix_format = 42 passes through as int."""
+        content = """
+[tool.jamb]
+matrix_format = 42
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        assert config.matrix_format == 42
+
+    def test_exclude_patterns_as_string(self, tmp_path):
+        """exclude_patterns = '*.py' passes through as string."""
+        content = """
+[tool.jamb]
+exclude_patterns = "*.py"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        assert config.exclude_patterns == "*.py"
+
+    def test_trace_to_ignore_as_dict(self, tmp_path):
+        """trace_to_ignore = {PRJ = true} passes through as dict."""
+        content = """
+[tool.jamb]
+trace_to_ignore = {PRJ = true}
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        assert config.trace_to_ignore == {"PRJ": True}
+
+    def test_extra_unknown_keys_ignored(self, tmp_path):
+        """Unknown keys don't break loading."""
+        content = """
+[tool.jamb]
+test_documents = ["SRS"]
+totally_unknown_key = "hello"
+another_fake = 99
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+        assert config.test_documents == ["SRS"]
+        assert not hasattr(config, "totally_unknown_key")
+
+    def test_malformed_toml_raises(self, tmp_path):
+        """Invalid TOML syntax raises an exception."""
+        import pytest
+
+        content = """
+[tool.jamb
+test_documents = ["SRS"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        with pytest.raises(Exception):  # noqa: B017
+            load_config(pyproject)

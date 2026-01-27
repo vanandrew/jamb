@@ -1,0 +1,6 @@
+settings:
+  prefix: HAZ
+  digits: 3
+  sep: ''
+  parents:
+    - PRJ

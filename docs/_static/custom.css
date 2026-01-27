@@ -1,0 +1,5 @@
+/* Theme-aware inline icons */
+html[data-theme="light"] .only-dark,
+html[data-theme="dark"] .only-light {
+    display: none !important;
+}

@@ -10,7 +10,8 @@ class JambLog:
     """
     Collector for custom test messages to include in traceability matrix.
 
-    Usage in tests:
+    Usage in tests::
+
         @pytest.mark.requirement("SRS001")
         def test_something(jamb_log):
             jamb_log.note("Custom verification note")

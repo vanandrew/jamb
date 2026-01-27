@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Alerts
-level: 4
+header: Alerts
+type: requirement
 links:
-- PRJ001: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
-normative: true
-ref: ''
-reviewed: _3DvtzxLMcMpvDfxEnD8tiGTzVlxgodQ8sQh3SBvnq4=
+- PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall receive alerts when vital signs exceed thresholds.
+reviewed: w7__dJGOVquTwF4aZyaUlBp4h9BL2J4fS4ytcMAlHCk

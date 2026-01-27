@@ -11,7 +11,20 @@ def render_csv(
     graph: TraceabilityGraph | None,
     trace_to_ignore: frozenset[str] | set[str] = frozenset(),
 ) -> str:
-    """Render coverage as CSV traceability matrix."""
+    """Render coverage as CSV traceability matrix.
+
+    Args:
+        coverage: Dict mapping UIDs to ItemCoverage objects representing
+            each traceable item and its test linkage.
+        graph: Optional TraceabilityGraph used to resolve ancestor chains
+            for each item. When None, ancestor columns are left empty.
+        trace_to_ignore: Set of document prefixes to exclude from the
+            ancestor display.
+
+    Returns:
+        A string containing CSV data with a header row followed by one
+        row per traceable item.
+    """
     output = io.StringIO()
     writer = csv.writer(output)
 

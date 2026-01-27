@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Threshold Alerts
-level: 6
+header: Threshold Alerts
+type: requirement
 links:
-- UN004: e8hbF15zC_CsYDUlGTsCM-sKUmgzpP627EpGGWuOBBI=
-normative: true
-ref: ''
-reviewed: ifwHOv9OHQ9mJitZG5yeKGYYMKqwgdHXIbActnF7cEY=
+- UN004: qTZ6AWdwx-f05ewUN1GF3f7WilKwIqgv9-kWS3h8vLw
 text: |
   System shall generate alerts when values exceed configured thresholds.
+reviewed: LbRtIiCYnJrTd7Hzjsr1r9v6PJl4d0AEoL6NlzCejb0

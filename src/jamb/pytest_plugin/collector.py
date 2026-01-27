@@ -10,8 +10,6 @@ if TYPE_CHECKING:
 
 from jamb.config.loader import JambConfig, load_config
 from jamb.core.models import ItemCoverage, LinkedTest, TraceabilityGraph
-from jamb.doorstop.discovery import discover_tree
-from jamb.doorstop.reader import build_traceability_graph
 from jamb.pytest_plugin.log import JAMB_LOG_KEY
 from jamb.pytest_plugin.markers import get_requirement_markers
 
@@ -20,30 +18,52 @@ class RequirementCollector:
     """Collects test-to-requirement mappings during pytest execution."""
 
     def __init__(self, config: pytest.Config) -> None:
+        """Initialize the requirement collector.
+
+        Loads the jamb configuration and the traceability graph from the
+        native storage layer.
+
+        Args:
+            config: The pytest configuration object.
+        """
         self.pytest_config = config
         self.jamb_config: JambConfig = load_config()
         self.graph: TraceabilityGraph | None = None
         self.test_links: list[LinkedTest] = []
         self.unknown_items: set[str] = set()
-        self._load_doorstop()
+        self._load_requirements()
 
-    def _load_doorstop(self) -> None:
-        """Load requirements from doorstop."""
+    def _load_requirements(self) -> None:
+        """Load requirements from the native storage layer.
+
+        Discovers documents and builds the traceability graph. If loading
+        fails for any reason, emits a warning and initializes an empty
+        graph so that the plugin can continue without requirements data.
+        """
         try:
-            tree = discover_tree()
-            self.graph = build_traceability_graph(tree)
-        except Exception as e:
-            # If doorstop isn't configured, create empty graph
+            from jamb.storage import build_traceability_graph, discover_documents
+
+            dag = discover_documents()
+            self.graph = build_traceability_graph(dag)
+        except (ValueError, FileNotFoundError, OSError) as e:
             import warnings
 
-            warnings.warn(f"Could not load doorstop tree: {e}", stacklevel=2)
+            warnings.warn(f"Could not load requirements: {e}", stacklevel=2)
             self.graph = TraceabilityGraph()
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_collection_modifyitems(
         self, items: list[pytest.Item]
     ) -> Generator[None, None, None]:
-        """Collect requirement markers from all test items."""
+        """Collect requirement markers from all test items.
+
+        Extracts requirement UIDs from markers on each test item and records
+        them as ``LinkedTest`` entries. Yields control for collection to
+        complete first.
+
+        Args:
+            items: The list of pytest test items collected for the session.
+        """
         yield  # Let collection complete
 
         for item in items:
@@ -65,7 +85,16 @@ class RequirementCollector:
         item: pytest.Item,
         call: pytest.CallInfo,  # noqa: ARG002
     ) -> Generator[None, Any, None]:
-        """Record test outcomes, notes, test actions, and expected results."""
+        """Record test outcomes, notes, test actions, and expected results.
+
+        Captures the test outcome and data from the ``jamb_log`` fixture,
+        including failure messages and skip reasons, and updates all
+        ``LinkedTest`` entries for the test.
+
+        Args:
+            item: The pytest test item that was executed.
+            call: The call information for the test phase.
+        """
         _ = call  # Required by pytest hook signature
         outcome = yield
         report = outcome.get_result()
@@ -105,7 +134,12 @@ class RequirementCollector:
                     link.expected_results = expected_results
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
-        """Build coverage report for all items in test documents."""
+        """Build coverage report for all items in test documents.
+
+        Returns:
+            A dict mapping item UIDs to ``ItemCoverage`` objects for items
+            in the configured test documents.
+        """
         coverage: dict[str, ItemCoverage] = {}
 
         if not self.graph:
@@ -128,7 +162,15 @@ class RequirementCollector:
         return coverage
 
     def _get_test_documents(self) -> list[str]:
-        """Get list of test document prefixes to check for coverage."""
+        """Get list of test document prefixes to check for coverage.
+
+        Priority order: CLI ``--jamb-documents`` option, then
+        ``test_documents`` from the jamb config file, then leaf documents
+        from the traceability graph.
+
+        Returns:
+            List of document prefix strings.
+        """
         # Command line option takes precedence
         if docs := self.pytest_config.option.jamb_documents:
             return [d.strip() for d in docs.split(",")]
@@ -144,15 +186,29 @@ class RequirementCollector:
         return []
 
     def all_test_items_covered(self) -> bool:
-        """Check if all normative items in test documents have test coverage."""
+        """Check if all normative items in test documents have test coverage.
+
+        Returns:
+            True if every active requirement item has at least one linked
+            test, False otherwise.
+        """
         coverage = self.get_coverage()
         for cov in coverage.values():
-            if cov.item.normative and cov.item.active and not cov.is_covered:
+            if (
+                cov.item.type == "requirement"
+                and cov.item.active
+                and not cov.is_covered
+            ):
                 return False
         return True
 
     def generate_matrix(self, path: str, format: str) -> None:
-        """Generate traceability matrix."""
+        """Generate traceability matrix.
+
+        Args:
+            path: The output file path for the generated matrix.
+            format: The output format (html, markdown, json, csv, or xlsx).
+        """
         from jamb.matrix.generator import generate_matrix
 
         coverage = self.get_coverage()
@@ -167,12 +223,20 @@ class RequirementCollector:
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config: pytest.Config) -> list[str] | None:
-    """Add jamb info to pytest header."""
+    """Add jamb info to pytest header.
+
+    Args:
+        config: The pytest configuration object.
+
+    Returns:
+        A list containing a single summary string when jamb is enabled,
+        or None otherwise.
+    """
     if config.option.jamb:
         collector = config.pluginmanager.get_plugin("jamb_collector")
         if collector and collector.graph:
             return [
-                f"jamb: tracking {len(collector.graph.items)} doorstop items",
+                f"jamb: tracking {len(collector.graph.items)} requirement items",
             ]
     return None
 
@@ -183,8 +247,14 @@ def pytest_terminal_summary(
     exitstatus: int,  # noqa: ARG001
     config: pytest.Config,
 ) -> None:
+    """Add coverage summary to terminal output.
+
+    Args:
+        terminalreporter: The pytest terminal reporter instance.
+        exitstatus: The exit status of the test session (unused).
+        config: The pytest configuration object.
+    """
     _ = exitstatus  # Required by pytest hook signature
-    """Add coverage summary to terminal output."""
     if not config.option.jamb:
         return
 
@@ -214,7 +284,7 @@ def pytest_terminal_summary(
     uncovered = [
         uid
         for uid, c in coverage.items()
-        if not c.is_covered and c.item.normative and c.item.active
+        if not c.is_covered and c.item.type == "requirement" and c.item.active
     ]
     if uncovered:
         terminalreporter.write_line("")

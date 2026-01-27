@@ -1,12 +1,10 @@
-# jamb Tutorial
+# Tutorial
 
 This tutorial covers requirements traceability workflows for regulated software projects. We use a Patient Monitoring System (Class B medical device software per IEC 62304) as our example.
 
 ## Prerequisites
 
-- Python 3.10+
-- Git (doorstop requires a git repository)
-- Basic understanding of requirements traceability
+You'll need Python 3.10+, Git (for version-controlled requirements), and a basic understanding of requirements traceability.
 
 Install jamb:
 
@@ -18,17 +16,19 @@ pip install jamb
 
 ### Initialize a New Project
 
+jamb uses git as its storage backend, so every project starts as a git repository. The `jamb init` command scaffolds the standard IEC 62304 document hierarchy — a set of directories and config files that define how requirements trace from high-level user needs down to testable software specifications.
+
 ```bash
 mkdir my-project && cd my-project
 git init
 jamb init
 ```
 
-This creates:
-- `reqs/` folder with PRJ, UN, SYS, SRS, HAZ, and RC documents
-- `[tool.jamb]` configuration in pyproject.toml (if exists)
+This creates a `reqs/` folder with PRJ, UN, SYS, SRS, HAZ, and RC documents, along with a `[tool.jamb]` configuration section in pyproject.toml (if the file exists).
 
 ### Basic Commands
+
+The core workflow is: create items (individual requirements) within documents, then link child items to parent items to build the traceability chain. Links always point upward — an SRS item links to the SYS item it implements, and a SYS item links to the UN item it satisfies. This upward linking is how jamb records that every low-level requirement traces back to a user need.
 
 ```bash
 # Add items
@@ -50,6 +50,8 @@ jamb item list
 
 ### Link Tests to Requirements
 
+The final link in the traceability chain connects tests to requirements. The `@pytest.mark.requirement` marker tells jamb which requirement a test verifies. When pytest runs with `--jamb`, it collects these markers and records pass/fail results per requirement — closing the loop from user need to verified implementation.
+
 ```python
 import pytest
 
@@ -60,12 +62,16 @@ def test_something():
 
 ### Check Coverage
 
+There are two ways to verify coverage. `jamb check` is static — it scans test files for requirement markers without running tests. `pytest --jamb` is runtime — it executes tests and records outcomes. In CI, you typically use both: `jamb check` for fast feedback and `pytest --jamb` for the full traceability matrix.
+
 ```bash
 jamb check
 pytest --jamb --jamb-matrix matrix.html
 ```
 
 ### Configuration
+
+The `test_documents` setting tells jamb which documents require test coverage (usually the leaf documents like SRS). Setting `fail_uncovered` to true makes CI fail if any requirement lacks a test. The matrix options control where the traceability matrix is written and in what format.
 
 Add to `pyproject.toml`:
 
@@ -79,19 +85,11 @@ matrix_format = "html"
 
 ## What You'll Learn
 
-- Review cycles when requirements change
-- Publishing documentation for regulatory submissions
-- Batch operations for importing requirements from stakeholders
-- CI/CD enforcement of traceability
+The rest of this tutorial walks through the full lifecycle of a regulated project: handling review cycles when requirements change, publishing documentation for regulatory submissions, batch-importing requirements from stakeholders, and enforcing traceability in CI/CD pipelines.
 
 ## Key Concept: Git-Linked Documents
 
-jamb documents are stored as plain text files in your git repository. This means:
-
-- **Version control**: Every change to a requirement is a git commit with full history
-- **Collaboration**: Teams can work on requirements using standard git workflows (branches, pull requests, code review)
-- **Audit trail**: Git history provides the evidence auditors need for requirement evolution
-- **Traceability**: The "suspect link" system uses git to detect when upstream requirements have changed since you last reviewed downstream items
+jamb documents are stored as plain text files in your git repository. Every change to a requirement is a git commit with full history, so teams can collaborate on requirements using standard git workflows — branches, pull requests, and code review. Git history provides the audit trail that regulators need to see how requirements evolved, and the "suspect link" system uses content hashing to detect when upstream requirements have changed since downstream items were last reviewed.
 
 When you run `jamb item add` or `jamb item edit`, you're creating or modifying files that should be committed to git like any other source file. This design makes requirements a first-class part of your codebase rather than documents stored in external tools.
 
@@ -99,7 +97,7 @@ When you run `jamb item add` or `jamb item edit`, you're creating or modifying f
 
 ### The Patient Monitoring System
 
-This example project implements a patient vital signs monitoring system with two document hierarchies:
+This example project implements a patient vital signs monitoring system with two document hierarchies. The following breakdown shows each document type and its item count:
 
 **Project Root:**
 - **1 Project Requirement (PRJ001)**: Top-level system definition
@@ -113,9 +111,9 @@ This example project implements a patient vital signs monitoring system with two
 - **2 Hazards (HAZ001-HAZ002)**: Identified hazardous situations → link to PRJ
 - **2 Risk Controls (RC001-RC002)**: Mitigations for identified hazards → link to HAZ
 
-Both hierarchies share the same project root (PRJ), allowing a single doorstop tree.
+Both hierarchies share the same project root (PRJ), allowing a unified hierarchy.
 
-**Cross-linking:** Some SRS items also link to RC items, demonstrating that a software requirement can trace to both its functional parent (SYS) and a risk control (RC). This shows doorstop's support for multi-parent traceability.
+**Cross-linking:** Some SRS items also link to RC items, demonstrating that a software requirement can trace to both its functional parent (SYS) and a risk control (RC). This shows jamb's support for multi-parent traceability.
 
 ### Exploring the Hierarchy
 
@@ -165,9 +163,11 @@ jamb info
 
 ## Part 2: Batch Import Requirements
 
-When requirements come from external stakeholders (product managers, clinical experts), you can import them in batch rather than creating them one by one.
+In regulated workflows, requirements often originate in Word documents, spreadsheets, or design review meetings. Rather than manually creating each item via `jamb item add`, you can author them in a single YAML file and import the batch. This is especially useful at project kickoff or when incorporating feedback from clinical experts who don't use the CLI.
 
 ### Examining the Import File
+
+The import file has a `documents` section (for creating new document types, left empty here since we're using existing ones) and an `items` section where each entry specifies a UID, text, header, and links. The `links` field establishes traceability — each item points to its parent, just like items created via the CLI.
 
 Look at `sample-import.yml`:
 
@@ -226,6 +226,8 @@ items:
 
 ### Preview the Import
 
+In a regulated project, unintended changes to the requirements baseline can trigger review cycles and audit findings. The `--dry-run` flag shows exactly what will be created without modifying any files, so you can verify the import before committing to it.
+
 Always preview before importing:
 
 ```bash
@@ -269,10 +271,7 @@ By default, import skips items that already exist. To update existing items, use
 jamb import sample-import.yml --update
 ```
 
-When updating:
-- Text, header, and links are replaced with values from the import file
-- Fields not in the import file (like `active`, `normative`) are preserved
-- The `reviewed` status is cleared, marking the item as needing re-review
+When updating, text, header, and links are replaced with values from the import file, while fields not in the import file (like `active`) are preserved. The `reviewed` status is cleared, marking the item as needing re-review.
 
 Preview updates before applying:
 
@@ -291,7 +290,7 @@ You should now have 39 items (1 PRJ + 6 UN + 9 SYS + 17 SRS + 3 HAZ + 3 RC).
 
 ## Part 3: The Review Cycle
 
-When requirements change, downstream items become "suspect" and need review.
+IEC 62304 requires change impact analysis — when a requirement changes, you must assess whether downstream artifacts (more detailed requirements, tests) are still valid. jamb automates the detection side: it stores a content hash in each link, and when the parent item's content changes, the hash no longer matches, flagging the link as "suspect." This section walks through the full cycle: making a change, seeing the suspect flags, reviewing the impact, and clearing the flags.
 
 ### Making a Change
 
@@ -310,6 +309,8 @@ text: |
 
 ### Checking for Suspect Links
 
+`jamb validate` compares the stored link hashes against the current content of each parent item. Any mismatch means the parent changed after the link was last reviewed. The output tells you exactly which child items need attention and which parent triggered the suspect flag.
+
 After editing, run validation:
 
 ```bash
@@ -327,6 +328,8 @@ The SRS items that trace to SYS001 are now suspect because their parent changed.
 
 ### Understanding the Impact
 
+In practice, you'd read the changed requirement to understand what was modified, then check each suspect downstream item to decide whether it needs updating. In a real project, this review might involve the original author, a domain expert, or a formal review meeting — the tooling flags the items, but the engineering judgment is yours.
+
 Trace which items are affected:
 
 ```bash
@@ -337,19 +340,32 @@ The `links` field shows upstream, and you can find downstream items by searching
 
 ### Clearing Suspect Status
 
-After reviewing that the downstream items are still valid:
+Clearing suspect status is a two-step process. `jamb review mark` records that you've reviewed the item's *content* (updating the reviewed hash), and `jamb review clear` records that you've reviewed the item's *links* to its parents (updating the link hashes). Both steps are needed because a change might affect either the item itself or its relationship to its parent. Once both hashes are current, `jamb validate` will report a clean state.
 
 ```bash
-# Review individual items
+# Mark items as reviewed and clear their suspect links
 jamb review mark SRS001
+jamb review clear SRS001
+
 jamb review mark SRS002
+jamb review clear SRS002
+
 jamb review mark SRS003
+jamb review clear SRS003
 
-# Or review all items in a document at once
+# Or do it for an entire document at once
 jamb review mark SRS
+jamb review clear SRS
 
-# Or review all items in all documents
+# Or all documents
 jamb review mark all
+jamb review clear all
+```
+
+You can also clear suspect links to a specific parent only:
+
+```bash
+jamb review clear SRS001 SYS001
 ```
 
 Verify clean state:
@@ -360,7 +376,7 @@ jamb validate
 
 ## Part 4: Publishing for Regulatory Submission
 
-Regulators need to see your requirements documentation. jamb provides multiple output formats.
+A regulatory submission package typically includes human-readable requirement documents for each specification level, a traceability matrix showing the chain from user needs through software requirements to test results, and evidence that all changes have been reviewed. jamb's publish and matrix commands generate these artifacts directly from your requirements data, so the documentation stays in sync with the source of truth.
 
 ### Generate HTML Documentation
 
@@ -397,7 +413,7 @@ jamb publish UN
 
 ### Generate Traceability Matrix
 
-The matrix shows requirements linked to their tests:
+The traceability matrix is the central audit artifact — it shows every requirement, its parent chain, the tests that verify it, and whether those tests passed. Auditors use this to confirm that every requirement is implemented and verified. The matrix is generated from a live test run, so it reflects the actual state of the codebase.
 
 ```bash
 pytest tests/ --jamb --jamb-matrix ./docs/matrix.html
@@ -415,13 +431,11 @@ pytest tests/ --jamb --jamb-matrix matrix.md --jamb-matrix-format markdown
 
 ### What Auditors Want to See
 
-1. **Complete traceability**: Every SRS traces to SYS, every SYS to UN; every RC traces to HAZ
-2. **Risk traceability**: Software requirements implementing risk controls link to both SYS and RC
-3. **Test coverage**: Every testable requirement has at least one test
-4. **Review evidence**: No suspect links (all changes reviewed)
-5. **Version history**: Git commits showing requirement evolution
+Auditors look for a complete traceability chain — every SRS traces to SYS, every SYS to UN, and every RC traces to HAZ — with software requirements that implement risk controls linking to both SYS and RC. They expect every testable requirement to have at least one linked test, no suspect links (demonstrating that all changes have been reviewed), and git commit history showing how requirements evolved over time.
 
 ## Part 5: Export for External Review
+
+`jamb export` serializes your requirements into a portable YAML file that stakeholders can review outside the repository. This supports a round-trip workflow: export your current requirements, send them to a clinical expert or product manager for review, receive the edited YAML back, and import the changes. Because the import command handles conflicts safely (skipping existing items by default), this workflow supports incremental collaboration.
 
 ### Exporting Requirements
 
@@ -440,6 +454,8 @@ jamb export ./review/srs-only.yml --documents SRS
 
 ### Round-trip Workflow
 
+This workflow bridges the gap between engineering teams working in git and domain experts working in documents. The YAML format is simple enough for non-developers to read and edit, and the import/export cycle keeps the requirements repository as the single source of truth.
+
 1. **Export**: `jamb export requirements.yml`
 2. **Send to stakeholders**: Email the YAML file
 3. **Receive feedback**: Stakeholders edit the YAML
@@ -448,6 +464,8 @@ jamb export ./review/srs-only.yml --documents SRS
 Import skips existing items and adds new ones, making it safe for incremental updates.
 
 ## Part 6: CI/CD Integration
+
+Automated pipelines should enforce traceability on every commit by validating the requirements tree, checking test coverage, and generating the traceability matrix as a build artifact. This catches broken links, missing coverage, and unreviewed changes before they reach the main branch — preventing audit findings from accumulating.
 
 ### GitHub Actions Workflow
 
@@ -471,7 +489,7 @@ jobs:
       - name: Install dependencies
         run: pip install jamb pytest
 
-      - name: Validate doorstop configuration
+      - name: Validate requirements
         run: jamb validate
 
       - name: Check requirement coverage
@@ -488,6 +506,8 @@ jobs:
           path: matrix.html
 ```
 
+In this workflow, `jamb validate` checks the structural integrity of the requirements tree (links, cycles, suspect items). `jamb check` verifies that every requirement in the configured test documents has at least one linked test. `pytest --jamb --jamb-fail-uncovered` runs the actual tests and fails if any requirement lacks coverage. Finally, the artifact upload preserves the matrix for review.
+
 ### Key CI Commands
 
 | Command | Purpose |
@@ -498,6 +518,8 @@ jobs:
 | `pytest --jamb --jamb-fail-uncovered` | Fail if requirements lack tests |
 
 ### Pre-commit Validation
+
+Pre-commit hooks catch validation errors before they even enter a commit, giving developers immediate feedback when they break a link or leave an item unreviewed.
 
 Add to `.pre-commit-config.yaml`:
 
@@ -513,6 +535,8 @@ repos:
 ```
 
 ## Part 7: Advanced Validation
+
+`jamb validate` runs ten independent checks covering structural integrity, content correctness, and completeness. By default all checks run, but verbose mode (`-v`) shows the full tree with per-item status so you can pinpoint exactly where an issue lies.
 
 ### Detailed Tree Inspection
 
@@ -532,6 +556,8 @@ jamb check --documents SRS,SYS
 
 ### Understanding Coverage Reports
 
+The coverage report summarizes how well your test suite covers the requirements. In a regulatory context, uncovered requirements are gaps that auditors will flag, and failing requirements indicate verification issues that must be resolved before release.
+
 The coverage report shows:
 
 - **Covered**: Requirements with at least one linked test
@@ -545,10 +571,11 @@ The coverage report shows:
 
 **Problem**: `jamb validate` shows suspect link warnings.
 
-**Solution**: Review the changed requirement and its downstream items, then mark as reviewed:
+**Solution**: Review the changed requirement and its downstream items, then mark as reviewed and clear the suspect links:
 
 ```bash
 jamb review mark <UID>
+jamb review clear <UID>
 ```
 
 ### Missing Test Coverage
@@ -565,10 +592,7 @@ def test_something():
 
 ## Part 8: Test Records in the Traceability Matrix
 
-The traceability matrix captures structured test record data aligned with IEC 62304 §5.7.5, which is valuable for:
-- Documenting what actions a test performed and what results were expected
-- Showing failure details when tests fail
-- Providing evidence for auditors about test execution
+The traceability matrix captures structured test record data aligned with IEC 62304 §5.7.5. This is valuable for documenting what actions a test performed and what results were expected, showing failure details when tests fail, and providing evidence for auditors about test execution.
 
 The `jamb_log` fixture provides three methods for structured test records:
 
@@ -628,12 +652,7 @@ When you generate the traceability matrix, all three fields appear in their own 
 pytest tests/ --jamb --jamb-matrix matrix.html
 ```
 
-The HTML matrix will show:
-- Test name with pass/fail status
-- Test Actions column with the steps performed
-- Expected Results column with the acceptance criteria
-- Notes column with free-form observations
-- Failure messages (automatically captured) if the test fails
+The HTML matrix will show each test's name with its pass/fail status, a Test Actions column listing the steps performed, an Expected Results column with the acceptance criteria, a Notes column with free-form observations, and automatically captured failure messages if the test fails.
 
 ### Automatic Failure Capture
 
@@ -722,7 +741,7 @@ This updates text, header, and links while preserving other fields. The `reviewe
 2. **Link**: Connect requirements with `jamb link add`
 3. **Validate**: Check structure with `jamb info` and `jamb validate`
 4. **Test**: Run `pytest --jamb` to verify coverage
-5. **Review**: Clear suspect links with `jamb review mark`
+5. **Review**: Mark items reviewed with `jamb review mark` and clear suspect links with `jamb review clear`
 6. **Publish**: Generate documentation with `jamb publish`
 
 ### Key Commands Reference
@@ -739,6 +758,7 @@ This updates text, header, and links while preserving other fields. The `reviewe
 | Document info | `jamb info` |
 | Check coverage | `jamb check` |
 | Review item | `jamb review mark UID` |
+| Clear suspect links | `jamb review clear UID` |
 | Publish HTML | `jamb publish all ./docs --html` |
 | Import batch | `jamb import file.yml` |
 | Export | `jamb export file.yml` |
@@ -749,3 +769,22 @@ This updates text, header, and links while preserving other fields. The `reviewe
 - [ ] `jamb check` shows no uncovered requirements
 - [ ] `pytest --jamb --jamb-fail-uncovered` passes
 - [ ] Traceability matrix uploaded as artifact
+
+## Derived Requirements for Risk Controls
+
+Risk-driven SRS items that only implement risk controls (RC) and don't trace to a system requirement (SYS) should be marked as `derived: true`:
+
+```yaml
+# SRS item that only implements a risk control
+active: true
+derived: true  # No SYS parent needed
+header: Input Validation
+links:
+- RC001  # Links to risk control only
+text: |
+  Software shall validate all input against buffer overflow attacks.
+```
+
+This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
+
+Use `derived: true` for requirements that emerge from risk or hazard analysis, security hardening requirements, defensive coding requirements, or any requirement that implements a risk control without tracing to a user need.

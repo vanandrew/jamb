@@ -7,9 +7,13 @@ build/
 dist/
 wheels/
 *.egg-info
+src/jamb/_version.py
 .pytest_cache/
 .ruff_cache/
 .coverage
 
 # Virtual environments
 .venv
+
+# Sphinx build output
+docs/_build/

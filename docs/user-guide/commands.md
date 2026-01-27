@@ -1,4 +1,4 @@
-# Jamb Command Reference
+# Command Reference
 
 Complete reference for all `jamb` CLI commands.
 
@@ -13,12 +13,12 @@ Complete reference for all `jamb` CLI commands.
   - [jamb publish](#jamb-publish)
   - [jamb export](#jamb-export)
   - [jamb import](#jamb-import)
+  - [jamb reorder](#jamb-reorder)
 - [Document Commands](#document-commands)
   - [jamb doc](#jamb-doc)
   - [jamb doc create](#jamb-doc-create)
   - [jamb doc delete](#jamb-doc-delete)
   - [jamb doc list](#jamb-doc-list)
-  - [jamb doc reorder](#jamb-doc-reorder)
 - [Item Commands](#item-commands)
   - [jamb item](#jamb-item)
   - [jamb item add](#jamb-item-add)
@@ -26,8 +26,6 @@ Complete reference for all `jamb` CLI commands.
   - [jamb item edit](#jamb-item-edit)
   - [jamb item show](#jamb-item-show)
   - [jamb item list](#jamb-item-list)
-  - [jamb item import](#jamb-item-import)
-  - [jamb item export](#jamb-item-export)
 - [Link Commands](#link-commands)
   - [jamb link](#jamb-link)
   - [jamb link add](#jamb-link-add)
@@ -55,14 +53,15 @@ Options:
 
 Commands:
   check     Check test coverage without running tests.
-  doc       Manage doorstop documents.
+  doc       Manage documents.
   export    Export documents and items to a YAML file.
   import    Import documents and items from a YAML file.
-  info      Display doorstop document information.
+  info      Display document information.
   init      Initialize a new jamb project with default IEC 62304 documents.
-  item      Manage doorstop items.
+  item      Manage items.
   link      Manage item links.
   publish   Publish a document.
+  reorder   Renumber item UIDs sequentially to fill gaps.
   review    Manage item reviews.
   validate  Validate the requirements tree.
 ```
@@ -119,7 +118,7 @@ jamb init
 ```
 Usage: jamb info [OPTIONS]
 
-  Display doorstop document information.
+  Display document information.
 
   Shows document structure, hierarchy, and item counts.
 
@@ -151,7 +150,7 @@ Usage: jamb check [OPTIONS]
   Check test coverage without running tests.
 
   Scans test files for @pytest.mark.requirement markers and reports which
-  doorstop items have linked tests.
+  items have linked tests.
 
   Note: This does a static scan and doesn't run tests. For full coverage
   including test outcomes, use pytest --jamb.
@@ -183,8 +182,9 @@ Usage: jamb validate [OPTIONS]
 
   Validate the requirements tree.
 
-  Runs doorstop validation to check for issues like:
-    - Missing parent documents
+  Checks for issues like:
+    - Cycles in document hierarchy
+    - Invalid or missing links
     - Suspect links (items needing re-review)
     - Items without required links
 
@@ -192,17 +192,10 @@ Usage: jamb validate [OPTIONS]
       jamb validate              # Run validation
       jamb validate -v           # Verbose output
       jamb validate --skip UT    # Skip unit test document
-      jamb validate -F -S        # Skip reformatting and suspect checks
-
 Options:
   -v, --verbose             Enable verbose logging (can be repeated)
   -q, --quiet               Only display errors and prompts
-  -F, --no-reformat         Do not reformat item files during validation
-  -r, --reorder             Reorder document levels during validation
-  -L, --no-level-check      Do not validate document levels
-  -R, --no-ref-check        Do not validate external file references
   -C, --no-child-check      Do not validate child (reverse) links
-  -Z, --strict-child-check  Require child (reverse) links from every document
   -S, --no-suspect-check    Do not check for suspect links
   -W, --no-review-check     Do not check item review status
   -s, --skip TEXT           Skip a document during validation (can be repeated)
@@ -221,9 +214,6 @@ jamb validate -v
 
 # Skip a document during validation
 jamb validate --skip UT
-
-# Skip reformatting and suspect link checks
-jamb validate -F -S
 
 # Treat all warnings as errors (strict mode)
 jamb validate --error-all
@@ -245,12 +235,9 @@ Usage: jamb publish [OPTIONS] PREFIX [PATH]
   pytest --jamb --jamb-matrix PATH
 
 Options:
-  -H, --html            Output HTML
+  -H, --html            Output HTML (standalone document with inline CSS and hyperlinks)
   -m, --markdown        Output Markdown
-  -l, --latex           Output LaTeX
-  -t, --text            Output text (default when no path)
   -d, --docx            Output DOCX (Word document)
-  --template TEXT       Template file for custom formatting
   -C, --no-child-links  Do not include child links on items
   --help                Show this message and exit.
 ```
@@ -258,19 +245,22 @@ Options:
 **Example:**
 ```bash
 # Publish SRS document to HTML
-jamb publish SRS --html docs/srs.html
+jamb publish SRS docs/srs.html --html
 
-# Publish all documents to markdown
-jamb publish all --markdown docs/
+# Publish all documents to HTML
+jamb publish all docs/all.html --html
 
-# Publish to text (stdout)
-jamb publish SRS --text
+# Publish to markdown file
+jamb publish SRS docs/srs.md --markdown
+
+# Print markdown to stdout (default when no format flag and no path)
+jamb publish SRS
 
 # Publish to Word document
-jamb publish SRS --docx docs/srs.docx
+jamb publish SRS docs/srs.docx --docx
 
-# Publish with custom template
-jamb publish SRS --html --template my_template.html docs/srs.html
+# Auto-detect format from file extension
+jamb publish SRS docs/srs.html
 ```
 
 ---
@@ -358,6 +348,34 @@ jamb import requirements.yml --verbose
 
 ---
 
+### jamb reorder
+
+```
+Usage: jamb reorder [OPTIONS] PREFIX
+
+  Renumber item UIDs sequentially to fill gaps.
+
+  PREFIX is the document identifier (e.g., SRS, UT).
+
+  Items are sorted by current UID and renumbered to form a contiguous sequence
+  (e.g., SRS001, SRS002, ...).  All cross-document links that reference
+  renamed UIDs are updated automatically.
+
+Options:
+  --help  Show this message and exit.
+```
+
+**Example:**
+```bash
+# Renumber SRS items to fill gaps
+jamb reorder SRS
+
+# Renumber UT items
+jamb reorder UT
+```
+
+---
+
 ## Document Commands
 
 ### jamb doc
@@ -365,16 +383,15 @@ jamb import requirements.yml --verbose
 ```
 Usage: jamb doc [OPTIONS] COMMAND [ARGS]...
 
-  Manage doorstop documents.
+  Manage documents.
 
 Options:
   --help  Show this message and exit.
 
 Commands:
-  create   Create a new document.
-  delete   Delete a document.
-  list     List all documents in the tree.
-  reorder  Reorder items in a document.
+  create  Create a new document.
+  delete  Delete a document.
+  list    List all documents in the tree.
 ```
 
 ---
@@ -457,32 +474,6 @@ jamb doc list --root ./examples/advanced
 
 ---
 
-### jamb doc reorder
-
-```
-Usage: jamb doc reorder [OPTIONS] PREFIX
-
-  Reorder items in a document.
-
-  PREFIX is the document identifier (e.g., SRS, UT).
-
-Options:
-  -a, --auto    Automatically reorder items
-  -m, --manual  Manually reorder items
-  --help        Show this message and exit.
-```
-
-**Example:**
-```bash
-# Automatically reorder items (fixes duplicate level warnings)
-jamb doc reorder SRS --auto
-
-# Manually reorder items (opens editor)
-jamb doc reorder SRS --manual
-```
-
----
-
 ## Item Commands
 
 ### jamb item
@@ -490,7 +481,7 @@ jamb doc reorder SRS --manual
 ```
 Usage: jamb item [OPTIONS] COMMAND [ARGS]...
 
-  Manage doorstop items.
+  Manage items.
 
 Options:
   --help  Show this message and exit.
@@ -498,8 +489,6 @@ Options:
 Commands:
   add     Add a new item to a document.
   edit    Edit an item in the default editor.
-  export  Export items to a file.
-  import  Import items from a file.
   list    List items in a document or all documents.
   remove  Remove an item by UID.
   show    Display item details.
@@ -517,8 +506,9 @@ Usage: jamb item add [OPTIONS] PREFIX
   PREFIX is the document to add the item to (e.g., SRS, UT).
 
 Options:
-  -l, --level TEXT     Item level (e.g., 1.2)
   -c, --count INTEGER  Number of items to add
+  --after TEXT         Insert after this UID
+  --before TEXT        Insert before this UID
   --help               Show this message and exit.
 ```
 
@@ -527,11 +517,14 @@ Options:
 # Add a single item
 jamb item add SRS
 
-# Add an item at a specific level
-jamb item add SRS --level 1.2
-
 # Add multiple items at once
 jamb item add SRS --count 5
+
+# Insert after a specific item
+jamb item add SRS --after SRS003
+
+# Insert before a specific item
+jamb item add SRS --before SRS005
 ```
 
 ---
@@ -628,60 +621,6 @@ jamb item list SRS
 
 # List items from a specific project
 jamb item list --root ./examples/advanced
-```
-
----
-
-### jamb item import
-
-```
-Usage: jamb item import [OPTIONS] PREFIX PATH
-
-  Import items from a file.
-
-  PREFIX is the document to import into.
-  PATH is the path to the import file (CSV, TSV, XLSX).
-
-Options:
-  -f, --file TEXT  Path to import file
-  -m, --map TEXT   Column mapping (e.g., 'text=Description')
-  --help           Show this message and exit.
-```
-
-**Example:**
-```bash
-# Import items from CSV
-jamb item import SRS requirements.csv
-
-# Import with column mapping
-jamb item import SRS reqs.xlsx --map "text=Description" --map "header=Title"
-```
-
----
-
-### jamb item export
-
-```
-Usage: jamb item export [OPTIONS] PREFIX PATH
-
-  Export items to a file.
-
-  PREFIX is the document to export.
-  PATH is the output file path.
-
-Options:
-  --xlsx  Export as Excel file
-  --csv   Export as CSV file
-  --help  Show this message and exit.
-```
-
-**Example:**
-```bash
-# Export to Excel
-jamb item export SRS requirements.xlsx --xlsx
-
-# Export to CSV
-jamb item export SRS requirements.csv --csv
 ```
 
 ---
@@ -889,7 +828,7 @@ text: |
   Software shall validate all input against buffer overflow attacks.
 ```
 
-This tells doorstop the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
+This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
 
 **When to use `derived: true`:**
 - Requirements that emerge from risk/hazard analysis

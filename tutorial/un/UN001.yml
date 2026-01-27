@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  User Authentication
-level: 1
+header: User Authentication
+type: requirement
 links:
-- PRJ001: zG64u7_ndKDjWLDDphsn3TiaIKh1MhldCye5jvZS4_0=
-normative: true
-ref: ''
-reviewed: C6v3Iw890YmqPffYYKJMDIY4K0cDW9iUEx-Gy-z35x0=
+- PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall be able to securely log in to the system.
+reviewed: anSNKmA9hrldC36bYe2dsbtFuBNa3zI6eI2aFr3yYx8

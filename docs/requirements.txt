@@ -1,0 +1,5 @@
+sphinx>=7.0
+myst-parser>=3.0
+pydata-sphinx-theme>=0.15
+sphinx-copybutton>=0.5
+sphinx-autobuild>=2024.0

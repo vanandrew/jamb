@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  CSV Export
-level: 14
+header: CSV Export
+type: requirement
 links:
-- SYS008: 9Z0MLkr4pGkk3aWavNcDIgS85yJBPCra2W04eddb048=
-normative: true
-ref: ''
-reviewed: L9kIzV-2hc3iqv1yVuwjeQsL5S0y4X5vH5UtolqPZZQ=
+- SYS008: 3S3qaI1hvd1DWW0u66XRc6lRGF7xNaBkcBTZ0AbHmQ8
 text: |
   Software shall generate CSV with ISO 8601 timestamps.
+reviewed: Fr_Oj1tnp_5IBEyCz9k1Gwz62NmrL7zK9n37CjRP33k

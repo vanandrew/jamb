@@ -1,12 +1,8 @@
 active: true
-derived: false
-header: |
-  Session Management
-level: 2
+header: Session Management
+type: requirement
 links:
-- UN001: KdNLg6Rzo95yd2edHNpuG2muDlawIf-Sa0YOKjGSZyA=
-normative: true
-ref: ''
-reviewed: AFLylxqY2o9y6pm_OlIbppYwpX7FaGymTZOX9QKQ6VM=
+- UN001: kLChmoBikb5rxQmvN2UGzFkL5c3AlTukR8Svl5hJmN4
 text: |
   System shall maintain user sessions with timeout.
+reviewed: am-pBFVcPYF2ruXcASif26hxeS8ykY4_JHd6blwFFZE
