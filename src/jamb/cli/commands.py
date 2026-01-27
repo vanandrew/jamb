@@ -16,7 +16,14 @@ def _find_item_path(
 ) -> tuple[Path | None, str | None]:
     """Find the filesystem path of an item YAML file.
 
-    Returns (item_path, document_prefix) or (None, None) if not found.
+    Args:
+        uid: The item UID to locate (e.g. ``"SRS001"``).
+        root: Optional project root directory. Defaults to the
+            current working directory.
+
+    Returns:
+        ``(item_path, document_prefix)`` if found, or
+        ``(None, None)`` if the item does not exist.
     """
     import re
 

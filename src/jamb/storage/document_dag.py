@@ -18,14 +18,29 @@ class DocumentDAG:
     document_paths: dict[str, Path] = field(default_factory=dict)
 
     def get_parents(self, prefix: str) -> list[str]:
-        """Get parent document prefixes for a given document."""
+        """Get parent document prefixes for a given document.
+
+        Args:
+            prefix: The document prefix to look up.
+
+        Returns:
+            List of parent document prefix strings. Empty if the
+            document has no parents or is not found.
+        """
         config = self.documents.get(prefix)
         if config is None:
             return []
         return list(config.parents)
 
     def get_children(self, prefix: str) -> list[str]:
-        """Get child document prefixes for a given document."""
+        """Get child document prefixes for a given document.
+
+        Args:
+            prefix: The document prefix to look up.
+
+        Returns:
+            List of child document prefix strings.
+        """
         children = []
         for p, config in self.documents.items():
             if prefix in config.parents:
@@ -33,11 +48,19 @@ class DocumentDAG:
         return children
 
     def get_root_documents(self) -> list[str]:
-        """Get documents with no parents."""
+        """Get documents with no parents.
+
+        Returns:
+            List of document prefix strings that have no parent documents.
+        """
         return [p for p, config in self.documents.items() if not config.parents]
 
     def get_leaf_documents(self) -> list[str]:
-        """Get documents with no children."""
+        """Get documents with no children.
+
+        Returns:
+            List of document prefix strings that have no child documents.
+        """
         all_parents = set()
         for config in self.documents.values():
             all_parents.update(config.parents)

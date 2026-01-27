@@ -34,7 +34,12 @@ class RequirementCollector:
         self._load_requirements()
 
     def _load_requirements(self) -> None:
-        """Load requirements from the native storage layer."""
+        """Load requirements from the native storage layer.
+
+        Discovers documents and builds the traceability graph. If loading
+        fails for any reason, emits a warning and initializes an empty
+        graph so that the plugin can continue without requirements data.
+        """
         try:
             from jamb.storage import build_traceability_graph, discover_documents
 
@@ -157,7 +162,15 @@ class RequirementCollector:
         return coverage
 
     def _get_test_documents(self) -> list[str]:
-        """Get list of test document prefixes to check for coverage."""
+        """Get list of test document prefixes to check for coverage.
+
+        Priority order: CLI ``--jamb-documents`` option, then
+        ``test_documents`` from the jamb config file, then leaf documents
+        from the traceability graph.
+
+        Returns:
+            List of document prefix strings.
+        """
         # Command line option takes precedence
         if docs := self.pytest_config.option.jamb_documents:
             return [d.strip() for d in docs.split(",")]
@@ -173,7 +186,12 @@ class RequirementCollector:
         return []
 
     def all_test_items_covered(self) -> bool:
-        """Check if all normative items in test documents have test coverage."""
+        """Check if all normative items in test documents have test coverage.
+
+        Returns:
+            True if every active requirement item has at least one linked
+            test, False otherwise.
+        """
         coverage = self.get_coverage()
         for cov in coverage.values():
             if (
@@ -205,7 +223,15 @@ class RequirementCollector:
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config: pytest.Config) -> list[str] | None:
-    """Add jamb info to pytest header."""
+    """Add jamb info to pytest header.
+
+    Args:
+        config: The pytest configuration object.
+
+    Returns:
+        A list containing a single summary string when jamb is enabled,
+        or None otherwise.
+    """
     if config.option.jamb:
         collector = config.pluginmanager.get_plugin("jamb_collector")
         if collector and collector.graph:
@@ -221,8 +247,14 @@ def pytest_terminal_summary(
     exitstatus: int,  # noqa: ARG001
     config: pytest.Config,
 ) -> None:
+    """Add coverage summary to terminal output.
+
+    Args:
+        terminalreporter: The pytest terminal reporter instance.
+        exitstatus: The exit status of the test session (unused).
+        config: The pytest configuration object.
+    """
     _ = exitstatus  # Required by pytest hook signature
-    """Add coverage summary to terminal output."""
     if not config.option.jamb:
         return
 

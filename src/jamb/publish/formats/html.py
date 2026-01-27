@@ -143,5 +143,12 @@ def render_html(
 
 
 def _esc(text: str) -> str:
-    """Escape text for HTML."""
+    """Escape text for safe inclusion in HTML.
+
+    Args:
+        text: The plain text to escape.
+
+    Returns:
+        The HTML-escaped string.
+    """
     return html.escape(str(text))

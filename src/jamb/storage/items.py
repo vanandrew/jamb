@@ -13,6 +13,16 @@ class _BlockScalarDumper(yaml.SafeDumper):
 
 
 def _str_representer(dumper: _BlockScalarDumper, data: str) -> yaml.ScalarNode:
+    """Represent strings using literal block scalar style for multiline values.
+
+    Args:
+        dumper: The YAML dumper instance.
+        data: The string value to represent.
+
+    Returns:
+        A YAML scalar node, using literal block style if the string
+        contains newlines.
+    """
     if "\n" in data:
         return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
@@ -22,7 +32,13 @@ _BlockScalarDumper.add_representer(str, _str_representer)
 
 
 def dump_yaml(data: dict, stream, **kwargs) -> None:
-    """Dump YAML using block scalar style for multiline strings."""
+    """Dump YAML using block scalar style for multiline strings.
+
+    Args:
+        data: The dictionary to serialize as YAML.
+        stream: A writable file-like object for the YAML output.
+        **kwargs: Additional keyword arguments passed to ``yaml.dump``.
+    """
     kwargs.setdefault("default_flow_style", False)
     kwargs.setdefault("sort_keys", False)
     kwargs.setdefault("allow_unicode", True)

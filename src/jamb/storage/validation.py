@@ -17,6 +17,7 @@ class ValidationIssue:
     message: str
 
     def __str__(self) -> str:
+        """Return a human-readable representation of the validation issue."""
         parts = [f"[{self.level.upper()}]"]
         if self.uid:
             parts.append(self.uid)

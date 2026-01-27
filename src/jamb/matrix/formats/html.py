@@ -223,7 +223,15 @@ def render_html(
 
 
 def _escape_html(text: str) -> str:
-    """Escape HTML special characters."""
+    """Escape HTML special characters.
+
+    Args:
+        text: The plain text to escape.
+
+    Returns:
+        The string with ``&``, ``<``, ``>``, and ``"`` replaced by
+        their HTML entity equivalents.
+    """
     return (
         text.replace("&", "&amp;")
         .replace("<", "&lt;")
