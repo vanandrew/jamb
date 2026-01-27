@@ -192,11 +192,12 @@ def _graph_item_to_dict(item) -> ItemDict:
     return d
 
 
-def load_import_file(path: Path) -> dict:
+def load_import_file(path: Path, echo=None) -> dict:
     """Load and validate YAML import file.
 
     Args:
         path: Path to YAML file.
+        echo: Optional callable for warning output (e.g., print or click.echo).
 
     Returns:
         Dict with 'documents' and 'items' keys.
@@ -204,15 +205,28 @@ def load_import_file(path: Path) -> dict:
     Raises:
         ValueError: If file is invalid.
     """
+    if echo is None:
+        echo = print
+
     with open(path) as f:
         data = yaml.safe_load(f)
 
     if not isinstance(data, dict):
         raise ValueError("YAML file must contain a mapping")
 
+    # Warn about unrecognized top-level keys
+    recognized_keys = {"documents", "items"}
+    unrecognized = set(data.keys()) - recognized_keys
+    if unrecognized:
+        echo(f"Warning: unrecognized top-level keys: {', '.join(sorted(unrecognized))}")
+
     # Normalize: ensure both keys exist
     data.setdefault("documents", [])
     data.setdefault("items", [])
+
+    # Warn if both sections are empty
+    if not data["documents"] and not data["items"]:
+        echo("Warning: YAML file contains no documents and no items")
 
     # Validate documents
     for doc in data["documents"]:
@@ -254,7 +268,7 @@ def import_from_yaml(
     if echo is None:
         echo = print
 
-    data = load_import_file(path)
+    data = load_import_file(path, echo=echo)
     stats = {
         "documents_created": 0,
         "items_created": 0,

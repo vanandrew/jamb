@@ -299,7 +299,8 @@ def _check_suspect_links(
                         "warning",
                         uid,
                         item.document_prefix,
-                        f"suspect link to {link_uid} (content may have changed)",
+                        f"suspect link to {link_uid} (content may have changed;"
+                        " run 'jamb review clear' to re-verify)",
                     )
                 )
 
@@ -316,7 +317,8 @@ def _check_suspect_links(
                     "warning",
                     uid,
                     item.document_prefix,
-                    f"link to {link_uid} has no stored hash (not verified)",
+                    f"link to {link_uid} has no stored hash"
+                    " (run 'jamb review clear' to verify links)",
                 )
             )
 
@@ -357,7 +359,11 @@ def _check_review_status(
         if not item.reviewed:
             issues.append(
                 ValidationIssue(
-                    "warning", uid, item.document_prefix, "has not been reviewed"
+                    "warning",
+                    uid,
+                    item.document_prefix,
+                    "has not been reviewed"
+                    " (run 'jamb review mark' to mark as reviewed)",
                 )
             )
         else:
@@ -374,7 +380,8 @@ def _check_review_status(
                         "warning",
                         uid,
                         item.document_prefix,
-                        "has been modified since last review",
+                        "has been modified since last review"
+                        " (run 'jamb review mark' to re-approve)",
                     )
                 )
 
@@ -636,7 +643,8 @@ def _check_unlinked_items(
                     "warning",
                     uid,
                     item.document_prefix,
-                    "normative non-derived item has no links to parent document",
+                    "normative non-derived item has no links to parent document"
+                    " (add links or set 'derived: true' to suppress)",
                 )
             )
 

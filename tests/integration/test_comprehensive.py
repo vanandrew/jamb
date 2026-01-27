@@ -246,11 +246,16 @@ class TestPhase2Items:
     # --- Project A ---
 
     def test_2_1_add_prj(self, runner, medpump):
-        """2.1 – Add single PRJ item."""
+        """2.1 – Add single PRJ item.
+
+        PRJ001 is auto-created by ``jamb init``, so the first manually
+        added item is PRJ002.
+        """
         r = _invoke(runner, ["item", "add", "PRJ"], cwd=medpump)
         assert r.exit_code == 0, r.output
-        assert "PRJ001" in r.output
+        assert "PRJ002" in r.output
         assert (medpump / "reqs" / "prj" / "PRJ001.yml").exists()
+        assert (medpump / "reqs" / "prj" / "PRJ002.yml").exists()
 
     def test_2_2_add_un(self, runner, medpump):
         """2.2 – Add 3 UN items."""
