@@ -78,7 +78,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
@@ -114,7 +113,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_children=False,
         )
@@ -136,7 +134,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
         )
@@ -158,7 +155,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_children=False,
         )
@@ -173,7 +169,6 @@ class TestValidate:
             "header": None,
             "links": [],
             "type": "requirement",
-            "level": 1.0,
         }
         correct_hash = compute_content_hash(item_data)
         item = Item(
@@ -188,7 +183,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_children=False,
         )
@@ -217,7 +211,6 @@ class TestValidate:
         issues = validate(
             dag,
             graph,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
@@ -249,7 +242,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
         )
@@ -284,7 +276,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_review=False,
             check_children=False,
         )
@@ -320,7 +311,6 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_review=False,
             check_children=False,
         )
@@ -335,44 +325,14 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_item_cycles=False,
             check_unlinked=False,
         )
         assert any("document contains no items" in str(i) for i in issues)
-
-    def test_duplicate_levels_warning(self):
-        dag = DocumentDAG()
-        dag.documents["SRS"] = DocumentConfig(prefix="SRS")
-        graph = TraceabilityGraph()
-        item1 = Item(
-            uid="SRS001", text="First", document_prefix="SRS", level=1.0, reviewed="h"
-        )
-        item2 = Item(
-            uid="SRS002", text="Second", document_prefix="SRS", level=1.0, reviewed="h"
-        )
-        graph.add_item(item1)
-        graph.add_item(item2)
-        graph.set_document_parents("SRS", [])
-        issues = validate(
-            dag,
-            graph,
-            check_links=False,
-            check_levels=False,
-            check_suspect=False,
-            check_review=False,
-            check_children=False,
-            check_empty_docs=False,
-            check_empty_text=False,
-            check_item_cycles=False,
-            check_unlinked=False,
-        )
-        assert any("duplicate level" in str(i) for i in issues)
 
     def test_empty_text_warning(self):
         dag = DocumentDAG()
@@ -385,12 +345,10 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_item_cycles=False,
             check_unlinked=False,
         )
@@ -407,12 +365,10 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_item_cycles=False,
             check_unlinked=False,
         )
@@ -434,12 +390,10 @@ class TestValidate:
         issues = validate(
             dag,
             graph,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_item_cycles=False,
             check_unlinked=False,
@@ -472,12 +426,10 @@ class TestValidate:
         issues = validate(
             dag,
             graph,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_item_cycles=False,
             check_unlinked=False,
@@ -507,12 +459,10 @@ class TestValidate:
         issues = validate(
             dag,
             graph,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_item_cycles=False,
             check_unlinked=False,
@@ -535,12 +485,10 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_item_cycles=False,
         )
@@ -566,12 +514,10 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_item_cycles=False,
         )
@@ -603,12 +549,10 @@ class TestValidate:
             dag,
             graph,
             check_links=False,
-            check_levels=False,
             check_suspect=False,
             check_review=False,
             check_children=False,
             check_empty_docs=False,
-            check_duplicate_levels=False,
             check_empty_text=False,
             check_unlinked=False,
         )

@@ -1,6 +1,5 @@
 active: true
 header: Patient Monitoring System
-level: 1
 links: []
 text: |
   The Patient Monitoring System shall provide real-time vital signs monitoring,

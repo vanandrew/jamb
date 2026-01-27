@@ -36,7 +36,6 @@ class TestItem:
 
         assert item.active is True
         assert item.header is None
-        assert item.level == 1.0
         assert item.links == []
         assert item.custom_attributes == {}
 
@@ -490,17 +489,6 @@ class TestItemAdditionalCases:
 
         assert item.custom_attributes["priority"] == "high"
         assert item.custom_attributes["component"] == "auth"
-
-    def test_item_with_specific_level(self):
-        """Test Item with non-default level."""
-        item = Item(
-            uid="SRS001",
-            text="Requirement text",
-            document_prefix="SRS",
-            level=2.5,
-        )
-
-        assert item.level == 2.5
 
 
 class TestLinkedTestAdditionalCases:

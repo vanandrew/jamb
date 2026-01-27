@@ -37,7 +37,7 @@ def read_item(path: Path, document_prefix: str) -> dict:
         document_prefix: The document prefix this item belongs to.
 
     Returns:
-        Dict with keys: uid, text, document_prefix, active, type, level,
+        Dict with keys: uid, text, document_prefix, active, type,
         header, links, link_hashes, reviewed, custom_attributes.
     """
     with open(path) as f:
@@ -69,7 +69,6 @@ def read_item(path: Path, document_prefix: str) -> dict:
     standard_fields = {
         "active",
         "type",
-        "level",
         "text",
         "header",
         "links",
@@ -84,7 +83,6 @@ def read_item(path: Path, document_prefix: str) -> dict:
         "document_prefix": document_prefix,
         "active": data.get("active", True),
         "type": item_type,
-        "level": _parse_level(data.get("level", 1)),
         "header": str(data.get("header", "") or ""),
         "links": links,
         "link_hashes": link_hashes,
@@ -103,36 +101,24 @@ def write_item(item_data: dict, path: Path, extra_fields: dict | None = None) ->
         extra_fields: Additional fields to include in the YAML output.
     """
     output: dict = {}
+    output["header"] = item_data.get("header", "")
     output["active"] = item_data.get("active", True)
-
-    item_type = item_data.get("type", "requirement")
-    if item_type != "requirement":
-        output["type"] = item_type
-
-    level = item_data.get("level")
-    if level is not None:
-        output["level"] = str(level)
-
-    header = item_data.get("header", "")
-    if header:
-        output["header"] = header
-
-    output["text"] = item_data.get("text", "")
+    output["type"] = item_data.get("type", "requirement")
 
     links = item_data.get("links", [])
     link_hashes = item_data.get("link_hashes", {})
-    if links:
-        formatted_links = []
-        for link in links:
-            if link in link_hashes:
-                formatted_links.append({link: link_hashes[link]})
-            else:
-                formatted_links.append(link)
-        output["links"] = formatted_links
+    formatted_links = []
+    for link in links:
+        if link in link_hashes:
+            formatted_links.append({link: link_hashes[link]})
+        else:
+            formatted_links.append(link)
+    output["links"] = formatted_links
+
+    output["text"] = item_data.get("text", "")
 
     reviewed = item_data.get("reviewed")
-    if reviewed:
-        output["reviewed"] = reviewed
+    output["reviewed"] = reviewed
 
     if item_data.get("derived", False):
         output["derived"] = True
@@ -199,7 +185,7 @@ def next_uid(prefix: str, digits: int, existing_uids: list[str], sep: str = "") 
 def compute_content_hash(item_data: dict) -> str:
     """Compute a SHA-256 hash of item content for review/suspect detection.
 
-    Hashes: text, header, links, type, level.
+    Hashes: text, header, links, type.
 
     Args:
         item_data: Dict with item fields.
@@ -212,18 +198,7 @@ def compute_content_hash(item_data: dict) -> str:
         str(item_data.get("header", "")),
         str(sorted(item_data.get("links", []))),
         str(item_data.get("type", "requirement")),
-        str(item_data.get("level", 1)),
     ]
     content_str = "|".join(content_parts)
     hash_bytes = hashlib.sha256(content_str.encode("utf-8")).digest()
     return base64.urlsafe_b64encode(hash_bytes).decode("ascii").rstrip("=")
-
-
-def _parse_level(value) -> float:
-    """Parse a level value to float."""
-    if value is None:
-        return 1.0
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 1.0

@@ -31,12 +31,10 @@ def validate(
     graph: TraceabilityGraph,
     *,
     check_links: bool = True,
-    check_levels: bool = True,
     check_suspect: bool = True,
     check_review: bool = True,
     check_children: bool = True,
     check_empty_docs: bool = True,
-    check_duplicate_levels: bool = True,
     check_empty_text: bool = True,
     check_self_links: bool = True,
     check_item_cycles: bool = True,
@@ -49,12 +47,10 @@ def validate(
         dag: The document DAG.
         graph: The traceability graph with items.
         check_links: Check link validity and conformance.
-        check_levels: Check level ordering within documents.
         check_suspect: Check for suspect links (hash mismatch).
         check_review: Check review status.
         check_children: Check that non-leaf docs have children linking to them.
         check_empty_docs: Check for documents with no items.
-        check_duplicate_levels: Check for duplicate levels within a document.
         check_empty_text: Check for items with empty text.
         check_self_links: Check for items linking to themselves.
         check_item_cycles: Check for cycles in item-to-item links.
@@ -76,11 +72,7 @@ def validate(
     if check_links:
         issues.extend(_check_links(dag, graph, skip, check_self_links))
 
-    # 4. Level ordering
-    if check_levels:
-        issues.extend(_check_levels(graph, skip))
-
-    # 5. Suspect link detection
+    # 4. Suspect link detection
     if check_suspect:
         issues.extend(_check_suspect_links(dag, graph, skip))
 
@@ -96,11 +88,7 @@ def validate(
     if check_empty_docs:
         issues.extend(_check_empty_documents(dag, graph, skip))
 
-    # 9. Duplicate levels
-    if check_duplicate_levels:
-        issues.extend(_check_duplicate_levels(graph, skip))
-
-    # 10. Empty text
+    # 9. Empty text
     if check_empty_text:
         issues.extend(_check_empty_text(graph, skip))
 
@@ -213,37 +201,6 @@ def _check_links(
     return issues
 
 
-def _check_levels(graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
-    """Check level ordering within documents."""
-    issues = []
-
-    doc_items: dict[str, list] = {}
-    for item in graph.items.values():
-        if item.document_prefix in skip:
-            continue
-        if not item.active:
-            continue
-        doc_items.setdefault(item.document_prefix, []).append(item)
-
-    for prefix, items in doc_items.items():
-        sorted_items = sorted(items, key=lambda i: i.uid)
-        prev_level = 0.0
-        for item in sorted_items:
-            level = item.level if item.level else 1.0
-            if level > prev_level + 1.0 and prev_level > 0:
-                issues.append(
-                    ValidationIssue(
-                        "warning",
-                        item.uid,
-                        prefix,
-                        f"level {level} skips from previous level {prev_level}",
-                    )
-                )
-            prev_level = level
-
-    return issues
-
-
 def _check_suspect_links(
     dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
@@ -282,7 +239,6 @@ def _check_suspect_links(
                 "header": target.header,
                 "links": target.links,
                 "type": target.type,
-                "level": target.level,
             }
             current_hash = compute_content_hash(target_data)
 
@@ -342,7 +298,6 @@ def _check_review_status(
                 "header": item.header,
                 "links": item.links,
                 "type": item.type,
-                "level": item.level,
             }
             current_hash = compute_content_hash(item_data)
             if item.reviewed != current_hash:
@@ -416,39 +371,6 @@ def _check_empty_documents(
                     "document contains no items",
                 )
             )
-
-    return issues
-
-
-def _check_duplicate_levels(
-    graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
-    """Check for duplicate level values within the same document."""
-    issues = []
-
-    doc_items: dict[str, list] = {}
-    for item in graph.items.values():
-        if item.document_prefix in skip:
-            continue
-        if not item.active:
-            continue
-        doc_items.setdefault(item.document_prefix, []).append(item)
-
-    for prefix, items in doc_items.items():
-        seen_levels: dict[float, str] = {}
-        for item in sorted(items, key=lambda i: i.uid):
-            level = item.level if item.level else 1.0
-            if level in seen_levels:
-                issues.append(
-                    ValidationIssue(
-                        "warning",
-                        item.uid,
-                        prefix,
-                        f"duplicate level {level} (same as {seen_levels[level]})",
-                    )
-                )
-            else:
-                seen_levels[level] = item.uid
 
     return issues
 

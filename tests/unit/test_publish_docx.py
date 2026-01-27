@@ -143,12 +143,12 @@ class TestRenderDocx:
         full_text = " ".join(paragraphs)
         assert "Total items: 0" in full_text
 
-    def test_render_docx_sorts_by_level(self):
-        """Test that render_docx sorts items by level."""
+    def test_render_docx_sorts_by_uid(self):
+        """Test that render_docx sorts items by UID."""
         items = [
-            Item(uid="SRS002", text="Second", document_prefix="SRS", level=2.0),
-            Item(uid="SRS001", text="First", document_prefix="SRS", level=1.0),
-            Item(uid="SRS003", text="Third", document_prefix="SRS", level=1.5),
+            Item(uid="SRS002", text="Second", document_prefix="SRS"),
+            Item(uid="SRS001", text="First", document_prefix="SRS"),
+            Item(uid="SRS003", text="Third", document_prefix="SRS"),
         ]
         result = render_docx(items, "SRS")
 
@@ -161,8 +161,8 @@ class TestRenderDocx:
         pos_002 = full_text.find("SRS002")
         pos_003 = full_text.find("SRS003")
 
-        # Should be sorted by level: 1.0, 1.5, 2.0
-        assert pos_001 < pos_003 < pos_002
+        # Should be sorted by UID
+        assert pos_001 < pos_002 < pos_003
 
     def test_render_docx_item_without_text(self):
         """Test that render_docx handles items without text."""

@@ -13,7 +13,6 @@ class Item:
     active: bool = True
     type: str = "requirement"  # "requirement", "info", "heading"
     header: str | None = None
-    level: float = 1.0
     links: list[str] = field(default_factory=list)
     reviewed: str | None = None
     derived: bool = False

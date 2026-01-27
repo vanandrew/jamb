@@ -695,48 +695,62 @@ class TestDocDeleteWithMock:
         assert "Deleted" in result.output
 
 
-class TestDocReorderWithMock:
-    """Tests for doc reorder command (native, no subprocess)."""
+class TestReorderCommand:
+    """Tests for top-level reorder command."""
 
-    def test_doc_reorder_auto(self, runner, tmp_path, monkeypatch):
-        """Test doc reorder with --auto reassigns sequential levels."""
+    def test_reorder_fills_gaps(self, runner, tmp_path, monkeypatch):
+        """Test reorder renumbers items sequentially to fill gaps."""
         import yaml
 
-        # Create SRS document with items having non-sequential levels
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
         (srs_dir / ".jamb.yml").write_text(
             "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
         )
-        (srs_dir / "SRS001.yml").write_text("active: true\nlevel: '3.0'\ntext: req1\n")
-        (srs_dir / "SRS002.yml").write_text("active: true\nlevel: '1.0'\ntext: req2\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
+        (srs_dir / "SRS003.yml").write_text("active: true\ntext: req3\n")
 
         monkeypatch.chdir(tmp_path)
-        result = runner.invoke(cli, ["doc", "reorder", "SRS", "--auto"])
+        result = runner.invoke(cli, ["reorder", "SRS"])
 
         assert result.exit_code == 0
-        assert "Reordered 2 items" in result.output
+        assert "1 renamed" in result.output
+        assert "1 unchanged" in result.output
 
-        # Items should have sequential levels after reorder
-        data1 = yaml.safe_load((srs_dir / "SRS002.yml").read_text())
-        data2 = yaml.safe_load((srs_dir / "SRS001.yml").read_text())
-        # SRS002 had level 1.0, SRS001 had level 3.0, so sorted: SRS002 first
-        assert float(data1["level"]) < float(data2["level"])
+        # SRS003 should have become SRS002
+        assert (srs_dir / "SRS001.yml").exists()
+        assert (srs_dir / "SRS002.yml").exists()
+        assert not (srs_dir / "SRS003.yml").exists()
+        data = yaml.safe_load((srs_dir / "SRS002.yml").read_text())
+        assert data["text"] == "req3"
 
-    def test_doc_reorder_manual(self, runner, tmp_path, monkeypatch):
-        """Test doc reorder without --auto lists items."""
+    def test_reorder_empty_document(self, runner, tmp_path, monkeypatch):
+        """Test reorder with empty document is a no-op."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
         (srs_dir / ".jamb.yml").write_text(
             "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
         )
-        (srs_dir / "SRS001.yml").write_text("active: true\nlevel: '1.0'\ntext: req1\n")
 
         monkeypatch.chdir(tmp_path)
-        result = runner.invoke(cli, ["doc", "reorder", "SRS", "--manual"])
+        result = runner.invoke(cli, ["reorder", "SRS"])
 
         assert result.exit_code == 0
-        assert "SRS001" in result.output
+        assert "0 renamed" in result.output
+
+    def test_reorder_nonexistent_document(self, runner, tmp_path, monkeypatch):
+        """Test reorder with nonexistent prefix."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
+        )
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["reorder", "NOPE"])
+
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
 
 
 class TestItemAddWithMock:
@@ -756,25 +770,6 @@ class TestItemAddWithMock:
         assert result.exit_code == 0
         assert "Added item: SRS001" in result.output
         assert (srs_dir / "SRS001.yml").exists()
-
-    def test_item_add_with_level(self, runner, tmp_path, monkeypatch):
-        """Test item add with --level option sets correct level."""
-        import yaml
-
-        srs_dir = tmp_path / "srs"
-        srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
-
-        monkeypatch.chdir(tmp_path)
-        result = runner.invoke(cli, ["item", "add", "SRS", "--level", "1.2"])
-
-        assert result.exit_code == 0
-        item_path = srs_dir / "SRS001.yml"
-        assert item_path.exists()
-        data = yaml.safe_load(item_path.read_text())
-        assert float(data["level"]) == 1.2
 
     def test_item_add_with_count(self, runner, tmp_path, monkeypatch):
         """Test item add with --count option creates multiple items."""
@@ -1316,7 +1311,6 @@ class TestItemShowWithHeader:
             "document_prefix": "SRS",
             "active": True,
             "type": "requirement",
-            "level": "1",
             "header": "Authentication Requirement",
             "links": [],
             "text": "Test requirement text",
@@ -1811,11 +1805,6 @@ class TestValidateWithFlags:
         """Test validate with --quiet flag."""
         result = runner.invoke(cli, ["validate", "--quiet"])
         # Should accept the flag without error
-        assert result.exit_code in (0, 1)
-
-    def test_validate_no_level_check(self, runner, validate_project):
-        """Test validate with --no-level-check flag."""
-        result = runner.invoke(cli, ["validate", "--no-level-check"])
         assert result.exit_code in (0, 1)
 
     def test_validate_no_child_check(self, runner, validate_project):

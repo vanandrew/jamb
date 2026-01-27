@@ -57,14 +57,11 @@ def render_html(
     else:
         doc_order_index = {}
 
-    def get_level(item: Item) -> float:
-        return float(item.level) if hasattr(item.level, "__float__") else 1.0
-
     def get_doc_order(item: Item) -> int:
         return doc_order_index.get(item.document_prefix, 999)
 
     sorted_items = sorted(
-        items, key=lambda x: (get_doc_order(x), x.document_prefix, get_level(x), x.uid)
+        items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid)
     )
 
     parts: list[str] = []
@@ -86,17 +83,10 @@ def render_html(
             current_doc = item.document_prefix
             parts.append(f'<h2 id="doc-{_esc(current_doc)}">{_esc(current_doc)}</h2>')
 
-        level_value = get_level(item)
-        heading_level = min(int(level_value) + 2, 6)
-        heading_level = max(heading_level, 3)
-
         heading_text = f"{item.uid}: {item.header}" if item.header else item.uid
 
         parts.append('<div class="item">')
-        parts.append(
-            f'<h{heading_level} id="{_esc(item.uid)}">'
-            f"{_esc(heading_text)}</h{heading_level}>"
-        )
+        parts.append(f'<h3 id="{_esc(item.uid)}">{_esc(heading_text)}</h3>')
 
         if item.text:
             parts.append(f"<p>{_esc(item.text)}</p>")

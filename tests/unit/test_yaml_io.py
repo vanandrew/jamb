@@ -127,16 +127,13 @@ class TestUpdateItem:
     def test_preserves_existing_fields(self, tmp_path):
         """Test that unspecified fields are preserved."""
         item_path = tmp_path / "SRS001.yml"
-        item_path.write_text(
-            "active: true\ncustom_field: true\nlevel: '1.2'\ntext: Test\n"
-        )
+        item_path.write_text("active: true\ncustom_field: true\ntext: Test\n")
 
         _update_item(
             item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print
         )
 
         updated = yaml.safe_load(item_path.read_text())
-        assert updated["level"] == "1.2"  # Preserved
         assert updated["custom_field"] is True  # Preserved
 
     def test_clears_reviewed_status(self, tmp_path):

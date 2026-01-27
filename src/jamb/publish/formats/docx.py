@@ -94,15 +94,12 @@ def render_docx(
     else:
         doc_order_index = {}
 
-    def get_level(item: Item) -> float:
-        return float(item.level) if hasattr(item.level, "__float__") else 1.0
-
     def get_doc_order(item: Item) -> int:
         return doc_order_index.get(item.document_prefix, 999)
 
-    # Sort items by document hierarchy, then level, then UID
+    # Sort items by document hierarchy, then UID
     sorted_items = sorted(
-        items, key=lambda x: (get_doc_order(x), x.document_prefix, get_level(x), x.uid)
+        items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid)
     )
 
     # Track current document for section headers
@@ -114,18 +111,13 @@ def render_docx(
             current_doc = item.document_prefix
             doc.add_heading(f"{current_doc}", level=1)
 
-        # Determine heading level based on item level (2-9, reserve 1 for doc headers)
-        level_value = float(item.level) if hasattr(item.level, "__float__") else 1.0
-        heading_level = min(int(level_value) + 1, 9)
-        heading_level = max(heading_level, 2)
-
         # Create heading with UID and optional header
         if item.header:
             heading_text = f"{item.uid}: {item.header}"
         else:
             heading_text = item.uid
 
-        heading = doc.add_heading(heading_text, level=heading_level)
+        heading = doc.add_heading(heading_text, level=2)
 
         # Add bookmark for this item so links can reference it
         _add_bookmark(heading, item.uid)

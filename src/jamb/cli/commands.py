@@ -324,6 +324,48 @@ def _is_requirement_marker(node: ast.Call) -> bool:
 
 
 # =============================================================================
+# Reorder Command
+# =============================================================================
+
+
+@cli.command("reorder")
+@click.argument("prefix")
+def reorder(prefix: str) -> None:
+    """Renumber item UIDs sequentially to fill gaps.
+
+    PREFIX is the document identifier (e.g., SRS, UT).
+
+    Items are sorted by current UID and renumbered to form a contiguous
+    sequence (e.g., SRS001, SRS002, ...).  All cross-document links that
+    reference renamed UIDs are updated automatically.
+    """
+    from jamb.storage import discover_documents
+    from jamb.storage.reorder import reorder_document
+
+    try:
+        dag = discover_documents()
+        if prefix not in dag.document_paths:
+            click.echo(f"Error: Document '{prefix}' not found", err=True)
+            sys.exit(1)
+
+        doc_path = dag.document_paths[prefix]
+        config = dag.documents[prefix]
+        all_doc_paths = dict(dag.document_paths)
+
+        stats = reorder_document(
+            doc_path, prefix, config.digits, config.sep, all_doc_paths
+        )
+        click.echo(
+            f"Reordered {prefix}: {stats['renamed']} renamed, "
+            f"{stats['unchanged']} unchanged"
+        )
+
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+# =============================================================================
 # Document Management Commands
 # =============================================================================
 
@@ -437,51 +479,6 @@ def doc_list(root: Path | None) -> None:
         sys.exit(1)
 
 
-@doc.command("reorder")
-@click.argument("prefix")
-@click.option("--auto", "-a", is_flag=True, help="Automatically reorder items")
-@click.option("--manual", "-m", is_flag=True, help="Manually reorder items")
-def doc_reorder(prefix: str, auto: bool, manual: bool) -> None:
-    """Reorder items in a document.
-
-    PREFIX is the document identifier (e.g., SRS, UT).
-    """
-    from jamb.storage import discover_documents
-    from jamb.storage.items import read_document_items
-
-    _ = manual  # manual mode not yet implemented natively
-
-    try:
-        dag = discover_documents()
-        if prefix not in dag.document_paths:
-            click.echo(f"Error: Document '{prefix}' not found", err=True)
-            sys.exit(1)
-
-        doc_path = dag.document_paths[prefix]
-        items = read_document_items(doc_path, prefix, include_inactive=True)
-
-        if auto:
-            # Sort by current level, then reassign sequential levels
-            items.sort(key=lambda i: (i["level"], i["uid"]))
-            for idx, item_data in enumerate(items, start=1):
-                item_path = doc_path / f"{item_data['uid']}.yml"
-                with open(item_path) as f:
-                    data = yaml.safe_load(f) or {}
-                data["level"] = str(float(idx))
-                with open(item_path, "w") as f:
-                    dump_yaml(data, f)
-
-            click.echo(f"Reordered {len(items)} items in {prefix}")
-        else:
-            click.echo(f"Items in {prefix}:")
-            for item_data in items:
-                click.echo(f"  {item_data['uid']} (level {item_data['level']})")
-
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-
-
 # =============================================================================
 # Item Management Commands
 # =============================================================================
@@ -495,9 +492,8 @@ def item() -> None:
 
 @item.command("add")
 @click.argument("prefix")
-@click.option("--level", "-l", help="Item level (e.g., 1.2)")
 @click.option("--count", "-c", default=1, type=int, help="Number of items to add")
-def item_add(prefix: str, level: str | None, count: int) -> None:
+def item_add(prefix: str, count: int) -> None:
     """Add a new item to a document.
 
     PREFIX is the document to add the item to (e.g., SRS, UT).
@@ -519,10 +515,12 @@ def item_add(prefix: str, level: str | None, count: int) -> None:
         for _ in range(count):
             uid = next_uid(prefix, config.digits, existing_uids, config.sep)
             item_data = {
+                "header": "",
                 "active": True,
                 "type": "requirement",
-                "level": float(level) if level else 1.0,
+                "links": [],
                 "text": "",
+                "reviewed": None,
             }
             item_path = doc_path / f"{uid}.yml"
             write_item(item_data, item_path)
@@ -642,7 +640,6 @@ def item_show(uid: str) -> None:
         click.echo(f"Document: {data['document_prefix']}")
         click.echo(f"Active: {data['active']}")
         click.echo(f"Type: {data['type']}")
-        click.echo(f"Level: {data['level']}")
         if data.get("header"):
             click.echo(f"Header: {data['header']}")
         if data.get("links"):
@@ -1085,7 +1082,7 @@ def _publish_markdown_stdout(prefix: str) -> None:
             click.echo(f"Error: No items found for '{prefix}'", err=True)
             sys.exit(1)
 
-        items.sort(key=lambda i: (i.level, i.uid))
+        items.sort(key=lambda i: i.uid)
         click.echo(f"# {prefix}\n")
         for item_obj in items:
             if item_obj.header:
@@ -1125,7 +1122,7 @@ def _publish_markdown(prefix: str, path: str) -> None:
             if not items:
                 continue
 
-            items.sort(key=lambda i: (i.level, i.uid))
+            items.sort(key=lambda i: i.uid)
             lines.append(f"# {p}\n")
             for item_obj in items:
                 if item_obj.header:
@@ -1208,12 +1205,6 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
     help="Only display errors and prompts",
 )
 @click.option(
-    "--no-level-check",
-    "-L",
-    is_flag=True,
-    help="Do not validate document levels",
-)
-@click.option(
     "--no-child-check",
     "-C",
     is_flag=True,
@@ -1253,7 +1244,6 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
 def validate(
     verbose: int,
     quiet: bool,
-    no_level_check: bool,
     no_child_check: bool,
     no_suspect_check: bool,
     no_review_check: bool,
@@ -1288,7 +1278,6 @@ def validate(
             dag,
             graph,
             check_links=True,
-            check_levels=not no_level_check,
             check_suspect=not no_suspect_check,
             check_review=not no_review_check,
             check_children=not no_child_check,
@@ -1477,195 +1466,6 @@ def import_yaml_cmd(file: Path, dry_run: bool, update: bool, verbose: bool) -> N
 # =============================================================================
 # Migration Command
 # =============================================================================
-
-
-# =============================================================================
-# Trace Commands
-# =============================================================================
-
-
-def _get_active_normative_items(graph, prefix: str) -> list:
-    """Get active normative items from a document prefix."""
-    return [
-        item
-        for item in graph.get_items_by_document(prefix)
-        if item.active and item.type == "requirement"
-    ]
-
-
-def _print_trace_results(
-    failures: list[tuple], rule_name: str, args_label: str, error: bool
-) -> None:
-    """Print trace check results and exit appropriately."""
-    for item, message in failures:
-        click.echo(f"WARNING: {item.uid} ({item.display_text}) {message}")
-
-    if failures:
-        click.echo(f"\n{len(failures)} items failed check: {rule_name} {args_label}")
-        if error:
-            sys.exit(1)
-    else:
-        click.echo(f"All items passed check: {rule_name} {args_label}")
-
-
-@cli.group()
-def trace() -> None:
-    """Check cross-document traceability rules."""
-    pass
-
-
-@trace.command("has-children")
-@click.argument("document")
-@click.option("-e", "--error", is_flag=True, help="Exit with code 1 on failure")
-@click.option(
-    "--root",
-    type=click.Path(exists=True, path_type=Path),
-    help="Project root directory",
-)
-def trace_has_children(document: str, error: bool, root: Path | None) -> None:
-    """Check that every active normative item in DOCUMENT has at least one child.
-
-    A child is any item from any document that links to the item.
-    """
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    try:
-        dag = discover_documents(root)
-        graph = build_traceability_graph(dag)
-        items = _get_active_normative_items(graph, document)
-
-        failures = []
-        for item in items:
-            children = graph.item_children.get(item.uid, [])
-            if not children:
-                failures.append((item, "has no children linking to it"))
-
-        _print_trace_results(failures, "has-children", document, error)
-
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-
-
-@trace.command("has-parents")
-@click.argument("document")
-@click.option("-e", "--error", is_flag=True, help="Exit with code 1 on failure")
-@click.option(
-    "--root",
-    type=click.Path(exists=True, path_type=Path),
-    help="Project root directory",
-)
-def trace_has_parents(document: str, error: bool, root: Path | None) -> None:
-    """Check every active normative item in DOCUMENT has a parent."""
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    try:
-        dag = discover_documents(root)
-        graph = build_traceability_graph(dag)
-        items = _get_active_normative_items(graph, document)
-
-        failures = []
-        for item in items:
-            parents = graph.item_parents.get(item.uid, [])
-            if not parents:
-                failures.append((item, "has no parent links"))
-
-        _print_trace_results(failures, "has-parents", document, error)
-
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-
-
-@trace.command("links-to")
-@click.argument("source")
-@click.argument("target")
-@click.option("-e", "--error", is_flag=True, help="Exit with code 1 on failure")
-@click.option(
-    "--root",
-    type=click.Path(exists=True, path_type=Path),
-    help="Project root directory",
-)
-def trace_links_to(source: str, target: str, error: bool, root: Path | None) -> None:
-    """Check every active normative item in SOURCE links to TARGET."""
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    try:
-        dag = discover_documents(root)
-        graph = build_traceability_graph(dag)
-        items = _get_active_normative_items(graph, source)
-
-        failures = []
-        for item in items:
-            parents_in_target = graph.get_parents_from_document(item.uid, target)
-            if not parents_in_target:
-                failures.append((item, f"does not link to any item in {target}"))
-
-        _print_trace_results(failures, "links-to", f"{source} {target}", error)
-
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-
-
-@trace.command("one-to-one")
-@click.argument("doc_a")
-@click.argument("doc_b")
-@click.option("-e", "--error", is_flag=True, help="Exit with code 1 on failure")
-@click.option(
-    "--root",
-    type=click.Path(exists=True, path_type=Path),
-    help="Project root directory",
-)
-def trace_one_to_one(doc_a: str, doc_b: str, error: bool, root: Path | None) -> None:
-    """Check 1:1 mapping between DOC_A and DOC_B.
-
-    Every active normative item in DOC_A must have exactly one child in DOC_B,
-    and every active normative item in DOC_B must link to exactly one item in DOC_A.
-    """
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    try:
-        dag = discover_documents(root)
-        graph = build_traceability_graph(dag)
-
-        failures = []
-
-        # Check DOC_A items each have exactly one child in DOC_B
-        for item in _get_active_normative_items(graph, doc_a):
-            children_in_b = graph.get_children_from_document(item.uid, doc_b)
-            if len(children_in_b) == 0:
-                failures.append((item, f"has no children in {doc_b}"))
-            elif len(children_in_b) > 1:
-                child_uids = ", ".join(c.uid for c in children_in_b)
-                failures.append(
-                    (
-                        item,
-                        f"has {len(children_in_b)} children in "
-                        f"{doc_b} ({child_uids}), expected 1",
-                    )
-                )
-
-        # Check DOC_B items each link to exactly one item in DOC_A
-        for item in _get_active_normative_items(graph, doc_b):
-            parents_in_a = graph.get_parents_from_document(item.uid, doc_a)
-            if len(parents_in_a) == 0:
-                failures.append((item, f"does not link to any item in {doc_a}"))
-            elif len(parents_in_a) > 1:
-                parent_uids = ", ".join(p.uid for p in parents_in_a)
-                failures.append(
-                    (
-                        item,
-                        f"links to {len(parents_in_a)} items in "
-                        f"{doc_a} ({parent_uids}), expected 1",
-                    )
-                )
-
-        _print_trace_results(failures, "one-to-one", f"{doc_a} {doc_b}", error)
-
-    except Exception as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
 
 
 if __name__ == "__main__":

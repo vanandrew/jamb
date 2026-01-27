@@ -147,10 +147,10 @@ class TestRenderHtml:
         assert 'id="doc-SRS"' in result
 
     def test_render_html_sorts_by_document_order(self):
-        """Test items sorted by document order, then level, then UID."""
+        """Test items sorted by document order, then UID."""
         items = [
-            Item(uid="SRS001", text="Software req", document_prefix="SRS", level=1.0),
-            Item(uid="UN001", text="User need", document_prefix="UN", level=1.0),
+            Item(uid="SRS001", text="Software req", document_prefix="SRS"),
+            Item(uid="UN001", text="User need", document_prefix="UN"),
         ]
         result = render_html(items, "Requirements", document_order=["UN", "SRS"])
 
