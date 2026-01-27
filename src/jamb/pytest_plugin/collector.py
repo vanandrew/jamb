@@ -18,6 +18,14 @@ class RequirementCollector:
     """Collects test-to-requirement mappings during pytest execution."""
 
     def __init__(self, config: pytest.Config) -> None:
+        """Initialize the requirement collector.
+
+        Loads the jamb configuration and the traceability graph from the
+        native storage layer.
+
+        Args:
+            config: The pytest configuration object.
+        """
         self.pytest_config = config
         self.jamb_config: JambConfig = load_config()
         self.graph: TraceabilityGraph | None = None
@@ -42,7 +50,15 @@ class RequirementCollector:
     def pytest_collection_modifyitems(
         self, items: list[pytest.Item]
     ) -> Generator[None, None, None]:
-        """Collect requirement markers from all test items."""
+        """Collect requirement markers from all test items.
+
+        Extracts requirement UIDs from markers on each test item and records
+        them as ``LinkedTest`` entries. Yields control for collection to
+        complete first.
+
+        Args:
+            items: The list of pytest test items collected for the session.
+        """
         yield  # Let collection complete
 
         for item in items:
@@ -64,7 +80,16 @@ class RequirementCollector:
         item: pytest.Item,
         call: pytest.CallInfo,  # noqa: ARG002
     ) -> Generator[None, Any, None]:
-        """Record test outcomes, notes, test actions, and expected results."""
+        """Record test outcomes, notes, test actions, and expected results.
+
+        Captures the test outcome and data from the ``jamb_log`` fixture,
+        including failure messages and skip reasons, and updates all
+        ``LinkedTest`` entries for the test.
+
+        Args:
+            item: The pytest test item that was executed.
+            call: The call information for the test phase.
+        """
         _ = call  # Required by pytest hook signature
         outcome = yield
         report = outcome.get_result()
@@ -104,7 +129,12 @@ class RequirementCollector:
                     link.expected_results = expected_results
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
-        """Build coverage report for all items in test documents."""
+        """Build coverage report for all items in test documents.
+
+        Returns:
+            A dict mapping item UIDs to ``ItemCoverage`` objects for items
+            in the configured test documents.
+        """
         coverage: dict[str, ItemCoverage] = {}
 
         if not self.graph:
@@ -155,7 +185,12 @@ class RequirementCollector:
         return True
 
     def generate_matrix(self, path: str, format: str) -> None:
-        """Generate traceability matrix."""
+        """Generate traceability matrix.
+
+        Args:
+            path: The output file path for the generated matrix.
+            format: The output format (html, markdown, json, csv, or xlsx).
+        """
         from jamb.matrix.generator import generate_matrix
 
         coverage = self.get_coverage()

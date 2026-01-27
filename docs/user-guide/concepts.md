@@ -4,13 +4,11 @@ This page explains the core concepts behind jamb and how they map to IEC 62304 r
 
 ## IEC 62304 Context
 
-[IEC 62304](https://en.wikipedia.org/wiki/IEC_62304) is the international standard for medical device software lifecycle processes. It requires that software requirements are:
+[IEC 62304](https://en.wikipedia.org/wiki/IEC_62304) is the international standard governing the software lifecycle processes for medical device software. It defines the activities, tasks, and documentation required at each stage of development — from planning and requirements analysis through architecture, implementation, testing, release, and maintenance. The standard assigns one of three safety classifications to software systems: **Class A** (no injury possible), **Class B** (non-serious injury possible), and **Class C** (serious injury or death possible). The required rigour of lifecycle activities scales with the classification, with Class C demanding the most comprehensive documentation and verification.
 
-- **Traceable** to system requirements and risk controls
-- **Verified** through testing with documented evidence
-- **Reviewed** when changes occur upstream
+A central theme of IEC 62304 is **bidirectional traceability**: every software requirement must trace upward to a system requirement or risk control, and every requirement must trace downward to verification evidence (tests). The standard also requires **change impact analysis** — when an upstream requirement changes, all affected downstream artefacts must be reviewed — and **risk management integration**, ensuring that software items linked to hazard mitigations are identified and verified. These traceability and change-control obligations make tooling support essential for any non-trivial project.
 
-jamb implements these requirements as a lightweight, git-native tool that integrates directly with pytest.
+jamb implements these requirements as a lightweight, git-native tool that integrates directly with pytest. For a comprehensive overview of IEC 62304 and how jamb maps to its requirements, see the {doc}`/iec-62304/index` guide.
 
 ## Document Hierarchy
 

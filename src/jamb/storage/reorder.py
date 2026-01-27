@@ -13,7 +13,15 @@ from jamb.storage.items import dump_yaml
 
 
 def _collect_all_uids(all_doc_paths: dict[str, Path]) -> set[str]:
-    """Return the set of all item UIDs across every document directory."""
+    """Return the set of all item UIDs across every document directory.
+
+    Args:
+        all_doc_paths: A dict mapping document prefixes to their directory
+            Paths.
+
+    Returns:
+        A set of all UIDs found across every document directory.
+    """
     uids: set[str] = set()
     for dp in all_doc_paths.values():
         for p in dp.iterdir():
@@ -110,7 +118,15 @@ def reorder_document(
 
 
 def _update_links_in_file(file_path: Path, rename_map: dict[str, str]) -> None:
-    """Rewrite link entries in a single item YAML file."""
+    """Rewrite link entries in a single item YAML file.
+
+    Handles both plain UID strings and ``{uid: hash}`` dict entries,
+    replacing any UIDs found in the rename map.
+
+    Args:
+        file_path: Path to the item YAML file.
+        rename_map: A dict mapping old UIDs to new UIDs.
+    """
     with open(file_path) as f:
         data = yaml.safe_load(f)
 

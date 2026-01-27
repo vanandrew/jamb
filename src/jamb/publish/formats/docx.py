@@ -12,7 +12,13 @@ from jamb.core.models import Item, TraceabilityGraph
 
 
 def _add_bookmark(paragraph, bookmark_name: str) -> None:
-    """Add a bookmark to a paragraph for internal linking."""
+    """Add a bookmark to a paragraph for internal linking.
+
+    Args:
+        paragraph: The docx paragraph object to add the bookmark to.
+        bookmark_name: The bookmark identifier used for internal
+            cross-references.
+    """
     # Create bookmark start
     bookmark_start = OxmlElement("w:bookmarkStart")
     bookmark_start.set(qn("w:id"), "0")
@@ -28,7 +34,13 @@ def _add_bookmark(paragraph, bookmark_name: str) -> None:
 
 
 def _add_hyperlink(paragraph, anchor: str, text: str) -> None:
-    """Add an internal hyperlink to a paragraph."""
+    """Add an internal hyperlink to a paragraph.
+
+    Args:
+        paragraph: The docx paragraph object to add the hyperlink to.
+        anchor: The bookmark name to link to.
+        text: The display text for the hyperlink.
+    """
     # Create hyperlink element
     hyperlink = OxmlElement("w:hyperlink")
     hyperlink.set(qn("w:anchor"), anchor)

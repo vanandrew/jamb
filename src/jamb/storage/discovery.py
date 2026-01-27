@@ -40,5 +40,12 @@ def discover_documents(root: Path | None = None) -> DocumentDAG:
 
 
 def _find_config_files(root: Path) -> list[Path]:
-    """Find all .jamb.yml files under root."""
+    """Find all .jamb.yml files under root.
+
+    Args:
+        root: The directory to search recursively.
+
+    Returns:
+        A list of config file paths sorted alphabetically.
+    """
     return sorted(root.rglob(".jamb.yml"))

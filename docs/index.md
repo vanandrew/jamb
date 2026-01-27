@@ -41,6 +41,7 @@ pytest --jamb --jamb-matrix matrix.html
 
 getting-started/index
 user-guide/index
+iec-62304/index
 api/index
 faq
 ```

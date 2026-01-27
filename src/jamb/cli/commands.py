@@ -119,7 +119,11 @@ def init() -> None:
 
 
 def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
-    """Add [tool.jamb] section to pyproject.toml if it doesn't exist."""
+    """Add [tool.jamb] section to pyproject.toml if it doesn't exist.
+
+    Args:
+        pyproject_path: Path to the pyproject.toml file.
+    """
     from typing import cast
 
     import tomlkit
@@ -170,6 +174,8 @@ def info(documents: str | None, root: Path | None) -> None:
     """Display document information.
 
     Shows document structure, hierarchy, and item counts.
+    Lists each discovered document with its active item count and parent
+    relationships, then prints a tree view of the full document hierarchy.
     """
     from jamb.storage import discover_documents
     from jamb.storage.items import read_document_items
@@ -199,7 +205,16 @@ def info(documents: str | None, root: Path | None) -> None:
 
 
 def _print_dag_hierarchy(dag, prefix: str = "", nodes: list[str] | None = None) -> None:
-    """Print document hierarchy as a tree (DAG-aware)."""
+    """Print document hierarchy as a tree (DAG-aware).
+
+    Args:
+        dag: The document DAG containing documents and their relationships.
+        prefix: Indentation prefix string used for tree drawing. Each
+            recursive call appends connector characters to build the
+            visual tree structure.
+        nodes: List of document prefixes to display at this level. If
+            ``None``, the root documents of the DAG are used.
+    """
     if nodes is None:
         nodes = dag.get_root_documents() or []
 
@@ -287,7 +302,17 @@ def check(documents: str | None, root: Path | None) -> None:
 
 
 def _scan_tests_for_requirements(root: Path) -> set[str]:
-    """Scan test files for requirement markers."""
+    """Scan test files for requirement markers.
+
+    Walks all ``test_*.py`` files under *root*, parses them into ASTs,
+    and collects string arguments from ``@pytest.mark.requirement`` calls.
+
+    Args:
+        root: Project root directory to search for test files.
+
+    Returns:
+        Set of requirement UID strings found in test markers.
+    """
     linked: set[str] = set()
 
     # Find test files
@@ -312,7 +337,15 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
 
 
 def _is_requirement_marker(node: ast.Call) -> bool:
-    """Check if an AST Call node is a pytest.mark.requirement call."""
+    """Check if an AST Call node is a pytest.mark.requirement call.
+
+    Args:
+        node: An ``ast.Call`` node to inspect.
+
+    Returns:
+        ``True`` if the node represents a ``pytest.mark.requirement(...)``
+        call, ``False`` otherwise.
+    """
     func = node.func
 
     # @pytest.mark.requirement(...)
@@ -376,7 +409,10 @@ def reorder(prefix: str) -> None:
 
 @cli.group()
 def doc() -> None:
-    """Manage documents."""
+    """Manage documents.
+
+    Subcommands: create, delete, list.
+    """
     pass
 
 
@@ -490,7 +526,10 @@ def doc_list(root: Path | None) -> None:
 
 @cli.group()
 def item() -> None:
-    """Manage items."""
+    """Manage items.
+
+    Subcommands: add, list, remove, edit, show.
+    """
     pass
 
 
@@ -723,7 +762,10 @@ def item_show(uid: str) -> None:
 
 @cli.group()
 def link() -> None:
-    """Manage item links."""
+    """Manage item links.
+
+    Subcommands: add, remove.
+    """
     pass
 
 
@@ -806,7 +848,10 @@ def link_remove(child: str, parent: str) -> None:
 
 @cli.group()
 def review() -> None:
-    """Manage item reviews."""
+    """Manage item reviews.
+
+    Subcommands: mark, clear, reset.
+    """
     pass
 
 
@@ -987,7 +1032,24 @@ def review_reset(label: str, root: Path | None) -> None:
 
 
 def _resolve_label_to_item_paths(label: str, dag) -> list[tuple[Path, str]]:
-    """Resolve a label (UID, prefix, or 'all') to list of (item_path, prefix) tuples."""
+    """Resolve a label (UID, prefix, or 'all') to list of (item_path, prefix) tuples.
+
+    The label is matched in the following order: the literal string
+    ``"all"`` returns every item across all documents; a known document
+    prefix returns all items in that document; otherwise the label is
+    treated as an individual item UID.
+
+    Args:
+        label: An item UID (e.g. ``"SRS001"``), a document prefix
+            (e.g. ``"SRS"``), or the string ``"all"``.
+        dag: The document DAG used to locate documents and items.
+
+    Returns:
+        A list of ``(item_path, prefix)`` tuples for the resolved items.
+
+    Raises:
+        SystemExit: If the label does not match any item or document.
+    """
     from jamb.storage.items import read_document_items
 
     result: list[tuple[Path, str]] = []
@@ -1105,7 +1167,15 @@ def publish(
 
 
 def _publish_html(prefix: str, path: str, include_links: bool) -> None:
-    """Publish documents as a standalone HTML file."""
+    """Publish documents as a standalone HTML file.
+
+    Args:
+        prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
+            document.
+        path: Filesystem path for the output HTML file.
+        include_links: Whether to render child-link references in the
+            output.
+    """
     from jamb.core.models import Item
     from jamb.publish.formats.html import render_html
     from jamb.storage import build_traceability_graph, discover_documents
@@ -1139,7 +1209,12 @@ def _publish_html(prefix: str, path: str, include_links: bool) -> None:
 
 
 def _publish_markdown_stdout(prefix: str) -> None:
-    """Publish a document as markdown to stdout."""
+    """Publish a document as markdown to stdout.
+
+    Args:
+        prefix: Document prefix identifying the document to publish
+            (e.g. ``"SRS"``).
+    """
     from jamb.storage import build_traceability_graph, discover_documents
 
     try:
@@ -1180,7 +1255,13 @@ def _publish_markdown_stdout(prefix: str) -> None:
 
 
 def _publish_markdown(prefix: str, path: str) -> None:
-    """Publish a document as markdown to a file."""
+    """Publish a document as markdown to a file.
+
+    Args:
+        prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
+            document.
+        path: Filesystem path for the output Markdown file.
+    """
     from jamb.storage import build_traceability_graph, discover_documents
 
     try:
@@ -1241,7 +1322,15 @@ def _publish_markdown(prefix: str, path: str) -> None:
 
 
 def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
-    """Publish documents as a single DOCX file."""
+    """Publish documents as a single DOCX file.
+
+    Args:
+        prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
+            document.
+        path: Filesystem path for the output DOCX file.
+        include_child_links: Whether to include child (reverse) link
+            references in the generated document.
+    """
     from jamb.core.models import Item
     from jamb.publish.formats.docx import render_docx
     from jamb.storage import build_traceability_graph, discover_documents

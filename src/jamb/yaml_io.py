@@ -10,14 +10,23 @@ import yaml
 
 
 class _ItemDictOptional(TypedDict, total=False):
-    """Optional fields for ItemDict."""
+    """Optional fields for ItemDict.
+
+    Defines the optional header and links fields that may be present
+    in an item's YAML export representation.
+    """
 
     header: str
     links: list[str]
 
 
 class ItemDict(_ItemDictOptional):
-    """TypedDict for item export structure."""
+    """TypedDict for item export structure.
+
+    Represents an item in YAML export format with required uid and text
+    fields, and optional header and links fields inherited from
+    _ItemDictOptional.
+    """
 
     uid: str
     text: str
@@ -162,7 +171,16 @@ def export_to_yaml(
 
 
 def _graph_item_to_dict(item) -> ItemDict:
-    """Convert a graph Item to dict with plain Python types."""
+    """Convert a graph Item to dict with plain Python types.
+
+    Args:
+        item: A graph Item object containing uid, text, and optional
+            header and links attributes.
+
+    Returns:
+        An ItemDict with uid and text fields, and optional header and
+        links fields if present on the source item.
+    """
     d: ItemDict = {
         "uid": str(item.uid),
         "text": str(item.text),
@@ -268,7 +286,17 @@ def import_from_yaml(
 def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
     """Create a document from spec.
 
-    Returns: 'created', 'skipped', or 'error'
+    Args:
+        spec: A dict containing document specification with required keys
+            'prefix' and 'path', and optional keys 'parents' (list of
+            parent document prefixes) and 'digits' (number of digits in
+            item numbering, defaults to 3).
+        dry_run: If True, report what would happen without making changes.
+        verbose: If True, print detailed output including skip messages.
+        echo: Callable for output (e.g., print or click.echo).
+
+    Returns:
+        A string indicating the result: 'created', 'skipped', or 'error'.
     """
     from jamb.storage.document_config import DocumentConfig, save_document_config
 
@@ -310,7 +338,18 @@ def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
 def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -> str:
     """Create or update an item.
 
-    Returns: 'created', 'updated', 'skipped', or 'error'
+    Args:
+        spec: A dict containing item specification with required keys
+            'uid' and 'text', and optional keys 'header' (str) and
+            'links' (list of linked item UIDs).
+        dry_run: If True, report what would happen without making changes.
+        update: If True, update existing items instead of skipping them.
+        verbose: If True, print detailed output including skip messages.
+        echo: Callable for output (e.g., print or click.echo).
+
+    Returns:
+        A string indicating the result: 'created', 'updated', 'skipped',
+        or 'error'.
     """
     uid = spec["uid"]
     text = spec["text"]
@@ -370,7 +409,14 @@ def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -
 
 
 def _document_exists(prefix: str) -> bool:
-    """Check if a document with the given prefix exists on the filesystem."""
+    """Check if a document with the given prefix exists on the filesystem.
+
+    Args:
+        prefix: The document prefix to search for (e.g., 'SRS').
+
+    Returns:
+        True if a document with the given prefix exists, False otherwise.
+    """
     import os
 
     for root_dir, _, files in os.walk("."):
@@ -384,13 +430,29 @@ def _document_exists(prefix: str) -> bool:
 
 
 def _extract_prefix(uid: str) -> str | None:
-    """Extract document prefix from UID (e.g., SRS001 -> SRS)."""
+    """Extract document prefix from UID (e.g., SRS001 -> SRS).
+
+    Args:
+        uid: The item UID string to extract a prefix from.
+
+    Returns:
+        The alphabetic prefix string, or None if no alphabetic prefix
+        is found.
+    """
     match = re.match(r"^([A-Za-z]+)", uid)
     return match.group(1) if match else None
 
 
 def _get_document_path(prefix: str) -> Path | None:
-    """Get the filesystem path for a document prefix."""
+    """Get the filesystem path for a document prefix.
+
+    Args:
+        prefix: The document prefix to look up (e.g., 'SRS').
+
+    Returns:
+        The Path to the document directory, or None if no document with
+        the given prefix is found.
+    """
     import os
 
     for root_dir, _, files in os.walk("."):

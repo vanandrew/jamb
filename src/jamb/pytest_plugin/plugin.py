@@ -29,7 +29,14 @@ def jamb_log(request: pytest.FixtureRequest) -> JambLog:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Register command-line options."""
+    """Register jamb command-line options with pytest.
+
+    Registers the following options: ``--jamb``, ``--jamb-fail-uncovered``,
+    ``--jamb-matrix``, ``--jamb-matrix-format``, and ``--jamb-documents``.
+
+    Args:
+        parser: The pytest argument parser to add options to.
+    """
     group = parser.getgroup("jamb", "IEC 62304 requirements traceability")
 
     group.addoption(
@@ -63,7 +70,14 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register markers and initialize plugin."""
+    """Register the requirement marker and initialize the jamb collector plugin.
+
+    Registers the ``requirement`` marker for linking tests to requirement UIDs
+    and creates a ``RequirementCollector`` instance when ``--jamb`` is enabled.
+
+    Args:
+        config: The pytest configuration object.
+    """
     # Register the requirement marker
     config.addinivalue_line(
         "markers",
@@ -79,7 +93,16 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    """Generate reports after test session."""
+    """Generate reports and check coverage after the test session completes.
+
+    Generates the traceability matrix if ``--jamb-matrix`` was specified and
+    sets the exit status to failure if ``--jamb-fail-uncovered`` was set and
+    any test spec items lack coverage.
+
+    Args:
+        session: The pytest session object.
+        exitstatus: The exit status of the test run.
+    """
     if not session.config.option.jamb:
         return
 
@@ -98,7 +121,15 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 
 def pytest_report_header(config: pytest.Config) -> list[str] | None:
-    """Add jamb info to pytest header."""
+    """Add jamb info to the pytest header.
+
+    Args:
+        config: The pytest configuration object.
+
+    Returns:
+        A list of strings with tracking information, or ``None`` if jamb
+        is not enabled.
+    """
     if config.option.jamb:
         collector = config.pluginmanager.get_plugin("jamb_collector")
         if collector and collector.graph:
@@ -113,7 +144,16 @@ def pytest_terminal_summary(
     exitstatus: int,
     config: pytest.Config,
 ) -> None:
-    """Add coverage summary to terminal output."""
+    """Add coverage summary to terminal output.
+
+    Prints total test spec items, coverage percentage, uncovered items,
+    and unknown item references to the terminal.
+
+    Args:
+        terminalreporter: The pytest terminal reporter instance.
+        exitstatus: The exit status of the test run.
+        config: The pytest configuration object.
+    """
     if not config.option.jamb:
         return
 

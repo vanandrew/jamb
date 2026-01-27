@@ -38,3 +38,27 @@ Downstream links become suspect. `jamb validate` flags them, and reviewers clear
 ## Can I use jamb without pytest?
 
 Yes — CLI commands (`jamb validate`, `jamb check`, `jamb publish`) work standalone. The pytest integration is optional.
+
+## Can I use jamb for non-medical device standards?
+
+Yes. While `jamb init` scaffolds an IEC 62304 hierarchy, the underlying document/item/link model is standard-agnostic. You can create custom document hierarchies with `jamb doc create` to match any standard that requires requirements traceability, such as IEC 62443 (industrial cybersecurity), DO-178C (airborne software), or ISO 26262 (automotive safety).
+
+## How do I migrate from doorstop to jamb?
+
+jamb uses a similar YAML-per-item file layout to doorstop, so migration is straightforward:
+
+1. Create matching documents in jamb with `jamb doc create`, mapping doorstop document prefixes to jamb documents
+2. Export your doorstop items to YAML and use `jamb import` to bring them in
+3. Replace `@doorstop` markers in tests with `@pytest.mark.requirement`
+4. Run `jamb validate` to verify the traceability chain
+
+## What test documents does jamb check by default?
+
+When no `test_documents` are configured in `pyproject.toml`, jamb defaults to checking **leaf documents** — documents that are not parents of any other document. In the standard IEC 62304 hierarchy, these are SRS and RC. You can override this by setting `test_documents` in `[tool.jamb]` in your `pyproject.toml`:
+
+```toml
+[tool.jamb]
+test_documents = ["SRS", "SYS"]
+```
+
+Or use the `--jamb-documents` flag with pytest: `pytest --jamb --jamb-documents SRS,SYS`

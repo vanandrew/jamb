@@ -26,7 +26,18 @@ def render_xlsx(
 ) -> bytes:
     """Render coverage as Excel traceability matrix.
 
-    Returns bytes (not string) for binary Excel format.
+    Args:
+        coverage: Dict mapping UIDs to ItemCoverage objects representing
+            each traceable item and its test linkage.
+        graph: Optional TraceabilityGraph used to resolve ancestor chains
+            for each item. When None, ancestor columns are left empty.
+        trace_to_ignore: Set of document prefixes to exclude from the
+            ancestor display.
+
+    Returns:
+        Bytes containing an XLSX workbook with a styled header, a
+        summary section, and color-coded status cells (green for passed,
+        red for failed, yellow for uncovered).
     """
     wb = Workbook()
     ws: Worksheet = wb.active  # type: ignore[assignment]

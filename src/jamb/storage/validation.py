@@ -109,7 +109,34 @@ def _check_links(
     skip: set[str],
     check_self_links: bool = True,
 ) -> list[ValidationIssue]:
-    """Check link validity and conformance."""
+    """Check link validity and conformance.
+
+    Validates every link on every active, non-skipped item in the
+    traceability graph.  The following conditions are flagged:
+
+    * Self-links (item links to its own UID).
+    * Links to non-existent items.
+    * Links to inactive items.
+    * Links from non-normative items (items that have links but are not
+      of type ``requirement``).
+    * Links to non-normative target items.
+    * Links that violate parent-document conformance (the target item
+      belongs to a document that is not a parent of the source item's
+      document in the DAG).
+
+    Args:
+        dag: The document DAG used to determine parent-child document
+            relationships.
+        graph: The traceability graph containing all items and their
+            links.
+        skip: Set of document prefixes to exclude from validation.
+        check_self_links: Whether to flag items that link to themselves.
+
+    Returns:
+        A list of ``ValidationIssue`` objects, one per detected problem.
+        Self-links, links to inactive items, and links to non-existent
+        items are reported as errors or warnings depending on severity.
+    """
     issues = []
 
     for uid, item in graph.items.items():
@@ -204,7 +231,30 @@ def _check_links(
 def _check_suspect_links(
     dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Check for suspect links by comparing stored hashes to current content."""
+    """Check for suspect links by comparing stored hashes to current content.
+
+    A link is considered *suspect* when the content hash stored at the
+    time the link was created no longer matches the current content hash
+    of the target item.  This indicates that the target item has been
+    modified since the link was last verified.  Links that have no
+    stored hash at all are also flagged, since they cannot be verified.
+
+    For each active, non-skipped item the function reads the raw YAML
+    file to obtain ``link_hashes``, recomputes the content hash of every
+    linked target, and compares the two values.
+
+    Args:
+        dag: The document DAG, used to resolve file paths for raw item
+            data.
+        graph: The traceability graph containing all items and their
+            links.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each suspect link (hash mismatch) and each link missing a stored
+        hash.
+    """
     issues = []
 
     for uid, item in graph.items.items():
@@ -275,7 +325,24 @@ def _check_suspect_links(
 def _check_review_status(
     graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Check that items have been reviewed."""
+    """Check that items have been reviewed and review hash matches current content.
+
+    Ensures every active normative (``requirement``) item has been
+    reviewed.  Two conditions are flagged:
+
+    * The item has never been reviewed (``reviewed`` field is falsy).
+    * The item has been modified since its last review, detected by
+      comparing the stored review hash against a freshly computed
+      content hash.
+
+    Args:
+        graph: The traceability graph containing all items.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each unreviewed or stale-reviewed item.
+    """
     issues = []
 
     for uid, item in graph.items.items():
@@ -316,7 +383,24 @@ def _check_review_status(
 def _check_children(
     dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Check that non-leaf document items have children linking to them."""
+    """Check that non-leaf document items have children linking to them.
+
+    For every active normative item that belongs to a non-leaf document
+    (i.e., a document that has child documents in the DAG), verifies
+    that at least one active item in the graph links to it.  Items in
+    leaf documents are excluded because they have no child documents
+    from which links would originate.
+
+    Args:
+        dag: The document DAG, used to identify leaf documents.
+        graph: The traceability graph containing all items and their
+            links.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each non-leaf-document item that has no children linking to it.
+    """
     issues = []
     leaf_docs = set(dag.get_leaf_documents())
 
@@ -355,7 +439,22 @@ def _check_children(
 def _check_empty_documents(
     dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Check for documents that contain no items."""
+    """Check for documents that contain no items.
+
+    Iterates over every document registered in the DAG and flags those
+    that have zero items in the traceability graph.  Empty documents
+    may indicate a misconfiguration or an incomplete import.
+
+    Args:
+        dag: The document DAG, providing the set of known document
+            prefixes.
+        graph: The traceability graph containing all items.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each document that contains no items.
+    """
     issues = []
 
     for prefix in dag.documents:
@@ -378,7 +477,20 @@ def _check_empty_documents(
 def _check_empty_text(
     graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Check for items with empty or whitespace-only text."""
+    """Check for items with empty or whitespace-only text.
+
+    Flags every active item whose ``text`` field is ``None``, an empty
+    string, or contains only whitespace characters.  Such items are
+    unlikely to be intentional and may indicate incomplete authoring.
+
+    Args:
+        graph: The traceability graph containing all items.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each item that has empty text.
+    """
     issues = []
 
     for uid, item in graph.items.items():
@@ -402,7 +514,25 @@ def _check_empty_text(
 def _check_item_link_cycles(
     graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Detect cycles in item-to-item link graph using DFS."""
+    """Detect cycles in the item-to-item link graph using DFS.
+
+    Builds a directed graph where each active, non-skipped item is a
+    node and each link from one item to another is an edge.  A
+    depth-first search with three-color marking (white/gray/black) is
+    used to detect back edges, which indicate cycles.
+
+    Each unique cycle (identified by its set of member UIDs) is reported
+    at most once.  The issue message includes the full cycle path.
+
+    Args:
+        graph: The traceability graph containing all items and their
+            links.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each distinct cycle found in the item link graph.
+    """
     issues = []
     reported_cycles: set[frozenset[str]] = set()
 
@@ -456,7 +586,28 @@ def _check_item_link_cycles(
 def _check_unlinked_items(
     dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
 ) -> list[ValidationIssue]:
-    """Check for normative non-derived items in child documents with no links."""
+    """Check for normative non-derived items in child documents with no links.
+
+    In a well-formed traceability tree, every normative item in a child
+    document should link upward to at least one item in a parent
+    document (unless it is explicitly marked as derived).  This check
+    flags active normative items that belong to a document with parent
+    documents in the DAG yet have an empty links list.
+
+    Derived items are excluded because they intentionally lack upward
+    links.  Items in root documents (no parents) are also excluded.
+
+    Args:
+        dag: The document DAG, used to determine whether an item's
+            document has parent documents.
+        graph: The traceability graph containing all items and their
+            links.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each unlinked normative non-derived item in a child document.
+    """
     issues = []
 
     for uid, item in graph.items.items():
