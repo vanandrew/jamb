@@ -46,19 +46,19 @@ def cli() -> None:
 
 @cli.command()
 def init() -> None:
-    """Initialize a new jamb project with default IEC 62304 documents.
+    r"""Initialize a new jamb project with default IEC 62304 documents.
 
     Creates a 'reqs' folder with PRJ, UN, SYS, SRS, HAZ, and RC documents
-    in the standard medical device traceability hierarchy:
+    in the standard medical device traceability hierarchy::
+
+        PRJ (Project Requirements) - root
+        +-- UN (User Needs)
+        |   +-- SYS (System Requirements)
+        |       +-- SRS (Software Requirements Specification)
+        +-- HAZ (Hazards)
+            +-- RC (Risk Controls)
 
     \b
-      PRJ (Project Requirements) - root
-      +-- UN (User Needs)
-      |   +-- SYS (System Requirements)
-      |       +-- SRS (Software Requirements Specification)
-      +-- HAZ (Hazards)
-          +-- RC (Risk Controls)
-
     If pyproject.toml exists, adds [tool.jamb] configuration.
     """
     from jamb.storage.document_config import DocumentConfig, save_document_config
@@ -1338,17 +1338,18 @@ def validate(
     warn_all: bool,
     error_all: bool,
 ) -> None:
-    """Validate the requirements tree.
+    r"""Validate the requirements tree.
 
-    \b
     Checks for issues like:
-      - Cycles in document hierarchy
-      - Invalid or missing links
-      - Suspect links (items needing re-review)
-      - Items without required links
+
+    - Cycles in document hierarchy
+    - Invalid or missing links
+    - Suspect links (items needing re-review)
+    - Items without required links
 
     \b
-    Examples:
+    Examples::
+
         jamb validate              # Run validation
         jamb validate -v           # Verbose output
         jamb validate --skip UT    # Skip unit test document

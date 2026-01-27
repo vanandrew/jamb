@@ -1,4 +1,4 @@
-# Jamb Command Reference
+# Command Reference
 
 Complete reference for all `jamb` CLI commands.
 

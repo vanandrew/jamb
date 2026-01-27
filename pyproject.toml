@@ -24,13 +24,6 @@ jamb = "jamb.cli.commands:cli"
 [project.entry-points.pytest11]
 jamb = "jamb.pytest_plugin.plugin"
 
-[project.optional-dependencies]
-dev = [
-    "pytest-cov",
-    "mypy",
-    "ruff",
-    "pre-commit",
-]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -96,4 +89,14 @@ select = [
 [dependency-groups]
 dev = [
     "pytest-cov>=7.0.0",
+    "mypy",
+    "ruff",
+    "pre-commit",
+]
+docs = [
+    "sphinx>=7.0",
+    "myst-parser>=3.0",
+    "pydata-sphinx-theme>=0.15",
+    "sphinx-copybutton>=0.5",
+    "sphinx-autobuild>=2024.0",
 ]

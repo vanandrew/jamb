@@ -14,3 +14,6 @@ src/jamb/_version.py
 
 # Virtual environments
 .venv
+
+# Sphinx build output
+docs/_build/

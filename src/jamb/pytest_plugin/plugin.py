@@ -16,7 +16,8 @@ def jamb_log(request: pytest.FixtureRequest) -> JambLog:
     """
     Fixture to log custom messages for the traceability matrix.
 
-    Example:
+    Example::
+
         @pytest.mark.requirement("SRS001")
         def test_validation(jamb_log):
             jamb_log.note("Verified input validation with boundary values")

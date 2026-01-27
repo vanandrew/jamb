@@ -1,0 +1,117 @@
+# Configuration
+
+## Project Configuration (`pyproject.toml`)
+
+jamb is configured in `pyproject.toml` under the `[tool.jamb]` section:
+
+```toml
+[tool.jamb]
+test_documents = ["SRS"]
+fail_uncovered = false
+require_all_pass = true
+matrix_output = "matrix.html"
+matrix_format = "html"
+exclude_patterns = []
+trace_to_ignore = []
+```
+
+### Options Reference
+
+`test_documents`
+: List of document prefixes that represent test specifications. These are the documents checked for test coverage.
+: **Type:** `list[str]`
+: **Default:** `[]`
+
+`fail_uncovered`
+: Fail the pytest session if any items in `test_documents` lack test coverage.
+: **Type:** `bool`
+: **Default:** `false`
+
+`require_all_pass`
+: Require all linked tests to pass (not just exist) for an item to be considered covered.
+: **Type:** `bool`
+: **Default:** `true`
+
+`matrix_output`
+: Default output path for the traceability matrix. Can be overridden with `--jamb-matrix`.
+: **Type:** `str | null`
+: **Default:** `null`
+
+`matrix_format`
+: Format for the traceability matrix output.
+: **Type:** `str`
+: **Default:** `"html"`
+: **Choices:** `"html"`, `"markdown"`, `"json"`, `"csv"`, `"xlsx"`
+
+`exclude_patterns`
+: Glob patterns for test files to exclude from requirement marker scanning.
+: **Type:** `list[str]`
+: **Default:** `[]`
+
+`trace_to_ignore`
+: Document prefixes to exclude from the "Traces To" column in the traceability matrix.
+: **Type:** `list[str]`
+: **Default:** `[]`
+
+### Example Configurations
+
+**Minimal (most projects):**
+
+```toml
+[tool.jamb]
+test_documents = ["SRS"]
+```
+
+**Strict CI enforcement:**
+
+```toml
+[tool.jamb]
+test_documents = ["SRS", "SYS"]
+fail_uncovered = true
+require_all_pass = true
+matrix_output = "matrix.html"
+matrix_format = "html"
+trace_to_ignore = ["PRJ"]
+```
+
+## Document Configuration (`.jamb.yml`)
+
+Each document directory contains a `.jamb.yml` file that configures the document:
+
+```yaml
+prefix: SRS
+parents:
+  - SYS
+digits: 3
+sep: ""
+```
+
+### Fields
+
+`prefix`
+: The document identifier used in item UIDs (e.g., `SRS` → `SRS001`).
+: **Required**
+
+`parents`
+: List of parent document prefixes. Defines where items in this document should link to.
+: **Default:** `[]` (root document)
+
+`digits`
+: Number of digits in the sequential part of item UIDs.
+: **Default:** `3`
+: **Example:** `digits: 3` → `SRS001`, `digits: 4` → `SRS0001`
+
+`sep`
+: Separator between prefix and number in UIDs.
+: **Default:** `""` (no separator)
+: **Example:** `sep: "-"` → `SRS-001`
+
+### Creating Documents
+
+Documents are created with `jamb doc create`, which generates the `.jamb.yml` file:
+
+```bash
+jamb doc create SRS reqs/srs --parent SYS --digits 3
+```
+
+See {doc}`commands` for all document management commands.

@@ -1,4 +1,4 @@
-# jamb Tutorial
+# Tutorial
 
 This tutorial covers requirements traceability workflows for regulated software projects. We use a Patient Monitoring System (Class B medical device software per IEC 62304) as our example.
 
@@ -764,3 +764,26 @@ This updates text, header, and links while preserving other fields. The `reviewe
 - [ ] `jamb check` shows no uncovered requirements
 - [ ] `pytest --jamb --jamb-fail-uncovered` passes
 - [ ] Traceability matrix uploaded as artifact
+
+## Derived Requirements for Risk Controls
+
+Risk-driven SRS items that only implement risk controls (RC) and don't trace to a system requirement (SYS) should be marked as `derived: true`:
+
+```yaml
+# SRS item that only implements a risk control
+active: true
+derived: true  # No SYS parent needed
+header: Input Validation
+links:
+- RC001  # Links to risk control only
+text: |
+  Software shall validate all input against buffer overflow attacks.
+```
+
+This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
+
+**When to use `derived: true`:**
+- Requirements that emerge from risk/hazard analysis
+- Security hardening requirements
+- Defensive coding requirements
+- Any requirement that doesn't trace to a user need but implements a risk control
