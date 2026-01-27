@@ -1,6 +1,6 @@
 [![CI](https://github.com/vanandrew/jamb/actions/workflows/ci.yml/badge.svg)](https://github.com/vanandrew/jamb/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/vanandrew/jamb/graph/badge.svg?token=RL7H4DG3YO)](https://codecov.io/gh/vanandrew/jamb)
-[![PyPI - Version](https://img.shields.io/pypi/v/jamb)](https://pypi.org/project/jamb/)
+[![PyPI - Version](https://img.shields.io/pypi/v/jamb?style=flat)](https://pypi.org/project/jamb/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/jamb?style=flat)
 ](https://pypi.org/project/jamb/)
 [![PyPI - License](https://img.shields.io/pypi/l/jamb?style=flat)
