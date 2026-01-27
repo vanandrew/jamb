@@ -1251,6 +1251,8 @@ class TestImportCommandDocuments:
 
         import yaml
 
+        monkeypatch.chdir(tmp_path)
+
         # Create test YAML file with documents
         yaml_content = {
             "documents": [
