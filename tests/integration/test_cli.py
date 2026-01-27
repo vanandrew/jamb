@@ -752,6 +752,24 @@ class TestReorderCommand:
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
 
+    def test_reorder_broken_links_aborts(self, runner, tmp_path, monkeypatch):
+        """Test reorder aborts with exit code 1 when broken links exist."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
+        )
+        (srs_dir / "SRS001.yml").write_text(
+            "active: true\ntext: req1\nlinks:\n- NONEXIST\n"
+        )
+        (srs_dir / "SRS002.yml").write_text("active: true\ntext: req2\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["reorder", "SRS"])
+
+        assert result.exit_code == 1
+        assert "Broken links" in result.output or "broken link" in result.output.lower()
+
 
 class TestItemAddWithMock:
     """Tests for item add command (native, no subprocess)."""
@@ -786,6 +804,89 @@ class TestItemAddWithMock:
         for i in range(1, 6):
             assert (srs_dir / f"SRS00{i}.yml").exists()
         assert "SRS005" in result.output
+
+    def test_item_add_after(self, runner, tmp_path, monkeypatch):
+        """Test item add --after inserts after the anchor and shifts."""
+        import yaml
+
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
+        )
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: first\nlinks: []\n")
+        (srs_dir / "SRS002.yml").write_text("active: true\ntext: second\nlinks: []\n")
+        (srs_dir / "SRS003.yml").write_text("active: true\ntext: third\nlinks: []\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["item", "add", "SRS", "--after", "SRS002"])
+
+        assert result.exit_code == 0
+        assert "Added item: SRS003" in result.output
+        # Old SRS003 shifted to SRS004
+        assert (srs_dir / "SRS004.yml").exists()
+        data = yaml.safe_load((srs_dir / "SRS004.yml").read_text())
+        assert data["text"] == "third"
+        # New SRS003 is the inserted blank item
+        new_data = yaml.safe_load((srs_dir / "SRS003.yml").read_text())
+        assert new_data["text"] == ""
+
+    def test_item_add_before(self, runner, tmp_path, monkeypatch):
+        """Test item add --before inserts before the anchor and shifts."""
+        import yaml
+
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
+        )
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: first\nlinks: []\n")
+        (srs_dir / "SRS002.yml").write_text("active: true\ntext: second\nlinks: []\n")
+        (srs_dir / "SRS003.yml").write_text("active: true\ntext: third\nlinks: []\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["item", "add", "SRS", "--before", "SRS002"])
+
+        assert result.exit_code == 0
+        assert "Added item: SRS002" in result.output
+        # Old SRS002 shifted to SRS003, old SRS003 to SRS004
+        assert (srs_dir / "SRS004.yml").exists()
+        data = yaml.safe_load((srs_dir / "SRS003.yml").read_text())
+        assert data["text"] == "second"
+        # New SRS002 is the inserted blank item
+        new_data = yaml.safe_load((srs_dir / "SRS002.yml").read_text())
+        assert new_data["text"] == ""
+
+    def test_item_add_after_and_before_exclusive(self, runner, tmp_path, monkeypatch):
+        """Both --after and --before flags produce an error."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
+        )
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\nlinks: []\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(
+            cli, ["item", "add", "SRS", "--after", "SRS001", "--before", "SRS001"]
+        )
+
+        assert result.exit_code == 1
+        assert "mutually exclusive" in result.output.lower()
+
+    def test_item_add_after_nonexistent(self, runner, tmp_path, monkeypatch):
+        """--after with a nonexistent UID produces an error."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text(
+            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
+        )
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["item", "add", "SRS", "--after", "SRS999"])
+
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
 
 
 class TestItemRemoveWithMock:

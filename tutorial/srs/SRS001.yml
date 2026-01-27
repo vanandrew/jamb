@@ -1,7 +1,8 @@
 active: true
 header: Credential Validation
+type: requirement
 links:
 - SYS001: mCthQhT0-ifbzC3qKSE04UmZfP8lI6nG0hWsGJCUQ2U
 text: |
   Software shall validate credentials against the database.
-reviewed: eYLcNbff3yfWM_h_p44MhPPEAon-yuflHLZ5TKAwVQM
+reviewed: 2AY34BPRbcY93PWBKk-_kzKNj31aAgXMH9nuqFtNWlY

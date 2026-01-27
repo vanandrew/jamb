@@ -1,7 +1,8 @@
 active: true
 header: Alert Notification Failure
+type: requirement
 links:
 - PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   Delayed or missed alert notification could result in failure to respond to critical patient condition.
-reviewed: sWe-z3tU4nHbFvZL2R5f1lPHQYU8gJ0MBP5n0J4ZJc0
+reviewed: 7AHLTw-dnNk85mh7KIi-dEwTgyA8wtMdgaZC8YyKV-c

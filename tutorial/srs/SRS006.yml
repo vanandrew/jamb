@@ -1,7 +1,8 @@
 active: true
 header: WebSocket Connection
+type: requirement
 links:
 - SYS003: ghGw49wrPqbI3jb31ZOiU2QYivbesL5VZyPW35-0oEw
 text: |
   Software shall establish WebSocket for real-time data push.
-reviewed: LrN5v4_Siwx_UdVW6fxQVTTG3t3ZU4-rZf2xnBYm7v0
+reviewed: G-0ngDFlMdw37gR1sTA-4MtHEj1KF64q1LYbqVztnao

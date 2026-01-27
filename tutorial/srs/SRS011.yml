@@ -1,7 +1,8 @@
 active: true
 header: Pagination
+type: requirement
 links:
 - SYS005: Xxjm-ZlDzEQL7vwgnNI9KbsWxeYMSJGNuxtYTvLC1q0
 text: |
   Software shall paginate results with 100 records per page.
-reviewed: gApMtJyarp0zthF_SamOoxJ4QROh9WqZsdVmR2QnwNQ
+reviewed: aJcGx6eQqOVI2i4zOh0LrKQa3ymcJMtEKbtI7RmYCGE

@@ -1,7 +1,8 @@
 active: true
 header: Authentication
+type: requirement
 links:
 - UN001: kLChmoBikb5rxQmvN2UGzFkL5c3AlTukR8Svl5hJmN4
 text: |
   System shall authenticate users with username and password.
-reviewed: mCthQhT0-ifbzC3qKSE04UmZfP8lI6nG0hWsGJCUQ2U
+reviewed: uZKEiImD_hhgpxT32ApV1NJg8ShEo2WomgaEQNYze3w

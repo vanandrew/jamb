@@ -1,8 +1,9 @@
 active: true
 derived: true
 header: Redundant Alert Delivery
+type: requirement
 links:
 - RC002: VpqwsCm9nYfwWvwpZxRD_60F8PtOWbFXXF82ZOV9yhM
 text: |
   Software shall deliver critical alerts through both visual on-screen notification and audible alarm simultaneously to ensure alert is received if one pathway fails.
-reviewed: j20vgsMgL81q22yletcpRrXws1hUwP78xspizaxUkWM
+reviewed: 20ct3VGszXUx-BNWMzRWrqYXGYa3_jDv4-yeW1Nuuxg

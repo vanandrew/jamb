@@ -1,7 +1,8 @@
 active: true
 header: Patient Monitoring System
+type: header
 links: []
 text: |
   The Patient Monitoring System shall provide real-time vital signs monitoring,
   alerting, and data management capabilities for clinical use.
-reviewed: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
+reviewed: XEgDC3PgF9wszzbpYggzF2OOK1q4Isd3_G3_ELQwWGY

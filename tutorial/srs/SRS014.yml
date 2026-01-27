@@ -1,7 +1,8 @@
 active: true
 header: CSV Export
+type: requirement
 links:
 - SYS008: 3S3qaI1hvd1DWW0u66XRc6lRGF7xNaBkcBTZ0AbHmQ8
 text: |
   Software shall generate CSV with ISO 8601 timestamps.
-reviewed: Q_WXMi6h8ohDtEp45GRKVFKj5USZw6p83A0Rfy-yqz0
+reviewed: Fr_Oj1tnp_5IBEyCz9k1Gwz62NmrL7zK9n37CjRP33k

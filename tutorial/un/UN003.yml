@@ -1,7 +1,8 @@
 active: true
 header: Historical Data
+type: requirement
 links:
 - PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall be able to view patient vital signs history.
-reviewed: lwBfoOCX_ppuJXHXvk_dpFiEGn4sg05LGZzuXu9dSbs
+reviewed: E3lCx4ihXnjgdUEa9qkCMA0U_E-wrAGDhZeUaNHulkA

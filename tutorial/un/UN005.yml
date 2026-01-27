@@ -1,7 +1,8 @@
 active: true
 header: Data Export
+type: requirement
 links:
 - PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall be able to export patient data for external use.
-reviewed: QoOsPZv5NThibQjoNGYnMEY_ZpULorV-9o1jaVVpLP0
+reviewed: bWP6HVZ6cykxJyn8iZxdGBQ2ULkJ87UtqfyuW18MY1s

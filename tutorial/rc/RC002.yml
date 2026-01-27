@@ -1,7 +1,8 @@
 active: true
 header: Redundant Alert Pathways
+type: requirement
 links:
 - HAZ002: sWe-z3tU4nHbFvZL2R5f1lPHQYU8gJ0MBP5n0J4ZJc0
 text: |
   System shall implement redundant alert pathways with acknowledgment tracking.
-reviewed: VpqwsCm9nYfwWvwpZxRD_60F8PtOWbFXXF82ZOV9yhM
+reviewed: iQYRUfrCVdRM3HlCqFQhTepmGpZfdxV2xdcE0icNcU0

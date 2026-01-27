@@ -1,7 +1,8 @@
 active: true
 header: Vital Signs Monitoring
+type: requirement
 links:
 - PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall be able to view real-time patient vital signs.
-reviewed: QPDHS5Wn4GWJpJ7h0M9myOa9CYZJGhy7pd2oOZ0XSZc
+reviewed: wIsfkawxyg0Jd2S3nP-k45r-_J_dmjpSz52VMKq63t0

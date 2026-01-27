@@ -1,7 +1,8 @@
 active: true
 header: Threshold Check
+type: requirement
 links:
 - SYS006: MHyoj0191ThgJNQivdcMN2YObV6_yacem7Q4hLeX1_g
 text: |
   Software shall compare values against configurable thresholds.
-reviewed: vIbOJ_mTpFpq2NJ16Lhmd2UqxepPukO2k76Ze7NIBBI
+reviewed: 75UEO-urdxNUNGvhYSzbm2A32PPfnxbRcIl-VZTI1gw

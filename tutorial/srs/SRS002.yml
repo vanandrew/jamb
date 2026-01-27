@@ -1,7 +1,8 @@
 active: true
 header: Password Hashing
+type: requirement
 links:
 - SYS001: mCthQhT0-ifbzC3qKSE04UmZfP8lI6nG0hWsGJCUQ2U
 text: |
   Software shall hash passwords using bcrypt with cost factor 12.
-reviewed: gsb3_UyxsKBtWNggs-dvfHXLA4Z47k7s73kD1WVqOOg
+reviewed: iuaFcyx-phnwFyu05ZDZQzSV3MAkZbGMM1nH0YheAgk

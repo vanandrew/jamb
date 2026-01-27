@@ -1,7 +1,8 @@
 active: true
 header: Alerts
+type: requirement
 links:
 - PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall receive alerts when vital signs exceed thresholds.
-reviewed: qTZ6AWdwx-f05ewUN1GF3f7WilKwIqgv9-kWS3h8vLw
+reviewed: w7__dJGOVquTwF4aZyaUlBp4h9BL2J4fS4ytcMAlHCk

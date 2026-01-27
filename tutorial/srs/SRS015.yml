@@ -1,7 +1,8 @@
 active: true
 header: PDF Report
+type: requirement
 links:
 - SYS008: 3S3qaI1hvd1DWW0u66XRc6lRGF7xNaBkcBTZ0AbHmQ8
 text: |
   Software shall generate PDF reports with charts and summary.
-reviewed: cjFKm_y7r88LLotFIxR8AqlSUaVh3aMsfFJOVbdxBAQ
+reviewed: XTswUbaYJM4Ay7_Y1QyxxTRw8crnV0tpGDSM9YwZDWk

@@ -1,7 +1,8 @@
 active: true
 header: Threshold Alerts
+type: requirement
 links:
 - UN004: qTZ6AWdwx-f05ewUN1GF3f7WilKwIqgv9-kWS3h8vLw
 text: |
   System shall generate alerts when values exceed configured thresholds.
-reviewed: MHyoj0191ThgJNQivdcMN2YObV6_yacem7Q4hLeX1_g
+reviewed: LbRtIiCYnJrTd7Hzjsr1r9v6PJl4d0AEoL6NlzCejb0

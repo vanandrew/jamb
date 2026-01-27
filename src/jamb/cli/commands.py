@@ -493,15 +493,25 @@ def item() -> None:
 @item.command("add")
 @click.argument("prefix")
 @click.option("--count", "-c", default=1, type=int, help="Number of items to add")
-def item_add(prefix: str, count: int) -> None:
+@click.option("--after", "after_uid", default=None, help="Insert after this UID")
+@click.option("--before", "before_uid", default=None, help="Insert before this UID")
+def item_add(
+    prefix: str, count: int, after_uid: str | None, before_uid: str | None
+) -> None:
     """Add a new item to a document.
 
     PREFIX is the document to add the item to (e.g., SRS, UT).
     """
+    import re
+
     from jamb.storage import discover_documents
     from jamb.storage.items import next_uid, read_document_items, write_item
 
     try:
+        if after_uid and before_uid:
+            click.echo("Error: --after and --before are mutually exclusive", err=True)
+            sys.exit(1)
+
         dag = discover_documents()
         if prefix not in dag.document_paths:
             click.echo(f"Error: Document '{prefix}' not found", err=True)
@@ -509,23 +519,69 @@ def item_add(prefix: str, count: int) -> None:
 
         config = dag.documents[prefix]
         doc_path = dag.document_paths[prefix]
-        existing = read_document_items(doc_path, prefix, include_inactive=True)
-        existing_uids = [i["uid"] for i in existing]
 
-        for _ in range(count):
-            uid = next_uid(prefix, config.digits, existing_uids, config.sep)
-            item_data = {
-                "header": "",
-                "active": True,
-                "type": "requirement",
-                "links": [],
-                "text": "",
-                "reviewed": None,
-            }
-            item_path = doc_path / f"{uid}.yml"
-            write_item(item_data, item_path)
-            existing_uids.append(uid)
-            click.echo(f"Added item: {uid}")
+        anchor_uid = after_uid or before_uid
+        if anchor_uid:
+            # Validate anchor UID exists
+            anchor_path = doc_path / f"{anchor_uid}.yml"
+            if not anchor_path.exists():
+                click.echo(f"Error: Item '{anchor_uid}' not found", err=True)
+                sys.exit(1)
+
+            # Parse numeric part
+            pattern = re.compile(
+                rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE
+            )
+            m = pattern.match(anchor_uid)
+            if not m:
+                click.echo(f"Error: Cannot parse UID '{anchor_uid}'", err=True)
+                sys.exit(1)
+
+            anchor_num = int(m.group(1))
+            position = anchor_num + 1 if after_uid else anchor_num
+
+            from jamb.storage.reorder import insert_items
+
+            new_uids = insert_items(
+                doc_path,
+                prefix,
+                config.digits,
+                config.sep,
+                position,
+                count,
+                dag.document_paths,
+            )
+
+            for uid in new_uids:
+                item_data = {
+                    "header": "",
+                    "active": True,
+                    "type": "requirement",
+                    "links": [],
+                    "text": "",
+                    "reviewed": None,
+                }
+                item_path = doc_path / f"{uid}.yml"
+                write_item(item_data, item_path)
+                click.echo(f"Added item: {uid}")
+        else:
+            existing = read_document_items(doc_path, prefix, include_inactive=True)
+            existing_uids = [i["uid"] for i in existing]
+
+            for _ in range(count):
+                uid = next_uid(prefix, config.digits, existing_uids, config.sep)
+                item_data = {
+                    "header": "",
+                    "active": True,
+                    "type": "requirement",
+                    "links": [],
+                    "text": "",
+                    "reviewed": None,
+                }
+                item_path = doc_path / f"{uid}.yml"
+                write_item(item_data, item_path)
+                existing_uids.append(uid)
+                click.echo(f"Added item: {uid}")
 
     except Exception as e:
         click.echo(f"Error: {e}", err=True)

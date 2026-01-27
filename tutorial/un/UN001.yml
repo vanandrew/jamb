@@ -1,7 +1,8 @@
 active: true
 header: User Authentication
+type: requirement
 links:
 - PRJ001: GFqgAA77-tUGuYWD4o8c8br_dbzPFrTRwUwEOkRse78
 text: |
   User shall be able to securely log in to the system.
-reviewed: kLChmoBikb5rxQmvN2UGzFkL5c3AlTukR8Svl5hJmN4
+reviewed: anSNKmA9hrldC36bYe2dsbtFuBNa3zI6eI2aFr3yYx8
