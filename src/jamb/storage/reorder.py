@@ -138,7 +138,7 @@ def _update_links_in_file(file_path: Path, rename_map: dict[str, str]) -> None:
         return
 
     changed = False
-    new_links = []
+    new_links: list[dict[str, str] | str] = []
     for entry in links:
         if isinstance(entry, dict):
             # {uid: hash} form

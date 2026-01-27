@@ -1,6 +1,7 @@
 """JSON traceability matrix output."""
 
 import json
+from typing import Any
 
 from jamb.core.models import ItemCoverage, TraceabilityGraph
 
@@ -30,7 +31,7 @@ def render_json(
     covered = sum(1 for c in coverage.values() if c.is_covered)
     passed = sum(1 for c in coverage.values() if c.all_tests_passed)
 
-    data = {
+    data: dict[str, Any] = {
         "summary": {
             "total_items": total,
             "covered": covered,

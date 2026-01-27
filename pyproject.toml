@@ -75,6 +75,7 @@ exclude_also = [
 target-version = "py310"
 line-length = 88
 src = ["src"]
+extend-exclude = ["src/jamb/_version.py"]
 
 [tool.ruff.lint]
 select = [
@@ -92,6 +93,8 @@ dev = [
     "mypy",
     "ruff",
     "pre-commit",
+    "types-PyYAML",
+    "types-openpyxl",
 ]
 docs = [
     "sphinx>=7.0",

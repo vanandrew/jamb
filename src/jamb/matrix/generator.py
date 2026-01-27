@@ -23,7 +23,7 @@ def generate_matrix(
     """
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    ignore = trace_to_ignore or frozenset()
+    ignore: set[str] | frozenset[str] = trace_to_ignore or frozenset()
 
     if format == "html":
         from jamb.matrix.formats.html import render_html

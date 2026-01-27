@@ -27,12 +27,12 @@ def render_html(
     rows = []
     for uid, cov in sorted(coverage.items()):
         # Get ancestor chain
-        ancestors = []
+        ancestors: list[str] = []
         if graph:
-            for ancestor in graph.get_ancestors(uid):
-                if ancestor.document_prefix in trace_to_ignore:
+            for anc in graph.get_ancestors(uid):
+                if anc.document_prefix in trace_to_ignore:
                     continue
-                ancestors.append(f"{ancestor.uid}: {ancestor.display_text}")
+                ancestors.append(f"{anc.uid}: {anc.display_text}")
 
         status_class = "uncovered"
         status_text = "Not Covered"

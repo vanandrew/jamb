@@ -1012,7 +1012,7 @@ def review_reset(label: str, root: Path | None) -> None:
             # Strip link hashes, keeping just the UIDs
             links = data.get("links", [])
             if links:
-                new_links = []
+                new_links: list[str] = []
                 for entry in links:
                     if isinstance(entry, dict):
                         new_links.extend(entry.keys())
