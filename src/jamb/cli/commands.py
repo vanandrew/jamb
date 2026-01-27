@@ -597,8 +597,17 @@ def item() -> None:
 @click.option("--count", "-c", default=1, type=int, help="Number of items to add")
 @click.option("--after", "after_uid", default=None, help="Insert after this UID")
 @click.option("--before", "before_uid", default=None, help="Insert before this UID")
+@click.option("--header", default=None, help="Set the item header")
+@click.option("--text", default=None, help="Set the item body text")
+@click.option("--links", multiple=True, help="Add parent link(s)")
 def item_add(
-    prefix: str, count: int, after_uid: str | None, before_uid: str | None
+    prefix: str,
+    count: int,
+    after_uid: str | None,
+    before_uid: str | None,
+    header: str | None,
+    text: str | None,
+    links: tuple[str, ...],
 ) -> None:
     """Add a new item to a document.
 
@@ -656,11 +665,11 @@ def item_add(
 
             for uid in new_uids:
                 item_data = {
-                    "header": "",
+                    "header": header or "",
                     "active": True,
                     "type": "requirement",
-                    "links": [],
-                    "text": "",
+                    "links": list(links) if links else [],
+                    "text": text or "",
                     "reviewed": None,
                 }
                 item_path = doc_path / f"{uid}.yml"
@@ -675,11 +684,11 @@ def item_add(
             for _ in range(count):
                 uid = next_uid(prefix, config.digits, existing_uids, config.sep)
                 item_data = {
-                    "header": "",
+                    "header": header or "",
                     "active": True,
                     "type": "requirement",
-                    "links": [],
-                    "text": "",
+                    "links": list(links) if links else [],
+                    "text": text or "",
                     "reviewed": None,
                 }
                 item_path = doc_path / f"{uid}.yml"
