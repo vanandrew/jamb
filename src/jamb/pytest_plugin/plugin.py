@@ -59,7 +59,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--jamb-matrix-format",
         choices=["html", "markdown", "json", "csv", "xlsx"],
-        default="html",
+        default=None,
         help="Format for traceability matrix (default: html)",
     )
     group.addoption(
@@ -107,9 +107,13 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Generate reports and check coverage after the test session completes.
 
-    Generates the traceability matrix if ``--jamb-matrix`` was specified and
-    sets the exit status to failure if ``--jamb-fail-uncovered`` was set and
-    any test spec items lack coverage.
+    Generates the traceability matrix when ``--jamb-matrix`` or the
+    ``matrix_output`` config option is set, and sets the exit status to
+    failure when ``--jamb-fail-uncovered`` or ``fail_uncovered`` in the
+    config is enabled and any test spec items lack coverage.
+
+    For all options, CLI flags take precedence over ``[tool.jamb]`` config
+    values, which take precedence over hardcoded defaults.
 
     Args:
         session: The pytest session object.
@@ -123,18 +127,30 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         return
 
     # Generate traceability matrix if requested
-    if matrix_path := session.config.option.jamb_matrix:
+    matrix_path = (
+        session.config.option.jamb_matrix or collector.jamb_config.matrix_output
+    )
+    if matrix_path:
+        matrix_format = (
+            session.config.option.jamb_matrix_format
+            or collector.jamb_config.matrix_format
+            or "html"
+        )
         tester_id = session.config.option.jamb_tester_id
         software_version = session.config.option.jamb_software_version
         collector.generate_matrix(
             matrix_path,
-            session.config.option.jamb_matrix_format,
+            matrix_format,
             tester_id,
             software_version,
         )
 
     # Check coverage and potentially modify exit status
-    if session.config.option.jamb_fail_uncovered:
+    fail_uncovered = (
+        session.config.option.jamb_fail_uncovered
+        or collector.jamb_config.fail_uncovered
+    )
+    if fail_uncovered:
         if not collector.all_test_items_covered():
             session.exitstatus = 1
 

@@ -70,7 +70,9 @@ class RequirementCollector:
             from jamb.storage import build_traceability_graph, discover_documents
 
             dag = discover_documents()
-            self.graph = build_traceability_graph(dag)
+            self.graph = build_traceability_graph(
+                dag, exclude_patterns=self.jamb_config.exclude_patterns or None
+            )
         except (ValueError, FileNotFoundError, OSError) as e:
             import warnings
 
@@ -221,18 +223,22 @@ class RequirementCollector:
     def all_test_items_covered(self) -> bool:
         """Check if all normative items in test documents have test coverage.
 
+        When ``require_all_pass`` is enabled (the default), an item is only
+        considered covered if it has linked tests **and** all of those tests
+        passed.
+
         Returns:
-            True if every active requirement item has at least one linked
-            test, False otherwise.
+            True if every active requirement item meets the coverage
+            criteria, False otherwise.
         """
         coverage = self.get_coverage()
+        require_all_pass = self.jamb_config.require_all_pass
         for cov in coverage.values():
-            if (
-                cov.item.type == "requirement"
-                and cov.item.active
-                and not cov.is_covered
-            ):
-                return False
+            if cov.item.type == "requirement" and cov.item.active:
+                if not cov.is_covered:
+                    return False
+                if require_all_pass and not cov.all_tests_passed:
+                    return False
         return True
 
     def _build_test_environment(self) -> TestEnvironment:
