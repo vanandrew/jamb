@@ -2,7 +2,7 @@ active: true
 header: Threshold Check
 type: requirement
 links:
-- SYS006: MHyoj0191ThgJNQivdcMN2YObV6_yacem7Q4hLeX1_g
+- SYS006: LbRtIiCYnJrTd7Hzjsr1r9v6PJl4d0AEoL6NlzCejb0
 text: |
   Software shall compare values against configurable thresholds.
 reviewed: 75UEO-urdxNUNGvhYSzbm2A32PPfnxbRcIl-VZTI1gw

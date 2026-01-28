@@ -2,7 +2,7 @@ active: true
 header: Database Write
 type: requirement
 links:
-- SYS004: 5BCPUU130jba1YcLgw9vbw6eXICwhxJoDsRmUGfTOGg
+- SYS004: CtaneGYoBbcrTfiqEiCbPrQcefYCf_cv5PS2sMetAb4
 text: |
   Software shall write vital signs to PostgreSQL with timestamp.
 reviewed: IZiwGyq5B3lLWGC_QvPg2LgzBNxu3k0CMTE6peX-BZU
