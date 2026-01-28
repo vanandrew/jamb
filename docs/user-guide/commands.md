@@ -6,7 +6,7 @@ Complete reference for all `jamb` CLI commands.
 
 | Group | Commands | Description |
 |-------|----------|-------------|
-| Top-level | `init`, `info`, `check`, `validate`, `publish`, `export`, `import`, `reorder` | Project setup, validation, publishing, and data exchange |
+| Top-level | `init`, `info`, `check`, `validate`, `publish`, `publish-template`, `export`, `import`, `reorder` | Project setup, validation, publishing, and data exchange |
 | Document | `doc create`, `doc delete`, `doc list` | Create, remove, and list requirement documents |
 | Item | `item add`, `item remove`, `item edit`, `item show`, `item list` | Add, remove, edit, inspect, and list requirement items |
 | Link | `link add`, `link remove` | Create and remove traceability links between items |
@@ -21,6 +21,7 @@ Complete reference for all `jamb` CLI commands.
   - [jamb check](#jamb-check)
   - [jamb validate](#jamb-validate)
   - [jamb publish](#jamb-publish)
+  - [jamb publish-template](#jamb-publish-template)
   - [jamb export](#jamb-export)
   - [jamb import](#jamb-import)
   - [jamb reorder](#jamb-reorder)
@@ -241,6 +242,9 @@ Usage: jamb publish [OPTIONS] PREFIX [PATH]
   PREFIX is the document prefix (e.g., SRS) or 'all' for all documents.
   PATH is the output file or directory (optional).
 
+  Use --template with a .docx file to apply custom styles.
+  Generate a starter template with: jamb publish-template
+
   For a traceability matrix with test coverage, use:
   pytest --jamb --jamb-matrix PATH
 
@@ -249,6 +253,7 @@ Options:
   -m, --markdown        Output Markdown
   -d, --docx            Output DOCX (Word document)
   -C, --no-child-links  Do not include child links on items
+  -t, --template PATH   DOCX template file to use for styling (use with --docx)
   --help                Show this message and exit.
 ```
 
@@ -269,8 +274,46 @@ jamb publish SRS
 # Publish to Word document
 jamb publish SRS docs/srs.docx --docx
 
+# Publish to Word document with custom template
+jamb publish SRS docs/srs.docx --template my-company-template.docx
+
 # Auto-detect format from file extension
 jamb publish SRS docs/srs.html
+```
+
+---
+
+### jamb publish-template
+
+```
+Usage: jamb publish-template [OPTIONS] [PATH]
+
+  Generate a DOCX template file with jamb styles.
+
+  PATH is the output file path (default: jamb-template.docx).
+
+  The generated template contains all styles used by jamb when publishing
+  DOCX documents. Open it in Microsoft Word, customize the styles (fonts,
+  colors, spacing), then use it with:
+
+      jamb publish SRS output.docx --template jamb-template.docx
+
+Options:
+  --help  Show this message and exit.
+```
+
+**Example:**
+```bash
+# Generate default template
+jamb publish-template
+
+# Generate template with custom name
+jamb publish-template my-company-template.docx
+
+# Workflow: generate, customize, then use
+jamb publish-template
+# Open jamb-template.docx in Word, customize styles, save
+jamb publish SRS output.docx --template jamb-template.docx
 ```
 
 ---

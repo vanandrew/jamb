@@ -1171,6 +1171,12 @@ def _resolve_label_to_item_paths(
 @click.option(
     "--no-child-links", "-C", is_flag=True, help="Do not include child links on items"
 )
+@click.option(
+    "--template",
+    "-t",
+    type=click.Path(exists=True, path_type=Path),
+    help="DOCX template file to use for styling (use with --docx)",
+)
 def publish(
     prefix: str,
     path: str | None,
@@ -1178,15 +1184,25 @@ def publish(
     markdown: bool,
     docx: bool,
     no_child_links: bool,
+    template: Path | None,
 ) -> None:
     """Publish a document.
 
     PREFIX is the document prefix (e.g., SRS) or 'all' for all documents.
     PATH is the output file or directory (optional).
 
+    Use --template with a .docx file to apply custom styles.
+    Generate a starter template with: jamb publish-template
+
     For a traceability matrix with test coverage, use: pytest --jamb --jamb-matrix PATH
     """
     include_links = not no_child_links
+
+    # Validate template option
+    if template:
+        if not str(template).lower().endswith(".docx"):
+            click.echo("Error: --template must be a .docx file", err=True)
+            sys.exit(1)
 
     # Handle DOCX export
     if docx:
@@ -1198,11 +1214,13 @@ def publish(
             click.echo("Example: jamb publish SRS output.docx --docx", err=True)
             sys.exit(1)
 
-        _publish_docx(prefix, path, include_links)
+        _publish_docx(prefix, path, include_links, template)
         return
 
     # Handle HTML export
     if html:
+        if template:
+            click.echo("Warning: --template is only used with DOCX output", err=True)
         if not path:
             click.echo("Error: --html requires an output PATH", err=True)
             sys.exit(1)
@@ -1229,12 +1247,22 @@ def publish(
     # Auto-detect format from file extension
     if path:
         if path.endswith(".html") or path.endswith(".htm"):
+            if template:
+                click.echo(
+                    "Warning: --template is only used with DOCX output", err=True
+                )
             _publish_html(prefix, path, include_links)
         elif path.endswith(".docx"):
-            _publish_docx(prefix, path, include_links)
+            _publish_docx(prefix, path, include_links, template)
         else:
+            if template:
+                click.echo(
+                    "Warning: --template is only used with DOCX output", err=True
+                )
             _publish_markdown(prefix, path)
     else:
+        if template:
+            click.echo("Warning: --template is only used with DOCX output", err=True)
         _publish_markdown_stdout(prefix)
 
 
@@ -1393,7 +1421,9 @@ def _publish_markdown(prefix: str, path: str) -> None:
         sys.exit(1)
 
 
-def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
+def _publish_docx(
+    prefix: str, path: str, include_child_links: bool, template: Path | None = None
+) -> None:
     """Publish documents as a single DOCX file.
 
     Args:
@@ -1402,6 +1432,7 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
         path: Filesystem path for the output DOCX file.
         include_child_links: Whether to include child (reverse) link
             references in the generated document.
+        template: Optional path to a DOCX template file to use for styling.
     """
     from jamb.core.models import Item
     from jamb.publish.formats.docx import render_docx
@@ -1425,11 +1456,54 @@ def _publish_docx(prefix: str, path: str, include_child_links: bool) -> None:
             click.echo(f"Error: No items found for '{prefix}'", err=True)
             sys.exit(1)
 
-        docx_bytes = render_docx(items, title, include_child_links, doc_order, graph)
+        template_path = str(template) if template else None
+        docx_bytes = render_docx(
+            items, title, include_child_links, doc_order, graph, template_path
+        )
         output_path.write_bytes(docx_bytes)
         click.echo(f"Published to {output_path}")
 
     except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+@cli.command("publish-template")
+@click.argument("path", required=False, default="jamb-template.docx")
+def publish_template(path: str) -> None:
+    """Generate a DOCX template file with jamb styles.
+
+    PATH is the output file path (default: jamb-template.docx).
+
+    The generated template contains all styles used by jamb when publishing
+    DOCX documents. Open it in Microsoft Word, customize the styles (fonts,
+    colors, spacing), then use it with:
+
+        jamb publish SRS output.docx --template jamb-template.docx
+
+    \b
+    Examples:
+        jamb publish-template
+        jamb publish-template my-company-template.docx
+    """
+    from jamb.publish.formats.docx import generate_template
+
+    output_path = Path(path)
+
+    if output_path.exists():
+        if not click.confirm(f"File '{path}' exists. Overwrite?"):
+            click.echo("Aborted.")
+            return
+
+    try:
+        generate_template(str(output_path))
+        click.echo(f"Generated template: {output_path}")
+        click.echo("\nNext steps:")
+        click.echo("  1. Open the template in Microsoft Word")
+        click.echo("  2. Customize styles (Heading 1, Heading 2, Normal, etc.)")
+        click.echo("  3. Save the template")
+        click.echo(f"  4. Use with: jamb publish SRS output.docx --template {path}")
+    except (OSError, ValueError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
