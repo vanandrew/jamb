@@ -538,6 +538,169 @@ class TestPublishCommandExtended:
         assert result.exit_code == 1
         assert "requires" in result.output.lower() and "path" in result.output.lower()
 
+    def test_publish_docx_with_template(self, runner, jamb_project):
+        """Test publish with --template option creates DOCX using template."""
+        import os
+
+        template_path = jamb_project / "template.docx"
+        output_path = jamb_project / "output.docx"
+
+        # First generate a template
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(jamb_project)
+            result = runner.invoke(
+                cli, ["publish-template", str(template_path)], catch_exceptions=False
+            )
+            assert result.exit_code == 0
+            assert template_path.exists()
+
+            # Now publish with the template
+            result = runner.invoke(
+                cli,
+                [
+                    "publish",
+                    "SRS",
+                    str(output_path),
+                    "--template",
+                    str(template_path),
+                ],
+                catch_exceptions=False,
+            )
+            assert result.exit_code == 0
+            assert output_path.exists()
+            assert "Published to" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    def test_publish_template_warning_with_html(self, runner, jamb_project):
+        """Test that --template with HTML output shows warning."""
+        import os
+
+        template_path = jamb_project / "template.docx"
+        output_path = jamb_project / "output.html"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(jamb_project)
+            # Generate template first
+            runner.invoke(cli, ["publish-template", str(template_path)])
+
+            # Try to use with HTML
+            result = runner.invoke(
+                cli,
+                [
+                    "publish",
+                    "SRS",
+                    str(output_path),
+                    "--html",
+                    "--template",
+                    str(template_path),
+                ],
+                catch_exceptions=False,
+            )
+            assert result.exit_code == 0
+            assert "Warning" in result.output
+            assert "DOCX" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    def test_publish_template_must_be_docx(self, runner, jamb_project):
+        """Test that --template must be a .docx file."""
+        import os
+
+        # Create a non-docx file
+        template_path = jamb_project / "template.txt"
+        template_path.write_text("not a docx")
+        output_path = jamb_project / "output.docx"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(jamb_project)
+            result = runner.invoke(
+                cli,
+                [
+                    "publish",
+                    "SRS",
+                    str(output_path),
+                    "--docx",
+                    "--template",
+                    str(template_path),
+                ],
+            )
+            assert result.exit_code == 1
+            assert "must be a .docx file" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+
+class TestPublishTemplateCommand:
+    """Tests for publish-template command."""
+
+    def test_publish_template_help(self, runner):
+        """Test that publish-template --help works."""
+        result = runner.invoke(cli, ["publish-template", "--help"])
+
+        assert result.exit_code == 0
+        assert "template" in result.output.lower()
+        assert "jamb" in result.output.lower()
+
+    def test_publish_template_creates_file(self, runner, tmp_path):
+        """Test that publish-template creates a DOCX file."""
+        import os
+
+        output_path = tmp_path / "my-template.docx"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli, ["publish-template", str(output_path)], catch_exceptions=False
+            )
+
+            assert result.exit_code == 0
+            assert output_path.exists()
+            assert "Generated template" in result.output
+            assert "Next steps" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    def test_publish_template_default_name(self, runner, tmp_path):
+        """Test publish-template uses default filename."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(cli, ["publish-template"], catch_exceptions=False)
+
+            assert result.exit_code == 0
+            assert (tmp_path / "jamb-template.docx").exists()
+        finally:
+            os.chdir(original_cwd)
+
+    def test_publish_template_overwrite_prompt(self, runner, tmp_path):
+        """Test publish-template prompts before overwriting."""
+        import os
+
+        output_path = tmp_path / "template.docx"
+        output_path.write_bytes(b"existing content")
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            # Answer 'n' to overwrite prompt
+            result = runner.invoke(
+                cli, ["publish-template", str(output_path)], input="n\n"
+            )
+
+            assert result.exit_code == 0
+            assert "Aborted" in result.output
+            # Original content should be preserved
+            assert output_path.read_bytes() == b"existing content"
+        finally:
+            os.chdir(original_cwd)
+
 
 class TestExportCommandExtended:
     """Extended tests for export command."""
