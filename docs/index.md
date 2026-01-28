@@ -28,6 +28,20 @@ jamb link add SRS001 SYS001
 pytest --jamb --jamb-matrix matrix.html
 ```
 
+```{image} _static/matrix-example.png
+:alt: Example traceability and test record matrix
+```
+
+You can also publish requirements documents as standalone HTML, Markdown, or Word files:
+
+```bash
+jamb publish SRS docs/srs.html
+```
+
+```{image} _static/publish-example.png
+:alt: Example published requirements document
+```
+
 ```{toctree}
 :maxdepth: 2
 :caption: Contents

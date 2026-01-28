@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Traceability and Test Record Matrix</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .metadata {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-size: 14px;
+        }
+        .metadata div {
+            margin-bottom: 5px;
+        }
+        .stats {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stats span {
+            margin-right: 30px;
+            font-size: 14px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #333;
+            color: white;
+            font-weight: 500;
+        }
+        tr:hover { background: #f9f9f9; }
+        tr.passed { }
+        tr.failed { background: #fff0f0; }
+        tr.uncovered { background: #fffbeb; }
+        tr.na { background: #f0f0f0; }
+        .status { font-weight: 500; }
+        tr.passed .status { color: #22863a; }
+        tr.failed .status { color: #cb2431; }
+        tr.uncovered .status { color: #b08800; }
+        tr.na .status { color: #666; }
+        .test {
+            font-family: monospace;
+            font-size: 12px;
+            padding: 2px 6px;
+            margin: 2px 0;
+            border-radius: 3px;
+        }
+        .test.passed { background: #dcffe4; color: #22863a; }
+        .test.failed { background: #ffeef0; color: #cb2431; }
+        .test.skipped { background: #fff5b1; color: #735c0f; }
+        .ancestor {
+            font-size: 12px;
+            color: #666;
+            padding: 2px 0;
+        }
+        .test-header {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            padding: 4px 0 2px 0;
+            margin-top: 6px;
+            border-bottom: 1px solid #ddd;
+            font-family: monospace;
+        }
+        .test-header:first-child {
+            margin-top: 0;
+        }
+        .action, .expected-result, .actual-result {
+            font-size: 12px;
+            color: #333;
+            padding: 2px 6px;
+            margin: 2px 0;
+        }
+        .action {
+            border-left: 2px solid #4472C4;
+            background: #f0f5ff;
+        }
+        .expected-result {
+            border-left: 2px solid #22863a;
+            background: #f0fff4;
+        }
+        .actual-result {
+            border-left: 2px solid #6f42c1;
+            background: #f5f0ff;
+        }
+        .message {
+            font-size: 11px;
+            color: #666;
+            padding: 4px 8px;
+            margin: 2px 0 2px 16px;
+            border-left: 2px solid #ddd;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .message.failure {
+            border-left-color: #cb2431;
+            color: #cb2431;
+            background: #fff5f5;
+        }
+        .message.skipped {
+            border-left-color: #b08800;
+            color: #735c0f;
+        }
+    </style>
+</head>
+<body>
+    <h1>Traceability and Test Record Matrix</h1>
+
+    <div class="metadata">
+        <div><strong>Software Version:</strong> 1.1.5.dev1+gf95cc7d6c.d20260128</div>
+        <div><strong>Tester:</strong> Unknown</div>
+        <div><strong>Date:</strong> 2026-01-28T17:04:45Z</div>
+        <div><strong>Environment:</strong> Darwin 25.2.0, Python 3.10.19, arm64, arm, Andrews-MacBook-Air.local, 8 cores</div>
+        <div><strong>Test Tools:</strong> anyio 4.12.1, jamb 1.1.5.dev1+gf95cc7d6c.d20260128, pytest 9.0.2, pytest-cov 7.0.0</div>
+    </div>
+
+    <div class="stats">
+        <span><strong>Total Items:</strong> 25</span>
+        <span><strong>Covered:</strong> 15 (60.0%)</span>
+        <span><strong>All Tests Passing:</strong> 15</span>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>UID</th>
+                <th>Description</th>
+                <th>Traces To</th>
+                <th>Tests</th>
+                <th>Test Actions</th>
+                <th>Expected Results</th>
+                <th>Actual Results</th>
+                <th>Notes</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr class="passed">
+                <td>SRS001</td>
+                <td>Credential Validation</td>
+                <td><div class="ancestor">SYS001: Authentication</div><div class="ancestor">UN001: User Authentication</div></td>
+                <td><div class="test passed">test_valid_credentials_accepted [passed]</div><div class="test passed">test_invalid_credentials_rejected [passed]</div></td>
+                <td><div class="test-header">test_valid_credentials_accepted</div><div class="action">Submit valid credentials for nurse1</div><div class="test-header">test_invalid_credentials_rejected</div><div class="action">Submit invalid password for nurse1</div></td>
+                <td><div class="test-header">test_valid_credentials_accepted</div><div class="expected-result">Authentication returns True</div><div class="test-header">test_invalid_credentials_rejected</div><div class="expected-result">Authentication returns False</div></td>
+                <td><div class="test-header">test_valid_credentials_accepted</div><div class="actual-result">Authentication returned True</div><div class="test-header">test_invalid_credentials_rejected</div><div class="actual-result">Authentication returned False</div></td>
+                <td><div class="test-header">test_valid_credentials_accepted</div><div class="message">Verifying positive authentication path</div><div class="message">Using username: nurse1, password: secure123</div><div class="test-header">test_invalid_credentials_rejected</div><div class="message">Verifying negative authentication path</div></td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS002</td>
+                <td>Password Hashing</td>
+                <td><div class="ancestor">SYS001: Authentication</div><div class="ancestor">UN001: User Authentication</div></td>
+                <td><div class="test passed">test_password_hashing_uses_bcrypt [passed]</div><div class="test passed">test_password_hashing_produces_different_output [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS003</td>
+                <td>Login Throttling</td>
+                <td><div class="ancestor">SYS001: Authentication</div><div class="ancestor">UN001: User Authentication</div></td>
+                <td><div class="test passed">test_login_allowed_when_under_threshold [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS004</td>
+                <td>Session Token</td>
+                <td><div class="ancestor">SYS002: Session Management</div><div class="ancestor">UN001: User Authentication</div></td>
+                <td><div class="test passed">test_jwt_generation [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS005</td>
+                <td>Session Refresh</td>
+                <td><div class="ancestor">SYS002: Session Management</div><div class="ancestor">UN001: User Authentication</div></td>
+                <td><div class="test passed">test_token_refresh [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS006</td>
+                <td>WebSocket Connection</td>
+                <td><div class="ancestor">SYS003: Real-time Display</div><div class="ancestor">UN002: Vital Signs Monitoring</div></td>
+                <td><div class="test passed">test_websocket_connection [passed]</div><div class="test passed">test_websocket_endpoint [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS007</td>
+                <td>Data Polling</td>
+                <td><div class="ancestor">RC001: Vital Sign Validation</div><div class="ancestor">SYS003: Real-time Display</div><div class="ancestor">HAZ001: Vital Sign Display Error</div><div class="ancestor">UN002: Vital Signs Monitoring</div></td>
+                <td><div class="test passed">test_device_api_polling [passed]</div><div class="test passed">test_polling_includes_timestamp [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS008</td>
+                <td>Database Write</td>
+                <td><div class="ancestor">SYS004: Data Storage</div><div class="ancestor">UN003: Historical Data</div></td>
+                <td><div class="test passed">test_vital_signs_write [passed]</div><div class="test passed">test_write_requires_timestamp [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS009</td>
+                <td>Data Retention</td>
+                <td><div class="ancestor">SYS004: Data Storage</div><div class="ancestor">UN003: Historical Data</div></td>
+                <td><div class="test passed">test_retention_policy [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS010</td>
+                <td>Query Optimization</td>
+                <td><div class="ancestor">SYS005: Historical Query</div><div class="ancestor">UN003: Historical Data</div></td>
+                <td><div class="test passed">test_indexed_query [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS011</td>
+                <td>Pagination</td>
+                <td><div class="ancestor">SYS005: Historical Query</div><div class="ancestor">UN003: Historical Data</div></td>
+                <td><div class="test passed">test_pagination_default_page_size [passed]</div><div class="test passed">test_pagination_returns_correct_page [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS012</td>
+                <td>Threshold Check</td>
+                <td><div class="ancestor">SYS006: Threshold Alerts</div><div class="ancestor">UN004: Alerts</div></td>
+                <td><div class="test passed">test_threshold_exceeded [passed]</div><div class="test passed">test_threshold_not_exceeded [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS013</td>
+                <td>Alert Generation</td>
+                <td><div class="ancestor">RC002: Redundant Alert Pathways</div><div class="ancestor">SYS006: Threshold Alerts</div><div class="ancestor">HAZ002: Alert Notification Failure</div><div class="ancestor">UN004: Alerts</div></td>
+                <td><div class="test passed">test_alert_creation [passed]</div><div class="test passed">test_alert_includes_timestamp [passed]</div><div class="test passed">test_alert_severity_levels [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS014</td>
+                <td>CSV Export</td>
+                <td><div class="ancestor">SYS008: Export Formats</div><div class="ancestor">UN005: Data Export</div></td>
+                <td><div class="test passed">test_csv_generation [passed]</div><div class="test passed">test_csv_iso8601_timestamps [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="passed">
+                <td>SRS015</td>
+                <td>PDF Report</td>
+                <td><div class="ancestor">SYS008: Export Formats</div><div class="ancestor">UN005: Data Export</div></td>
+                <td><div class="test passed">test_pdf_report_format [passed]</div><div class="test passed">test_pdf_report_has_charts [passed]</div><div class="test passed">test_pdf_report_has_summary [passed]</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Passed</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SRS016</td>
+                <td>Redundant Alert Delivery</td>
+                <td><div class="ancestor">RC002: Redundant Alert Pathways</div><div class="ancestor">HAZ002: Alert Notification Failure</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SRS017</td>
+                <td>Alert Severity Indicators</td>
+                <td><div class="ancestor">SYS007: Alert Notification</div><div class="ancestor">UN004: Alerts</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS001</td>
+                <td>Authentication</td>
+                <td><div class="ancestor">UN001: User Authentication</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS002</td>
+                <td>Session Management</td>
+                <td><div class="ancestor">UN001: User Authentication</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS003</td>
+                <td>Real-time Display</td>
+                <td><div class="ancestor">UN002: Vital Signs Monitoring</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS004</td>
+                <td>Data Storage</td>
+                <td><div class="ancestor">UN003: Historical Data</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS005</td>
+                <td>Historical Query</td>
+                <td><div class="ancestor">UN003: Historical Data</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS006</td>
+                <td>Threshold Alerts</td>
+                <td><div class="ancestor">UN004: Alerts</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS007</td>
+                <td>Alert Notification</td>
+                <td><div class="ancestor">UN004: Alerts</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+            <tr class="uncovered">
+                <td>SYS008</td>
+                <td>Export Formats</td>
+                <td><div class="ancestor">UN005: Data Export</div></td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td class="status">Not Covered</td>
+            </tr>
+            
+        </tbody>
+    </table>
+</body>
+</html>
