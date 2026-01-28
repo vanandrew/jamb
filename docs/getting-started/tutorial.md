@@ -12,6 +12,14 @@ Install jamb:
 pip install jamb
 ```
 
+:::{tip}
+A complete example project is available in the [`tutorial/`](https://github.com/anthropics/jamb/tree/main/tutorial) directory of the GitHub repository. Clone it to follow along:
+```bash
+git clone https://github.com/anthropics/jamb.git
+cd jamb/tutorial
+```
+:::
+
 ## Getting Started
 
 ### Initialize a New Project

@@ -29,6 +29,19 @@ class JambConfig:
             exclude from processing.
         trace_to_ignore (list[str]): Document prefixes to exclude from the
             "Traces To" column in the traceability matrix.
+
+    Examples:
+        Construct a config with custom settings::
+
+            >>> config = JambConfig(
+            ...     test_documents=["SRS"],
+            ...     fail_uncovered=True,
+            ...     matrix_output="matrix.html",
+            ... )
+            >>> config.test_documents
+            ['SRS']
+            >>> config.fail_uncovered
+            True
     """
 
     test_documents: list[str] = field(default_factory=list)
@@ -51,6 +64,19 @@ def load_config(config_path: Path | None = None) -> JambConfig:
 
     Returns:
         JambConfig with loaded values or defaults.
+
+    Examples:
+        Load configuration from the default path (``pyproject.toml`` in
+        the current working directory)::
+
+            >>> config = load_config()
+            >>> config.matrix_format
+            'html'
+
+        Load from a specific path::
+
+            >>> from pathlib import Path
+            >>> config = load_config(Path("myproject/pyproject.toml"))
     """
     if config_path is None:
         config_path = Path.cwd() / "pyproject.toml"

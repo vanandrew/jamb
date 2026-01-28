@@ -2,7 +2,7 @@ active: true
 header: Vital Sign Validation
 type: requirement
 links:
-- HAZ001: Sgy0aCkSMhMQfhFLak5h9PURNXrde5X8AyreLJoogUI
+- HAZ001: 9zAF9Ju9d-zmh5sPxRtULRfYESo0eejrX8MHNkUIDa0
 text: |
   System shall validate vital sign data against physiological ranges before display.
 reviewed: TUd9JBnZefOAi02jqu4Y3WFiLJAfBI_srcbJREqorGw

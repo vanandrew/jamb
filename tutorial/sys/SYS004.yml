@@ -2,7 +2,7 @@ active: true
 header: Data Storage
 type: requirement
 links:
-- UN003: lwBfoOCX_ppuJXHXvk_dpFiEGn4sg05LGZzuXu9dSbs
+- UN003: E3lCx4ihXnjgdUEa9qkCMA0U_E-wrAGDhZeUaNHulkA
 text: |
   System shall store vital signs with timestamps.
 reviewed: CtaneGYoBbcrTfiqEiCbPrQcefYCf_cv5PS2sMetAb4

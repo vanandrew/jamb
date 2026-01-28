@@ -2,8 +2,8 @@ active: true
 header: Alert Generation
 type: requirement
 links:
-- RC002: VpqwsCm9nYfwWvwpZxRD_60F8PtOWbFXXF82ZOV9yhM
-- SYS006: MHyoj0191ThgJNQivdcMN2YObV6_yacem7Q4hLeX1_g
+- RC002: iQYRUfrCVdRM3HlCqFQhTepmGpZfdxV2xdcE0icNcU0
+- SYS006: LbRtIiCYnJrTd7Hzjsr1r9v6PJl4d0AEoL6NlzCejb0
 text: |
   Software shall create alert records with severity levels.
 reviewed: 5FPdlzzt_abESp3ieveZlowan_2N3fLNrOfu3OBS_wU

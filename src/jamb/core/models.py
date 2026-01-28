@@ -22,6 +22,30 @@ class Item:
         derived (bool): Whether the item is derived (intentionally has no
             parent links).
         custom_attributes (dict[str, Any]): Arbitrary user-defined key-value pairs.
+
+    Examples:
+        Construct an item and access its display text::
+
+            >>> item = Item(
+            ...     uid="SRS001",
+            ...     text="The system shall log in users.",
+            ...     document_prefix="SRS",
+            ... )
+            >>> item.uid
+            'SRS001'
+            >>> item.display_text
+            'The system shall log in users.'
+
+        An item with a header uses the header as display text::
+
+            >>> item = Item(
+            ...     uid="SRS002",
+            ...     text="Details...",
+            ...     document_prefix="SRS",
+            ...     header="Login",
+            ... )
+            >>> item.display_text
+            'Login'
     """
 
     uid: str
@@ -110,6 +134,24 @@ class TraceabilityGraph:
         document_parents (dict[str, list[str]]): Mapping of document
             prefix to list of parent document prefixes (the
             document-level DAG).
+
+    Examples:
+        Build a graph and add linked items::
+
+            >>> graph = TraceabilityGraph()
+            >>> graph.set_document_parents("SRS", ["SYS"])
+            >>> graph.set_document_parents("SYS", [])
+            >>> sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS")
+            >>> srs_item = Item(
+            ...     uid="SRS001",
+            ...     text="Software req",
+            ...     document_prefix="SRS",
+            ...     links=["SYS001"],
+            ... )
+            >>> graph.add_item(sys_item)
+            >>> graph.add_item(srs_item)
+            >>> graph.item_children["SYS001"]
+            ['SRS001']
     """
 
     items: dict[str, Item] = field(default_factory=dict)

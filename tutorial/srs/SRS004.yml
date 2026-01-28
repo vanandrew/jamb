@@ -2,7 +2,7 @@ active: true
 header: Session Token
 type: requirement
 links:
-- SYS002: 7-Tt5w8AeZbmg7S_OJRndIVAuUpG-6_IC2oV1NSShIs
+- SYS002: am-pBFVcPYF2ruXcASif26hxeS8ykY4_JHd6blwFFZE
 text: |
   Software shall generate JWT tokens with 1-hour expiry.
 reviewed: x_1VlVqJhPfOpHTZPiHl76cw32PZslIP-ySK-uwj3XY
