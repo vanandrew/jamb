@@ -40,10 +40,10 @@ def render_markdown(
         "",
         "## Coverage Details",
         "",
-        "| UID | Description | Document | Traces To "
+        "| UID | Description | Traces To "
         "| Tests | Test Actions | Expected Results "
         "| Notes | Status |",
-        "|-----|-------------|----------|-----------|"
+        "|-----|-------------|-----------|"
         "-------|--------------|------------------"
         "|-------|--------|",
     ]
@@ -106,7 +106,7 @@ def render_markdown(
             status = "Failed"
 
         lines.append(
-            f"| {uid} | {description} | {cov.item.document_prefix} "
+            f"| {uid} | {description} "
             f"| {traces_to} | {tests_str} | {test_actions_str} "
             f"| {expected_results_str} | {notes_str} | {status} |"
         )

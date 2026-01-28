@@ -52,7 +52,7 @@ def render_xlsx(
     # Summary section
     ws["A1"] = "Traceability Matrix"
     ws["A1"].font = Font(bold=True, size=14)
-    ws.merge_cells("A1:I1")
+    ws.merge_cells("A1:H1")
 
     ws["A3"] = "Total Items:"
     ws["B3"] = total
@@ -65,7 +65,6 @@ def render_xlsx(
     headers = [
         "UID",
         "Description",
-        "Document",
         "Traces To",
         "Tests",
         "Test Actions",
@@ -127,22 +126,21 @@ def render_xlsx(
         # Write row
         ws.cell(row=row, column=1, value=uid)
         ws.cell(row=row, column=2, value=description)
-        ws.cell(row=row, column=3, value=cov.item.document_prefix)
-        ws.cell(row=row, column=4, value=traces_to)
-        ws.cell(row=row, column=5, value=tests_str)
-        actions_cell = ws.cell(row=row, column=6, value=test_actions_str)
+        ws.cell(row=row, column=3, value=traces_to)
+        ws.cell(row=row, column=4, value=tests_str)
+        actions_cell = ws.cell(row=row, column=5, value=test_actions_str)
         actions_cell.alignment = Alignment(wrap_text=True, vertical="top")
-        results_cell = ws.cell(row=row, column=7, value=expected_results_str)
+        results_cell = ws.cell(row=row, column=6, value=expected_results_str)
         results_cell.alignment = Alignment(wrap_text=True, vertical="top")
-        notes_cell = ws.cell(row=row, column=8, value=notes_str)
+        notes_cell = ws.cell(row=row, column=7, value=notes_str)
         notes_cell.alignment = Alignment(wrap_text=True, vertical="top")
-        status_cell = ws.cell(row=row, column=9, value=status)
+        status_cell = ws.cell(row=row, column=8, value=status)
         status_cell.fill = fill
 
         row += 1
 
     # Auto-adjust column widths
-    column_widths = [12, 50, 12, 20, 40, 40, 40, 50, 15]
+    column_widths = [12, 50, 20, 40, 40, 40, 50, 15]
     for col, width in enumerate(column_widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
 

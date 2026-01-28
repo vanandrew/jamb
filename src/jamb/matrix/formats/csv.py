@@ -33,7 +33,6 @@ def render_csv(
         [
             "UID",
             "Description",
-            "Document",
             "Traces To",
             "Tests",
             "Test Actions",
@@ -86,7 +85,6 @@ def render_csv(
             [
                 uid,
                 description,
-                cov.item.document_prefix,
                 traces_to,
                 tests_str,
                 test_actions_str,
