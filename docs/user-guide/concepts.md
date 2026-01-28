@@ -8,7 +8,7 @@ This page explains the core concepts behind jamb and how they map to IEC 62304 r
 
 A central theme of IEC 62304 is **bidirectional traceability**: every software requirement must trace upward to a system requirement or risk control, and every requirement must trace downward to verification evidence (tests). The standard also requires **change impact analysis** — when an upstream requirement changes, all affected downstream artefacts must be reviewed — and **risk management integration**, ensuring that software items linked to hazard mitigations are identified and verified. These traceability and change-control obligations make tooling support essential for any non-trivial project.
 
-jamb implements these requirements as a lightweight, git-native tool that integrates directly with pytest. For a comprehensive overview of IEC 62304 and how jamb maps to its requirements, see the {doc}`/iec-62304/index` guide.
+jamb implements these requirements as a lightweight, git-native tool that integrates directly with pytest. For a comprehensive overview of IEC 62304 and how jamb supports its traceability requirements, see the {doc}`/iec-62304/index` guide.
 
 ## Document Hierarchy
 
@@ -17,12 +17,13 @@ jamb organizes requirements into **documents**, each identified by a prefix (e.g
 The default IEC 62304 hierarchy created by `jamb init`:
 
 ```
-PRJ (Project Requirements) - root
-├── UN (User Needs)
-│   └── SYS (System Requirements)
-│       └── SRS (Software Requirements Specification)
-└── HAZ (Hazards)
-    └── RC (Risk Controls)
+`-- PRJ
+    |-- HAZ (parents: PRJ)
+    |   `-- RC (parents: HAZ)
+    |       `-- SRS (parents: SYS, RC)
+    `-- UN (parents: PRJ)
+        `-- SYS (parents: UN)
+            `-- SRS (parents: SYS, RC)
 ```
 
 Each document lives in its own directory and contains a `.jamb.yml` configuration file (defining the prefix, parent documents, and UID formatting) alongside individual YAML files for each item (e.g., `SRS001.yml`, `SRS002.yml`).
@@ -32,14 +33,12 @@ Each document lives in its own directory and contains a `.jamb.yml` configuratio
 You can create custom document hierarchies using `jamb doc create`:
 
 ```bash
-# Create a root document
+# Create documents
 jamb doc create SYS reqs/sys
-
-# Create a child document
-jamb doc create SRS reqs/srs --parent SYS
-
-# A document can have multiple parents
 jamb doc create RC reqs/rc --parent HAZ
+
+# A document can have multiple parents (--parent is repeatable)
+jamb doc create SRS reqs/srs --parent SYS --parent RC
 ```
 
 ## Items and Types

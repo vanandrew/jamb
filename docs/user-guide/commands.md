@@ -63,18 +63,19 @@ Options:
   --help     Show this message and exit.
 
 Commands:
-  check     Check test coverage without running tests.
-  doc       Manage documents.
-  export    Export documents and items to a YAML file.
-  import    Import documents and items from a YAML file.
-  info      Display document information.
-  init      Initialize a new jamb project with default IEC 62304 documents.
-  item      Manage items.
-  link      Manage item links.
-  publish   Publish a document.
-  reorder   Renumber item UIDs sequentially to fill gaps.
-  review    Manage item reviews.
-  validate  Validate the requirements tree.
+  check             Check test coverage without running tests.
+  doc               Manage documents.
+  export            Export documents and items to a YAML file.
+  import            Import documents and items from a YAML file.
+  info              Display document information.
+  init              Initialize a new jamb project with default IEC 62304 documents.
+  item              Manage items.
+  link              Manage item links.
+  publish           Publish a document.
+  publish-template  Generate a DOCX template file with jamb styles.
+  reorder           Renumber item UIDs sequentially to fill gaps.
+  review            Manage item reviews.
+  validate          Validate the requirements tree.
 ```
 
 **Example:**
@@ -203,6 +204,7 @@ Usage: jamb validate [OPTIONS]
       jamb validate              # Run validation
       jamb validate -v           # Verbose output
       jamb validate --skip UT    # Skip unit test document
+      jamb validate -S           # Skip suspect checks
 Options:
   -v, --verbose             Enable verbose logging (can be repeated)
   -q, --quiet               Only display errors and prompts

@@ -19,6 +19,7 @@ PRJ (Project Requirements) - root
 │       └── SRS (Software Requirements Specification)
 └── HAZ (Hazards)
     └── RC (Risk Controls)
+        └── SRS (also traces to RC)
 ```
 
 ## 2. Add Requirements

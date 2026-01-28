@@ -11,7 +11,7 @@
 
 IEC 62304 requirements traceability for pytest.
 
-jamb links your pytest tests to requirements, generating traceability matrices for regulatory compliance. It's designed for medical device software and other regulated industries where you need to prove every requirement has been tested.
+jamb links your pytest tests to requirements, generating traceability matrices for regulatory submissions. It's designed for medical device software and other regulated industries where you need to prove every requirement has been tested.
 
 ## Installation
 

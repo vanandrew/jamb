@@ -32,7 +32,7 @@ a practical necessity for most medical device software.
 
 ## Relationship to Related Standards
 
-IEC 62304 does not exist in isolation. It assumes that **ISO 13485** (Quality Management Systems) provides the overarching quality management system within which software development occurs, and that **ISO 14971** (Risk Management) provides the risk management process with which IEC 62304 integrates — software hazards must be identified and controlled through this process. **IEC 62443** (Cybersecurity) addresses cybersecurity concerns for connected medical devices, which increasingly intersect with software lifecycle requirements.
+IEC 62304 does not exist in isolation. It assumes that **ISO 13485** (Quality Management Systems) provides the overarching quality management system within which software development occurs, and that **ISO 14971** (Risk Management) provides the risk management process with which IEC 62304 integrates — software hazards must be identified and controlled through this process. **IEC 62443** (Industrial Cybersecurity) is an industrial automation cybersecurity standard increasingly referenced for connected medical devices, as cybersecurity requirements intersect with software lifecycle activities.
 
 IEC 62304 assumes a quality management system (ISO 13485) and risk management process
 (ISO 14971) are in place. It references these standards rather than duplicating their

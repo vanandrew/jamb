@@ -1,8 +1,8 @@
 # Software Development Lifecycle
 
-## The Eight Process Areas
+## The Nine Process Areas
 
-IEC 62304 defines eight process areas that together constitute the software development
+IEC 62304 defines nine process areas that together constitute the software development
 lifecycle:
 
 1. **Software development planning** -- establish a plan for conducting the development
@@ -22,11 +22,14 @@ lifecycle:
    units to verify that they work together as specified in the architectural design.
 8. **Software system testing** -- test the complete integrated software system to verify
    that it meets the software requirements.
+9. **Software release** -- verify that all required activities are complete, outputs are
+   documented, and the software is ready for distribution. This includes confirming that
+   known residual anomalies are evaluated and documented.
 
 ## The V-Model
 
-IEC 62304 follows a V-model where each development phase on the left side of the "V" has
-a corresponding verification phase on the right side:
+IEC 62304's activities map naturally to a V-model, where each development phase on the
+left side of the "V" has a corresponding verification phase on the right side:
 
 ```
 Planning

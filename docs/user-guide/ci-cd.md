@@ -43,8 +43,8 @@ jobs:
 
 | Command | Purpose | Fails On |
 |---------|---------|----------|
-| `jamb validate` | Check requirements tree integrity | Broken links, cycles, suspect links |
-| `jamb check` | Static test coverage scan | (informational only) |
+| `jamb validate` | Check requirements tree integrity | Broken links, cycles, conformance violations (suspect links are warnings; use `--error-all` to treat as errors) |
+| `jamb check` | Static test coverage scan | Uncovered requirements in test documents |
 | `pytest --jamb --jamb-fail-uncovered` | Run tests with coverage enforcement | Uncovered requirements or test failures |
 
 ## Pre-commit Hook

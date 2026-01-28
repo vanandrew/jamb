@@ -32,6 +32,8 @@ The marker accepts any number of item UIDs as positional arguments.
 | `--jamb-tester-id ID` | Tester identification for traceability matrix (default: "Unknown") |
 | `--jamb-software-version VERSION` | Software version for traceability matrix (overrides pyproject.toml) |
 
+**Note:** All pytest CLI options override their corresponding `[tool.jamb]` settings in `pyproject.toml`. For example, `--jamb-fail-uncovered` on the command line takes effect even if `fail_uncovered = false` in the config. When no CLI flag is given, the config file value is used.
+
 ### Examples
 
 ```bash
@@ -58,7 +60,7 @@ pytest --jamb --jamb-matrix matrix.html \
 
 ## The `jamb_log` Fixture
 
-The `jamb_log` fixture provides structured test record logging aligned with IEC 62304 §5.7.5. Use it to document test actions, expected results, and notes that appear in the traceability matrix.
+The `jamb_log` fixture provides structured test record logging aligned with IEC 62304 §5.7.5. Use it to document test actions, expected results, actual results, and notes that appear in the traceability matrix.
 
 ### Methods
 
@@ -130,7 +132,7 @@ When using `--jamb-tester-id` and `--jamb-software-version`, the matrix includes
 - **Software Version**: The version being tested (from CLI flag, `[tool.jamb].software_version`, or `[project].version`)
 - **Tester**: Who ran the tests (from `--jamb-tester-id`)
 - **Date**: When the tests were executed (ISO 8601 UTC timestamp)
-- **Environment**: Test environment details (OS, Python version, platform, hostname, CPU count)
+- **Environment**: Test environment details (OS, Python version, platform, processor, hostname, CPU count)
 - **Test Tools**: Versions of all pytest plugins used (pytest, jamb, pytest-cov, etc.)
 
 This metadata satisfies IEC 62304 Clause 5.7.5 requirements for software system test records.
@@ -174,4 +176,4 @@ The generated matrix includes:
 | Expected Results | Acceptance criteria (from `jamb_log.expected_result()`) |
 | Actual Results | Observed outcomes (from `jamb_log.actual_result()`) |
 | Notes | Observations and failure messages (from `jamb_log.note()`) |
-| Status | PASSED, FAILED, NOT COVERED, or N/A |
+| Status | Passed, Failed, Not Covered, or N/A |

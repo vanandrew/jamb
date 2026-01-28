@@ -248,6 +248,8 @@ class TestAllTestItemsCovered:
 
         mock_config = MagicMock()
         mock_config.test_documents = ["SRS"]
+        mock_config.require_all_pass = True
+        mock_config.exclude_patterns = []
         mock_load_config.return_value = mock_config
 
         config = MagicMock()
@@ -257,7 +259,11 @@ class TestAllTestItemsCovered:
 
         collector = RequirementCollector(config)
         collector.test_links.append(
-            LinkedTest(test_nodeid="test.py::test_foo", item_uid="SRS001")
+            LinkedTest(
+                test_nodeid="test.py::test_foo",
+                item_uid="SRS001",
+                test_outcome="passed",
+            )
         )
 
         assert collector.all_test_items_covered() is True
@@ -298,6 +304,8 @@ class TestAllTestItemsCovered:
 
         mock_config = MagicMock()
         mock_config.test_documents = ["SRS"]
+        mock_config.require_all_pass = True
+        mock_config.exclude_patterns = []
         mock_load_config.return_value = mock_config
 
         config = MagicMock()
@@ -308,10 +316,18 @@ class TestAllTestItemsCovered:
         collector = RequirementCollector(config)
         # Cover only active items
         collector.test_links.append(
-            LinkedTest(test_nodeid="test.py::test_1", item_uid="SRS001")
+            LinkedTest(
+                test_nodeid="test.py::test_1",
+                item_uid="SRS001",
+                test_outcome="passed",
+            )
         )
         collector.test_links.append(
-            LinkedTest(test_nodeid="test.py::test_2", item_uid="SRS002")
+            LinkedTest(
+                test_nodeid="test.py::test_2",
+                item_uid="SRS002",
+                test_outcome="passed",
+            )
         )
         # SRS003 is inactive, should be ignored
 
@@ -347,6 +363,8 @@ class TestAllTestItemsCovered:
 
         mock_config = MagicMock()
         mock_config.test_documents = ["SRS"]
+        mock_config.require_all_pass = True
+        mock_config.exclude_patterns = []
         mock_load_config.return_value = mock_config
 
         config = MagicMock()
@@ -357,11 +375,145 @@ class TestAllTestItemsCovered:
         collector = RequirementCollector(config)
         # Only cover normative item
         collector.test_links.append(
-            LinkedTest(test_nodeid="test.py::test_1", item_uid="SRS001")
+            LinkedTest(
+                test_nodeid="test.py::test_1",
+                item_uid="SRS001",
+                test_outcome="passed",
+            )
         )
         # SRS002 is non-normative, should be ignored
 
         assert collector.all_test_items_covered() is True
+
+
+class TestAllTestItemsCoveredRequireAllPass:
+    """Tests for require_all_pass behavior in all_test_items_covered."""
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    @patch("jamb.pytest_plugin.collector.load_config")
+    def test_require_all_pass_true_fails_when_test_failed(
+        self, mock_load_config, mock_build_graph, mock_discover
+    ):
+        """require_all_pass=True: items with linked but failed tests → False."""
+        graph = TraceabilityGraph()
+        item = Item(
+            uid="SRS001",
+            text="Requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        mock_config = MagicMock()
+        mock_config.test_documents = ["SRS"]
+        mock_config.require_all_pass = True
+        mock_config.exclude_patterns = []
+        mock_load_config.return_value = mock_config
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(
+                test_nodeid="test.py::test_foo",
+                item_uid="SRS001",
+                test_outcome="failed",
+            )
+        )
+
+        assert collector.all_test_items_covered() is False
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    @patch("jamb.pytest_plugin.collector.load_config")
+    def test_require_all_pass_false_passes_when_test_failed(
+        self, mock_load_config, mock_build_graph, mock_discover
+    ):
+        """require_all_pass=False: items with linked but failed tests → True."""
+        graph = TraceabilityGraph()
+        item = Item(
+            uid="SRS001",
+            text="Requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        mock_config = MagicMock()
+        mock_config.test_documents = ["SRS"]
+        mock_config.require_all_pass = False
+        mock_config.exclude_patterns = []
+        mock_load_config.return_value = mock_config
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(
+                test_nodeid="test.py::test_foo",
+                item_uid="SRS001",
+                test_outcome="failed",
+            )
+        )
+
+        assert collector.all_test_items_covered() is True
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    @patch("jamb.pytest_plugin.collector.load_config")
+    def test_require_all_pass_default_is_true(
+        self, mock_load_config, mock_build_graph, mock_discover
+    ):
+        """Default require_all_pass is True, so failed tests → False."""
+        from jamb.config.loader import JambConfig
+
+        graph = TraceabilityGraph()
+        item = Item(
+            uid="SRS001",
+            text="Requirement",
+            document_prefix="SRS",
+            active=True,
+        )
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        # Use real JambConfig with default values
+        real_config = JambConfig(test_documents=["SRS"])
+        mock_load_config.return_value = real_config
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(
+                test_nodeid="test.py::test_foo",
+                item_uid="SRS001",
+                test_outcome="failed",
+            )
+        )
+
+        assert collector.all_test_items_covered() is False
 
 
 class TestGenerateMatrix:
