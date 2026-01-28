@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 import yaml
 
+from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.items import dump_yaml
 
 
@@ -186,12 +187,11 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
     from typing import cast
 
     import tomlkit
-    from tomlkit import TOMLDocument
     from tomlkit.items import Table
 
     try:
         content = pyproject_path.read_text()
-        doc = cast(TOMLDocument, tomlkit.parse(content))
+        doc = tomlkit.parse(content)
 
         # Check if [tool.jamb] already exists
         if "tool" in doc and "jamb" in cast(Table, doc["tool"]):
@@ -263,7 +263,9 @@ def info(documents: str | None, root: Path | None) -> None:
         sys.exit(1)
 
 
-def _print_dag_hierarchy(dag, prefix: str = "", nodes: list[str] | None = None) -> None:
+def _print_dag_hierarchy(
+    dag: DocumentDAG, prefix: str = "", nodes: list[str] | None = None
+) -> None:
     """Print document hierarchy as a tree (DAG-aware).
 
     Args:
@@ -1099,7 +1101,9 @@ def review_reset(label: str, root: Path | None) -> None:
         sys.exit(1)
 
 
-def _resolve_label_to_item_paths(label: str, dag) -> list[tuple[Path, str]]:
+def _resolve_label_to_item_paths(
+    label: str, dag: DocumentDAG
+) -> list[tuple[Path, str]]:
     """Resolve a label (UID, prefix, or 'all') to list of (item_path, prefix) tuples.
 
     The label is matched in the following order: the literal string

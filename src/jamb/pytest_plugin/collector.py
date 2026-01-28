@@ -95,7 +95,7 @@ class RequirementCollector:
     def pytest_runtest_makereport(
         self,
         item: pytest.Item,
-        call: pytest.CallInfo,  # noqa: ARG002
+        call: pytest.CallInfo[None],  # noqa: ARG002
     ) -> Generator[None, Any, None]:
         """Record test outcomes, notes, test actions, and expected results.
 

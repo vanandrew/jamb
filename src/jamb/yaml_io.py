@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import yaml
+
+if TYPE_CHECKING:
+    from jamb.core.models import Item
 
 
 class _ItemDictOptional(TypedDict, total=False):
@@ -76,7 +80,7 @@ def export_items_to_yaml(
         if uid in graph.items:
             doc_prefixes_needed.add(graph.items[uid].document_prefix)
 
-    data: dict = {"documents": [], "items": []}
+    data: dict[str, Any] = {"documents": [], "items": []}
 
     # Compute search root for relative paths
     search_root = (root or Path.cwd()).resolve()
@@ -93,7 +97,7 @@ def export_items_to_yaml(
                     rel_path = str(doc_path)
             else:
                 rel_path = prefix.lower()
-            doc_dict: dict = {
+            doc_dict: dict[str, Any] = {
                 "prefix": prefix,
                 "path": rel_path,
             }
@@ -133,7 +137,7 @@ def export_to_yaml(
     dag = discover_documents(root)
     graph = build_traceability_graph(dag)
 
-    data: dict = {"documents": [], "items": []}
+    data: dict[str, Any] = {"documents": [], "items": []}
 
     # Compute search root for relative paths
     search_root = (root or Path.cwd()).resolve()
@@ -151,7 +155,7 @@ def export_to_yaml(
                 rel_path = str(doc_path)
         else:
             rel_path = prefix.lower()
-        doc_dict: dict = {
+        doc_dict: dict[str, Any] = {
             "prefix": prefix,
             "path": rel_path,
         }
@@ -170,7 +174,7 @@ def export_to_yaml(
         )
 
 
-def _graph_item_to_dict(item) -> ItemDict:
+def _graph_item_to_dict(item: Item) -> ItemDict:
     """Convert a graph Item to dict with plain Python types.
 
     Args:
@@ -192,7 +196,9 @@ def _graph_item_to_dict(item) -> ItemDict:
     return d
 
 
-def load_import_file(path: Path, echo=None) -> dict:
+def load_import_file(
+    path: Path, echo: Callable[[str], object] | None = None
+) -> dict[str, Any]:
     """Load and validate YAML import file.
 
     Args:
@@ -263,8 +269,8 @@ def import_from_yaml(
     dry_run: bool = False,
     update: bool = False,
     verbose: bool = False,
-    echo=None,
-) -> dict:
+    echo: Callable[[str], object] | None = None,
+) -> dict[str, int]:
     """Import documents and items from YAML file.
 
     Args:
@@ -310,7 +316,9 @@ def import_from_yaml(
     return stats
 
 
-def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
+def _create_document(
+    spec: dict[str, Any], dry_run: bool, verbose: bool, echo: Callable[[str], object]
+) -> str:
     """Create a document from spec.
 
     Args:
@@ -362,7 +370,13 @@ def _create_document(spec: dict, dry_run: bool, verbose: bool, echo) -> str:
     return "created"
 
 
-def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -> str:
+def _create_item(
+    spec: dict[str, Any],
+    dry_run: bool,
+    update: bool,
+    verbose: bool,
+    echo: Callable[[str], object],
+) -> str:
     """Create or update an item.
 
     Args:
@@ -418,7 +432,7 @@ def _create_item(spec: dict, dry_run: bool, update: bool, verbose: bool, echo) -
         return _update_item(item_path, spec, verbose, echo)
 
     # Write new item YAML file directly
-    item_data: dict = {
+    item_data: dict[str, Any] = {
         "active": True,
         "text": text,
     }
@@ -492,7 +506,9 @@ def _get_document_path(prefix: str) -> Path | None:
     return None
 
 
-def _update_item(item_path: Path, spec: dict, verbose: bool, echo) -> str:
+def _update_item(
+    item_path: Path, spec: dict[str, Any], verbose: bool, echo: Callable[[str], object]
+) -> str:
     """Update an existing item YAML file.
 
     Preserves existing fields not specified in spec.
