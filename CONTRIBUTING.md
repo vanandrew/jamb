@@ -24,6 +24,12 @@ Thanks for your interest in contributing to jamb! This guide will help you get s
    uv sync --group dev
    ```
 
+   For documentation work, also install the docs group:
+
+   ```bash
+   uv sync --group docs
+   ```
+
 3. Install pre-commit hooks:
 
    ```bash

@@ -78,35 +78,35 @@ def validate(
     for error in cycle_errors:
         issues.append(ValidationIssue("error", None, None, error))
 
-    # 2-3. Link validity and conformance
+    # 2. Link validity and conformance
     if check_links:
         issues.extend(_check_links(dag, graph, skip, check_self_links))
 
-    # 4. Suspect link detection
+    # 3. Suspect link detection
     if check_suspect:
         issues.extend(_check_suspect_links(dag, graph, skip))
 
-    # 6. Review status
+    # 4. Review status
     if check_review:
         issues.extend(_check_review_status(graph, skip))
 
-    # 7. Child link check
+    # 5. Child link check
     if check_children:
         issues.extend(_check_children(dag, graph, skip))
 
-    # 8. Empty documents
+    # 6. Empty documents
     if check_empty_docs:
         issues.extend(_check_empty_documents(dag, graph, skip))
 
-    # 9. Empty text
+    # 7. Empty text
     if check_empty_text:
         issues.extend(_check_empty_text(graph, skip))
 
-    # 11. Item link cycles
+    # 8. Item link cycles
     if check_item_cycles:
         issues.extend(_check_item_link_cycles(graph, skip))
 
-    # 12. Unlinked normative items in child docs
+    # 9. Unlinked normative items in child docs
     if check_unlinked:
         issues.extend(_check_unlinked_items(dag, graph, skip))
 
@@ -550,7 +550,7 @@ def _check_item_link_cycles(
         A list of ``ValidationIssue`` objects with level ``warning`` for
         each distinct cycle found in the item link graph.
     """
-    issues = []
+    issues: list[ValidationIssue] = []
     reported_cycles: set[frozenset[str]] = set()
 
     # Build adjacency: item -> items it links to (only active, non-skipped)
@@ -564,38 +564,51 @@ def _check_item_link_cycles(
     color: dict[str, int] = {uid: WHITE for uid in active_uids}
     path: list[str] = []
 
-    def dfs(uid: str) -> None:
-        color[uid] = GRAY
-        path.append(uid)
+    for start_uid in active_uids:
+        if color[start_uid] != WHITE:
+            continue
 
-        item = graph.items[uid]
-        for link in item.links:
-            if link not in active_uids:
-                continue
-            if color[link] == GRAY:
-                # Found a cycle — extract it
-                cycle_start = path.index(link)
-                cycle_members = frozenset(path[cycle_start:])
-                if cycle_members not in reported_cycles:
-                    reported_cycles.add(cycle_members)
-                    cycle_uids = path[cycle_start:]
-                    issues.append(
-                        ValidationIssue(
-                            "warning",
-                            link,
-                            graph.items[link].document_prefix,
-                            f"cycle in item links: {' -> '.join(cycle_uids)} -> {link}",
+        # Stack of (uid, iterator_over_links)
+        stack: list[tuple[str, int]] = [(start_uid, 0)]
+        color[start_uid] = GRAY
+        path.append(start_uid)
+
+        while stack:
+            uid, link_idx = stack[-1]
+            item = graph.items[uid]
+            # Filter to active links
+            active_links = [lk for lk in item.links if lk in active_uids]
+
+            if link_idx < len(active_links):
+                # Advance the index for the current frame
+                stack[-1] = (uid, link_idx + 1)
+                link = active_links[link_idx]
+
+                if color[link] == GRAY:
+                    # Found a cycle — extract it
+                    cycle_start = path.index(link)
+                    cycle_members = frozenset(path[cycle_start:])
+                    if cycle_members not in reported_cycles:
+                        reported_cycles.add(cycle_members)
+                        cycle_uids = path[cycle_start:]
+                        issues.append(
+                            ValidationIssue(
+                                "warning",
+                                link,
+                                graph.items[link].document_prefix,
+                                f"cycle in item links: "
+                                f"{' -> '.join(cycle_uids)} -> {link}",
+                            )
                         )
-                    )
-            elif color[link] == WHITE:
-                dfs(link)
-
-        path.pop()
-        color[uid] = BLACK
-
-    for uid in active_uids:
-        if color[uid] == WHITE:
-            dfs(uid)
+                elif color[link] == WHITE:
+                    color[link] = GRAY
+                    path.append(link)
+                    stack.append((link, 0))
+            else:
+                # All links processed, backtrack
+                stack.pop()
+                path.pop()
+                color[uid] = BLACK
 
     return issues
 

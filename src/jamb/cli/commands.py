@@ -176,7 +176,7 @@ def _create_initial_prj_item(prj_path: Path) -> None:
         "type": "requirement",
         "text": project_name,
     }
-    with open(item_path, "w") as f:
+    with open(item_path, "w", encoding="utf-8") as f:
         dump_yaml(item_data, f)
 
     click.echo(f"Created item: PRJ001 ({project_name})")
@@ -366,6 +366,9 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
 
     Walks all ``test_*.py`` files under *root*, parses them into ASTs,
     and collects string arguments from ``@pytest.mark.requirement`` calls.
+
+    Note: Only matches the fully-qualified form ``pytest.mark.requirement()``.
+    Other import styles (e.g., ``from pytest import mark``) are not detected.
 
     Args:
         root: Project root directory to search for test files.
@@ -792,10 +795,26 @@ def item_remove(uid: str) -> None:
 
     UID is the item identifier (e.g., SRS001, UT002).
     """
+    from jamb.storage import build_traceability_graph, discover_documents
+
     item_path, _ = _find_item_path(uid)
     if item_path is None:
         click.echo(f"Error: Item '{uid}' not found", err=True)
         sys.exit(1)
+
+    # Warn about items that link to this one
+    try:
+        dag = discover_documents()
+        graph = build_traceability_graph(dag)
+        children = graph.item_children.get(uid, [])
+        if children:
+            click.echo(
+                f"Warning: {len(children)} item(s) link to {uid}: "
+                f"{', '.join(children)}",
+                err=True,
+            )
+    except (ValueError, FileNotFoundError, KeyError, OSError):
+        pass  # Best-effort warning
 
     item_path.unlink()
     click.echo(f"Removed item: {uid}")
@@ -887,7 +906,12 @@ def link_add(child: str, parent: str) -> None:
         click.echo(f"Error: Item '{child}' not found", err=True)
         sys.exit(1)
 
-    with open(item_path) as f:
+    parent_path, _ = _find_item_path(parent)
+    if parent_path is None:
+        click.echo(f"Error: Parent item '{parent}' not found", err=True)
+        sys.exit(1)
+
+    with open(item_path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
     links = data.get("links", [])
@@ -901,7 +925,7 @@ def link_add(child: str, parent: str) -> None:
     links.append(parent)
     data["links"] = links
 
-    with open(item_path, "w") as f:
+    with open(item_path, "w", encoding="utf-8") as f:
         dump_yaml(data, f)
 
     click.echo(f"Linked: {child} -> {parent}")
@@ -921,7 +945,7 @@ def link_remove(child: str, parent: str) -> None:
         click.echo(f"Error: Item '{child}' not found", err=True)
         sys.exit(1)
 
-    with open(item_path) as f:
+    with open(item_path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
     links = data.get("links", [])
@@ -939,7 +963,7 @@ def link_remove(child: str, parent: str) -> None:
         sys.exit(1)
 
     data["links"] = new_links
-    with open(item_path, "w") as f:
+    with open(item_path, "w", encoding="utf-8") as f:
         dump_yaml(data, f)
 
     click.echo(f"Unlinked: {child} -> {parent}")
@@ -985,10 +1009,10 @@ def review_mark(label: str) -> None:
             content_hash = compute_content_hash(data)
 
             # Read raw YAML and set reviewed field
-            with open(item_path) as f:
+            with open(item_path, encoding="utf-8") as f:
                 raw = yaml.safe_load(f) or {}
             raw["reviewed"] = content_hash
-            with open(item_path, "w") as f:
+            with open(item_path, "w", encoding="utf-8") as f:
                 dump_yaml(raw, f)
             count += 1
             click.echo(f"marked item {data['uid']} as reviewed")
@@ -1019,18 +1043,19 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
         jamb review clear all           # Clear all suspect links
         jamb review clear SRS001 CUS001 # Clear only link to CUS001
     """
-    from jamb.storage import discover_documents
+    from jamb.storage import build_traceability_graph, discover_documents
     from jamb.storage.items import compute_content_hash, read_item
 
     try:
         dag = discover_documents()
+        graph = build_traceability_graph(dag)
         items_to_clear = _resolve_label_to_item_paths(label, dag)
         parent_set = set(parents) if parents else None
 
         count = 0
         for item_path, _prefix in items_to_clear:
             # Read raw YAML
-            with open(item_path) as f:
+            with open(item_path, encoding="utf-8") as f:
                 raw = yaml.safe_load(f) or {}
 
             links = raw.get("links", [])
@@ -1047,21 +1072,35 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
                     link_uid = str(entry)
 
                 if parent_set is None or str(link_uid) in parent_set:
-                    # Compute current hash for the linked item
-                    linked_path, linked_prefix = _find_item_path(str(link_uid))
-                    if linked_path and linked_prefix:
-                        linked_data = read_item(linked_path, linked_prefix)
-                        new_hash = compute_content_hash(linked_data)
-                        new_links.append({str(link_uid): new_hash})
+                    # Look up linked item in graph instead of re-discovering
+                    link_uid_str = str(link_uid)
+                    if link_uid_str in graph.items:
+                        target = graph.items[link_uid_str]
+                        target_data = {
+                            "text": target.text,
+                            "header": target.header,
+                            "links": target.links,
+                            "type": target.type,
+                        }
+                        new_hash = compute_content_hash(target_data)
+                        new_links.append({link_uid_str: new_hash})
                         updated = True
                     else:
-                        new_links.append(entry)
+                        # Fall back to file-based lookup for items not in graph
+                        linked_path, linked_prefix = _find_item_path(link_uid_str)
+                        if linked_path and linked_prefix:
+                            linked_data = read_item(linked_path, linked_prefix)
+                            new_hash = compute_content_hash(linked_data)
+                            new_links.append({link_uid_str: new_hash})
+                            updated = True
+                        else:
+                            new_links.append(entry)
                 else:
                     new_links.append(entry)
 
             if updated:
                 raw["links"] = new_links
-                with open(item_path, "w") as f:
+                with open(item_path, "w", encoding="utf-8") as f:
                     dump_yaml(raw, f)
                 count += 1
 
@@ -1098,7 +1137,7 @@ def review_reset(label: str, root: Path | None) -> None:
 
         count = 0
         for item_path, _prefix in items_to_reset:
-            with open(item_path) as f:
+            with open(item_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
             changed = False
@@ -1120,7 +1159,7 @@ def review_reset(label: str, root: Path | None) -> None:
                     changed = True
 
             if changed:
-                with open(item_path, "w") as f:
+                with open(item_path, "w", encoding="utf-8") as f:
                     dump_yaml(data, f)
                 click.echo(f"reset item {item_path.stem} to unreviewed")
                 count += 1
@@ -1266,7 +1305,7 @@ def publish(
         if not path:
             click.echo("Error: --markdown requires an output PATH", err=True)
             sys.exit(1)
-        _publish_markdown(prefix, path)
+        _publish_markdown(prefix, path, include_links)
         return
 
     # Validate: "all" requires an output path
@@ -1293,11 +1332,11 @@ def publish(
                 click.echo(
                     "Warning: --template is only used with DOCX output", err=True
                 )
-            _publish_markdown(prefix, path)
+            _publish_markdown(prefix, path, include_links)
     else:
         if template:
             click.echo("Warning: --template is only used with DOCX output", err=True)
-        _publish_markdown_stdout(prefix)
+        _publish_markdown_stdout(prefix, include_links)
 
 
 def _publish_html(prefix: str, path: str, include_links: bool) -> None:
@@ -1345,6 +1384,7 @@ def _render_markdown_lines(
     items: list[Item],
     graph: TraceabilityGraph,
     use_anchors: bool = False,
+    include_links: bool = True,
 ) -> list[str]:
     """Render items as markdown lines.
 
@@ -1353,6 +1393,7 @@ def _render_markdown_lines(
         graph: The traceability graph for link resolution.
         use_anchors: If True, emit ``[uid](#uid)`` anchor links for
             links and child references; otherwise emit plain text UIDs.
+        include_links: If True, include parent and child link sections.
 
     Returns:
         A list of markdown-formatted strings (one per logical line).
@@ -1373,30 +1414,32 @@ def _render_markdown_lines(
                     lines.append(f"*{item_obj.text}*\n")
                 else:
                     lines.append(f"{item_obj.text}\n")
-        if item_obj.links:
+        if include_links and item_obj.links:
             if use_anchors:
                 link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links]
             else:
                 link_parts = list(item_obj.links)
             lines.append(f"*Links: {', '.join(link_parts)}*\n")
-        children = graph.item_children.get(item_obj.uid, [])
-        if children:
-            if use_anchors:
-                child_parts = [f"[{uid}](#{uid})" for uid in children]
-            else:
-                child_parts = list(children)
-            lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
+        if include_links:
+            children = graph.item_children.get(item_obj.uid, [])
+            if children:
+                if use_anchors:
+                    child_parts = [f"[{uid}](#{uid})" for uid in children]
+                else:
+                    child_parts = list(children)
+                lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
         if use_anchors:
             lines.append("")
     return lines
 
 
-def _publish_markdown_stdout(prefix: str) -> None:
+def _publish_markdown_stdout(prefix: str, include_links: bool = True) -> None:
     """Publish a document as markdown to stdout.
 
     Args:
         prefix: Document prefix identifying the document to publish
             (e.g. ``"SRS"``).
+        include_links: Whether to include parent and child link sections.
     """
     from jamb.storage import build_traceability_graph, discover_documents
 
@@ -1411,7 +1454,9 @@ def _publish_markdown_stdout(prefix: str) -> None:
 
         items.sort(key=lambda i: i.uid)
         click.echo(f"# {prefix}\n")
-        for line in _render_markdown_lines(items, graph, use_anchors=False):
+        for line in _render_markdown_lines(
+            items, graph, use_anchors=False, include_links=include_links
+        ):
             click.echo(line)
 
     except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
@@ -1419,13 +1464,14 @@ def _publish_markdown_stdout(prefix: str) -> None:
         sys.exit(1)
 
 
-def _publish_markdown(prefix: str, path: str) -> None:
+def _publish_markdown(prefix: str, path: str, include_links: bool = True) -> None:
     """Publish a document as markdown to a file.
 
     Args:
         prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
             document.
         path: Filesystem path for the output Markdown file.
+        include_links: Whether to include parent and child link sections.
     """
     from jamb.storage import build_traceability_graph, discover_documents
 
@@ -1446,7 +1492,11 @@ def _publish_markdown(prefix: str, path: str) -> None:
                 continue
             items.sort(key=lambda i: i.uid)
             lines.append(f"# {p}\n")
-            lines.extend(_render_markdown_lines(items, graph, use_anchors=True))
+            lines.extend(
+                _render_markdown_lines(
+                    items, graph, use_anchors=True, include_links=include_links
+                )
+            )
 
         if not lines:
             click.echo(f"Error: No items found for '{prefix}'", err=True)
