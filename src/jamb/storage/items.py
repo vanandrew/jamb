@@ -58,7 +58,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         header, links, link_hashes, reviewed, derived, testable,
         custom_attributes.
     """
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
     uid = path.stem
@@ -145,11 +145,14 @@ def write_item(
     if item_data.get("derived", False):
         output["derived"] = True
 
+    if not item_data.get("testable", True):
+        output["testable"] = False
+
     if extra_fields:
         output.update(extra_fields)
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         dump_yaml(output, f)
 
 

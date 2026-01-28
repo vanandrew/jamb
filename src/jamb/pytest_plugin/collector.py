@@ -50,6 +50,7 @@ class RequirementCollector:
         self.jamb_config: JambConfig = load_config()
         self.graph: TraceabilityGraph | None = None
         self.test_links: list[LinkedTest] = []
+        self._links_by_nodeid: dict[str, list[LinkedTest]] = {}
         self.unknown_items: set[str] = set()
         self.execution_timestamp: str = datetime.now(timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -97,12 +98,12 @@ class RequirementCollector:
                 if self.graph and uid not in self.graph.items:
                     self.unknown_items.add(uid)
 
-                self.test_links.append(
-                    LinkedTest(
-                        test_nodeid=item.nodeid,
-                        item_uid=uid,
-                    )
+                link = LinkedTest(
+                    test_nodeid=item.nodeid,
+                    item_uid=uid,
                 )
+                self.test_links.append(link)
+                self._links_by_nodeid.setdefault(item.nodeid, []).append(link)
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(
@@ -156,14 +157,19 @@ class RequirementCollector:
             test_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
             # Update test outcomes and data for all links to this test
-            for link in self.test_links:
-                if link.test_nodeid == item.nodeid:
-                    link.test_outcome = report.outcome
-                    link.notes = notes
-                    link.test_actions = test_actions
-                    link.expected_results = expected_results
-                    link.actual_results = actual_results
-                    link.execution_timestamp = test_timestamp
+            # Use pre-built index if available, otherwise scan test_links
+            links_for_node = self._links_by_nodeid.get(item.nodeid)
+            if links_for_node is None:
+                links_for_node = [
+                    lk for lk in self.test_links if lk.test_nodeid == item.nodeid
+                ]
+            for link in links_for_node:
+                link.test_outcome = report.outcome
+                link.notes = notes
+                link.test_actions = test_actions
+                link.expected_results = expected_results
+                link.actual_results = actual_results
+                link.execution_timestamp = test_timestamp
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
         """Build coverage report for all items in test documents.
@@ -177,18 +183,20 @@ class RequirementCollector:
         if not self.graph:
             return coverage
 
+        # Build index of links by item UID for O(1) lookup
+        links_by_uid: dict[str, list[LinkedTest]] = {}
+        for link in self.test_links:
+            links_by_uid.setdefault(link.item_uid, []).append(link)
+
         # Get test document prefixes
         test_docs = self._get_test_documents()
 
         # Build coverage for items in test documents
         for prefix in test_docs:
             for item in self.graph.get_items_by_document(prefix):
-                linked_tests = [
-                    link for link in self.test_links if link.item_uid == item.uid
-                ]
                 coverage[item.uid] = ItemCoverage(
                     item=item,
-                    linked_tests=linked_tests,
+                    linked_tests=links_by_uid.get(item.uid, []),
                 )
 
         return coverage

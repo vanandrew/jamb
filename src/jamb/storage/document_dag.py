@@ -116,27 +116,22 @@ class DocumentDAG:
         Returns:
             List of error messages. Empty if no cycles.
         """
-        self.topological_sort()
-
-        # If topological sort processed all nodes, no cycles
+        # Build in-degree map and children adjacency (single Kahn's pass)
         in_degree: dict[str, int] = {p: 0 for p in self.documents}
+        children_map: dict[str, list[str]] = {p: [] for p in self.documents}
+
         for prefix, config in self.documents.items():
             for parent in config.parents:
                 if parent in self.documents:
                     in_degree[prefix] += 1
+                    children_map[parent].append(prefix)
 
         queue: deque[str] = deque()
         for prefix, degree in in_degree.items():
             if degree == 0:
                 queue.append(prefix)
 
-        visited = set()
-        children_map: dict[str, list[str]] = {p: [] for p in self.documents}
-        for prefix, config in self.documents.items():
-            for parent in config.parents:
-                if parent in self.documents:
-                    children_map[parent].append(prefix)
-
+        visited: set[str] = set()
         while queue:
             node = queue.popleft()
             visited.add(node)
@@ -145,7 +140,7 @@ class DocumentDAG:
                 if in_degree[child] == 0:
                     queue.append(child)
 
-        errors = []
+        errors: list[str] = []
         cycle_nodes = set(self.documents.keys()) - visited
         if cycle_nodes:
             errors.append(

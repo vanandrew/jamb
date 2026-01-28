@@ -35,7 +35,7 @@ def _check_broken_links(item_files: list[Path], all_doc_paths: dict[str, Path]) 
     known_uids = _collect_all_uids(all_doc_paths)
     broken: list[str] = []
     for item_file in item_files:
-        with open(item_file) as f:
+        with open(item_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         if not data or "links" not in data or not data["links"]:
             continue
@@ -64,6 +64,11 @@ def reorder_document(
     Items are sorted by current UID and assigned new sequential UIDs
     (e.g. PREFIX001, PREFIX002, ...).  Files are renamed on disk and
     every link reference across *all* documents is updated.
+
+    Note: This operation is not atomic. If an error occurs during link
+    updates after files have been renamed, the document may be left in
+    an inconsistent state. Consider committing to version control before
+    reordering.
 
     Returns {"renamed": int, "unchanged": int}.
     """
@@ -127,7 +132,7 @@ def _update_links_in_file(file_path: Path, rename_map: dict[str, str]) -> None:
         file_path: Path to the item YAML file.
         rename_map: A dict mapping old UIDs to new UIDs.
     """
-    with open(file_path) as f:
+    with open(file_path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     if not data or "links" not in data:
@@ -159,7 +164,7 @@ def _update_links_in_file(file_path: Path, rename_map: dict[str, str]) -> None:
 
     if changed:
         data["links"] = new_links
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             dump_yaml(data, f)
 
 
