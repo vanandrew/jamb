@@ -1,11 +1,13 @@
 """Unit tests for DOCX publishing."""
 
 import io
+import tempfile
+from pathlib import Path
 
 from docx import Document
 
 from jamb.core.models import Item, TraceabilityGraph
-from jamb.publish.formats.docx import render_docx
+from jamb.publish.formats.docx import generate_template, render_docx
 
 
 class TestRenderDocx:
@@ -448,3 +450,124 @@ class TestRenderDocxEdgeCases:
         sys_pos = full_text.find("SYS001")
         srs_pos = full_text.find("SRS001")
         assert un_pos < sys_pos < srs_pos
+
+
+class TestRenderDocxTemplateSupport:
+    """Tests for DOCX template support."""
+
+    def test_render_docx_with_template(self):
+        """Test that render_docx works with a template file."""
+        # First generate a template
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+            template_path = f.name
+
+        try:
+            generate_template(template_path)
+
+            # Now use it to render items
+            items = [
+                Item(uid="SRS001", text="Test requirement", document_prefix="SRS"),
+            ]
+            result = render_docx(items, "SRS", template_path=template_path)
+
+            # Should produce valid docx
+            doc = Document(io.BytesIO(result))
+            full_text = " ".join(p.text for p in doc.paragraphs)
+            assert "SRS001" in full_text
+            assert "Test requirement" in full_text
+        finally:
+            Path(template_path).unlink(missing_ok=True)
+
+    def test_render_docx_template_clears_content(self):
+        """Test that template content is cleared before adding new items."""
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+            template_path = f.name
+
+        try:
+            generate_template(template_path)
+
+            items = [
+                Item(uid="NEW001", text="New item", document_prefix="NEW"),
+            ]
+            result = render_docx(items, "New Doc", template_path=template_path)
+
+            doc = Document(io.BytesIO(result))
+            full_text = " ".join(p.text for p in doc.paragraphs)
+
+            # Should NOT contain template example content
+            assert "How to use this template" not in full_text
+            # Should contain new items
+            assert "NEW001" in full_text
+        finally:
+            Path(template_path).unlink(missing_ok=True)
+
+
+class TestGenerateTemplate:
+    """Tests for the template generator function."""
+
+    def test_generate_template_creates_file(self):
+        """Test that generate_template creates a valid DOCX file."""
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+            output_path = f.name
+
+        try:
+            generate_template(output_path)
+
+            # File should exist and be valid docx
+            assert Path(output_path).exists()
+            doc = Document(output_path)
+            assert doc is not None
+        finally:
+            Path(output_path).unlink(missing_ok=True)
+
+    def test_generate_template_contains_sample_content(self):
+        """Test that generated template has sample content."""
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+            output_path = f.name
+
+        try:
+            generate_template(output_path)
+            doc = Document(output_path)
+            full_text = " ".join(p.text for p in doc.paragraphs)
+
+            # Should have explanatory content
+            assert "Jamb Document Template" in full_text
+            assert "How to use this template" in full_text
+            assert "--template" in full_text
+        finally:
+            Path(output_path).unlink(missing_ok=True)
+
+    def test_generate_template_has_style_examples(self):
+        """Test that generated template shows different styles."""
+        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
+            output_path = f.name
+
+        try:
+            generate_template(output_path)
+            doc = Document(output_path)
+            full_text = " ".join(p.text for p in doc.paragraphs)
+
+            # Should have examples of different styles
+            assert "Heading 1" in full_text
+            assert "Heading 2" in full_text
+            assert "Normal" in full_text
+        finally:
+            Path(output_path).unlink(missing_ok=True)
+
+
+class TestRenderDocxPageNumbers:
+    """Tests for page number functionality."""
+
+    def test_render_docx_has_footer(self):
+        """Test that rendered document has footer sections."""
+        items = [
+            Item(uid="SRS001", text="Test requirement", document_prefix="SRS"),
+        ]
+        result = render_docx(items, "SRS")
+
+        doc = Document(io.BytesIO(result))
+        # Document should have at least one section with footer
+        assert len(doc.sections) > 0
+        section = doc.sections[0]
+        # Footer should exist (even if empty when not rendered)
+        assert section.footer is not None
