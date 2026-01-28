@@ -223,8 +223,10 @@ def render_docx(
     else:
         doc_order_index = {}
 
+    fallback_order = len(document_order) if document_order else 0
+
     def get_doc_order(item: Item) -> int:
-        return doc_order_index.get(item.document_prefix, 999)
+        return doc_order_index.get(item.document_prefix, fallback_order)
 
     # Sort items by document hierarchy, then UID
     sorted_items = sorted(
@@ -254,7 +256,7 @@ def render_docx(
             heading = doc.add_heading(heading_text, level=2)
 
         # Add bookmark for this item so links can reference it
-        _add_bookmark(heading, item.uid, idx)
+        _add_bookmark(heading, item.uid, idx + 100)
 
         # Add item text
         if item.text:

@@ -91,6 +91,8 @@ matrix_output = "matrix.html"
 matrix_format = "html"
 ```
 
+> **Tip:** When `matrix_output` is set in `[tool.jamb]`, the traceability matrix is automatically generated at the specified path on each `pytest --jamb` run, without needing to pass `--jamb-matrix` on the command line. This is useful for ensuring the matrix is always up to date.
+
 ## What You'll Learn
 
 The rest of this tutorial walks through the full lifecycle of a regulated project: handling review cycles when requirements change, publishing documentation for regulatory submissions, batch-importing requirements from stakeholders, and enforcing traceability in CI/CD pipelines.

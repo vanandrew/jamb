@@ -64,7 +64,7 @@ def render_json(
             "test_tools": env.test_tools if env else None,
         }
 
-    for uid, cov in coverage.items():
+    for uid, cov in sorted(coverage.items()):
         # Get ancestors
         ancestors = []
         if graph:

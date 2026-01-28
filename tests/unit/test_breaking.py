@@ -1375,13 +1375,15 @@ class TestConfigEdgeCases:
         assert config.test_documents == ["NOPE"]
 
     def test_config_matrix_format_invalid(self, tmp_path: Path) -> None:
-        """matrix_format: 'pdf' — stored as-is; error surfaces at generation."""
+        """matrix_format: 'pdf' — raises ValueError at load time."""
+        import pytest
+
         from jamb.config.loader import load_config
 
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('[tool.jamb]\nmatrix_format = "pdf"\n')
-        config = load_config(pyproject)
-        assert config.matrix_format == "pdf"
+        with pytest.raises(ValueError, match="Invalid matrix_format"):
+            load_config(pyproject)
 
     def test_config_empty_exclude_patterns(self, tmp_path: Path) -> None:
         """exclude_patterns: [] — no exclusions."""

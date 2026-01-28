@@ -18,6 +18,12 @@ def get_requirement_markers(item: pytest.Item) -> list[str]:
     uids: list[str] = []
 
     for marker in item.iter_markers("requirement"):
-        uids.extend(marker.args)
+        for arg in marker.args:
+            if not isinstance(arg, str):
+                raise TypeError(
+                    f"Requirement marker arguments must be strings, "
+                    f"got {type(arg).__name__}: {arg!r}"
+                )
+            uids.append(arg)
 
     return uids

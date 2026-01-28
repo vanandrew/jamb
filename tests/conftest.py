@@ -1,10 +1,41 @@
 """Shared fixtures for jamb tests."""
 
+import os
 from pathlib import Path
 
 import pytest
+import yaml
+from click.testing import CliRunner
 
+from jamb.cli.commands import cli
 from jamb.core.models import Item, ItemCoverage, LinkedTest, TraceabilityGraph
+
+# =============================================================================
+# Shared Test Helpers
+# =============================================================================
+
+
+def _invoke(runner: CliRunner, args: list[str], *, cwd: Path | None = None):
+    """Invoke CLI, optionally inside *cwd*.  Returns the Click result."""
+    if cwd is not None:
+        old = os.getcwd()
+        os.chdir(cwd)
+        try:
+            return runner.invoke(cli, args, catch_exceptions=False)
+        finally:
+            os.chdir(old)
+    return runner.invoke(cli, args, catch_exceptions=False)
+
+
+def _read_yaml(path: Path) -> dict:
+    with open(path) as f:
+        return yaml.safe_load(f) or {}
+
+
+def _write_yaml(path: Path, data: dict) -> None:
+    with open(path, "w") as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
 
 # =============================================================================
 # Item Fixtures

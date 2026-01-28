@@ -1,6 +1,7 @@
 """Validation module for jamb's native storage layer."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 from jamb.core.models import TraceabilityGraph
 from jamb.storage.document_dag import DocumentDAG
@@ -20,7 +21,7 @@ class ValidationIssue:
         message (str): Human-readable description of the issue.
     """
 
-    level: str
+    level: Literal["error", "warning", "info"]
     uid: str | None
     prefix: str | None
     message: str
@@ -28,7 +29,9 @@ class ValidationIssue:
     def __str__(self) -> str:
         """Return a human-readable representation of the validation issue."""
         parts = [f"[{self.level.upper()}]"]
-        if self.uid:
+        if self.uid and self.prefix:
+            parts.append(f"{self.prefix}:{self.uid}")
+        elif self.uid:
             parts.append(self.uid)
         elif self.prefix:
             parts.append(self.prefix)
@@ -474,11 +477,12 @@ def _check_empty_documents(
     """
     issues = []
 
+    prefixes_with_items = {item.document_prefix for item in graph.items.values()}
+
     for prefix in dag.documents:
         if prefix in skip:
             continue
-        items = [i for i in graph.items.values() if i.document_prefix == prefix]
-        if not items:
+        if prefix not in prefixes_with_items:
             issues.append(
                 ValidationIssue(
                     "warning",
@@ -496,9 +500,9 @@ def _check_empty_text(
 ) -> list[ValidationIssue]:
     """Check for items with empty or whitespace-only text.
 
-    Flags every active item whose ``text`` field is ``None``, an empty
-    string, or contains only whitespace characters.  Such items are
-    unlikely to be intentional and may indicate incomplete authoring.
+    Flags every active item whose ``text`` field is empty or contains
+    only whitespace characters.  Such items are unlikely to be
+    intentional and may indicate incomplete authoring.
 
     Args:
         graph: The traceability graph containing all items.
@@ -560,6 +564,10 @@ def _check_item_link_cycles(
         if item.active and item.document_prefix not in skip
     }
 
+    adjacency: dict[str, list[str]] = {}
+    for uid in active_uids:
+        adjacency[uid] = [lk for lk in graph.items[uid].links if lk in active_uids]
+
     WHITE, GRAY, BLACK = 0, 1, 2
     color: dict[str, int] = {uid: WHITE for uid in active_uids}
     path: list[str] = []
@@ -575,9 +583,7 @@ def _check_item_link_cycles(
 
         while stack:
             uid, link_idx = stack[-1]
-            item = graph.items[uid]
-            # Filter to active links
-            active_links = [lk for lk in item.links if lk in active_uids]
+            active_links = adjacency[uid]
 
             if link_idx < len(active_links):
                 # Advance the index for the current frame
