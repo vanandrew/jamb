@@ -218,7 +218,7 @@ def compute_content_hash(item_data: dict[str, Any]) -> str:
     content_parts = [
         str(item_data.get("text", "")),
         str(item_data.get("header", "")),
-        str(sorted(item_data.get("links", []))),
+        str(sorted(item_data.get("links") or [])),
         str(item_data.get("type", "requirement")),
     ]
     content_str = "|".join(content_parts)
