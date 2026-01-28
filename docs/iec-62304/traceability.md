@@ -39,7 +39,7 @@ Every change is surfaced and must be explicitly addressed.
 
 ## Trace Completeness with `jamb validate`
 
-The `jamb validate` command checks the entire traceability chain for completeness, looking for unlinked items (items that should have parent links but do not), broken links (references to items that no longer exist), missing coverage (requirements with no tests linked to them), and suspect links (where the upstream item has changed since the link was created).
+The `jamb validate` command checks the entire traceability chain for completeness, looking for unlinked items (items that should have parent links but do not), broken links (references to items that no longer exist), and suspect links (where the upstream item has changed since the link was created). Test coverage is checked separately by `jamb check` (static scan) or `pytest --jamb --jamb-fail-uncovered` (runtime).
 
 Running `jamb validate` before a release provides evidence that the traceability chain is
 complete and that all changes have been assessed. This is a key audit artifact for
@@ -55,7 +55,7 @@ IEC 62304 Clause 5.7.5 specifies what information must be included in software s
 | Software version tested | `--jamb-software-version` flag or auto-detected from pyproject.toml |
 | Test date | Automatically captured execution timestamp (ISO 8601 UTC) |
 | Tester identification | `--jamb-tester-id` flag |
-| Test environment | Automatically captured (OS, Python version, platform, hostname) |
+| Test environment | Automatically captured (OS, Python version, platform, processor, hostname, CPU count) |
 | Test tools | Automatically captured (all loaded pytest plugins with versions) |
 | Pass/fail criteria | `jamb_log.expected_result()` entries |
 | Actual results | `jamb_log.actual_result()` entries |

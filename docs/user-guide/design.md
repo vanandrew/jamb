@@ -12,7 +12,7 @@ jamb is organized into focused packages, each with a single responsibility:
 | `storage` | Filesystem I/O: discovery, YAML reading/writing, graph building, validation |
 | `pytest_plugin` | pytest hooks, marker extraction, test-outcome recording |
 | `matrix` | Traceability-matrix generation in multiple formats |
-| `publish` | Human-readable document rendering (HTML, DOCX) |
+| `publish` | Human-readable document rendering (HTML, Markdown, DOCX) |
 | `cli` | Click-based command-line interface |
 
 Shared modules at the package root include `config` (configuration loading from `pyproject.toml`) and `yaml_io` (YAML utilities).
@@ -38,9 +38,9 @@ graph TD
 
 The core domain lives in `core/models.py`.
 
-`Item` represents a single requirement, informational note, or heading. Its key fields are `uid`, `text`, `document_prefix`, `type`, `links`, `header`, `reviewed`, and `derived`.
+`Item` represents a single requirement, informational note, or heading. Its key fields are `uid`, `text`, `document_prefix`, `active`, `type`, `links`, `header`, `reviewed`, `derived`, and `testable`.
 
-`LinkedTest` models a test-to-requirement link. It records `test_nodeid`, `item_uid`, and `test_outcome`, plus optional `notes`, `test_actions`, and `expected_results` captured via the `jamb_log` fixture.
+`LinkedTest` models a test-to-requirement link. It records `test_nodeid`, `item_uid`, and `test_outcome`, plus optional `notes`, `test_actions`, `expected_results`, and `actual_results` captured via the `jamb_log` fixture.
 
 `ItemCoverage` pairs an `Item` with its `LinkedTest` list and exposes `is_covered` / `all_tests_passed` properties.
 
@@ -50,7 +50,7 @@ The core domain lives in `core/models.py`.
 
 ## The Document DAG
 
-Documents form a **directed acyclic graph** (DAG), not a simple tree, because a child document can trace to multiple parents. For example, a Risk Controls document may trace to both a Hazard Analysis and a Software Requirements Specification.
+Documents form a **directed acyclic graph** (DAG), not a simple tree, because a child document can trace to multiple parents. For example, the Software Requirements Specification (SRS) traces to both System Requirements (SYS) and Risk Controls (RC).
 
 The `DocumentDAG` class (`storage/document_dag.py`) manages document relationships and provides two critical operations:
 
@@ -119,7 +119,7 @@ sequenceDiagram
 
 Key hooks in order:
 
-1. **`pytest_addoption`** -- Registers `--jamb`, `--jamb-matrix`, `--jamb-matrix-format`, `--jamb-fail-uncovered`, `--jamb-documents`.
+1. **`pytest_addoption`** -- Registers `--jamb`, `--jamb-matrix`, `--jamb-matrix-format`, `--jamb-fail-uncovered`, `--jamb-documents`, `--jamb-tester-id`, `--jamb-software-version`.
 2. **`pytest_configure`** -- Creates a `RequirementCollector` that discovers documents and builds the graph.
 3. **`pytest_collection_modifyitems`** -- Scans collected tests for `@pytest.mark.requirement` markers and creates `LinkedTest` entries.
 4. **`pytest_runtest_makereport`** -- After each test's call phase, records the outcome and any data from `jamb_log`.
@@ -156,11 +156,11 @@ The matrix generator (`matrix/generator.py`) dispatches to format-specific rende
 
 Format modules are imported lazily inside the dispatch function. This avoids requiring optional dependencies (like `openpyxl` for XLSX) when they aren't used.
 
-The publish package (`publish/formats/`) renders human-readable requirement documents in **HTML** and **DOCX** formats, with internal hyperlinks between items and document-order grouping.
+The publish package renders human-readable requirement documents in **HTML**, **Markdown**, and **DOCX** formats, with internal hyperlinks between items and document-order grouping. HTML and DOCX renderers live in `publish/formats/`; Markdown rendering is handled in the CLI layer.
 
 ## Validation Architecture
 
-The `validate()` function (`storage/validation.py`) is the single entry point for all validation. It runs ten independent checks that can each be toggled via keyword flags (all default to `True`):
+The `validate()` function (`storage/validation.py`) is the single entry point for all validation. It runs ten independent checks across three categories. Nine are controlled by keyword flags (all defaulting to `True`); DAG acyclicity always runs:
 
 **Structural checks:**
 - **DAG acyclicity** -- Detects cycles in the document hierarchy.
@@ -184,7 +184,7 @@ Each check returns a list of `ValidationIssue` objects with a `level` (error, wa
 
 | Decision | Alternative | Rationale |
 |----------|------------|-----------|
-| DAG over tree | Tree hierarchy | Multi-parent tracing (e.g., risk controls linked to both hazards and software requirements) |
+| DAG over tree | Tree hierarchy | Multi-parent tracing (e.g., software requirements linked to both system requirements and risk controls) |
 | Content hashing (SHA-256) | Timestamps | Deterministic across git clones; no breakage on fresh checkout or rebase |
 | YAML per item | Single file per document | Better git diffs, fewer merge conflicts when multiple authors edit the same document |
 | In-memory graph | Database | Data fits in memory; no need for a query language or external process |

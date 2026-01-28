@@ -79,7 +79,7 @@ These errors and warnings are reported by `jamb validate`.
 : A cycle was detected in the item link graph (items form a circular dependency).
 : **Fix:** Remove one of the links in the cycle with `jamb link remove` to break the loop.
 
-**"Document DAG cycle detected"**
+**"Cycle detected among documents: \<PREFIXES\>"**
 : The document hierarchy contains a cycle (e.g., document A is a parent of B and B is a parent of A).
 : **Fix:** Recreate one of the documents with corrected parent relationships using `jamb doc delete` and `jamb doc create`.
 

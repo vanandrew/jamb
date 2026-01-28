@@ -2,11 +2,15 @@
 
 **IEC 62304 requirements traceability for pytest.**
 
-jamb links your pytest tests to requirements, generating traceability matrices for regulatory compliance. It's designed for medical device software and other regulated industries where you need to prove every requirement has been tested.
+jamb links your pytest tests to requirements, generating traceability matrices for regulatory submissions. It's designed for medical device software and other regulated industries where you need to prove every requirement has been tested.
 
 ## Features
 
-jamb treats requirements as code: you store them as YAML files in your git repository and link tests to them with `@pytest.mark.requirement`, so traceability lives alongside the source it describes. It generates traceability matrices in HTML, Markdown, JSON, CSV, and Excel, and automatically flags downstream items as suspect when an upstream requirement changes. Built-in review workflows track review status and enforce review cycles, while validation catches broken links, cycles, orphan items, and missing coverage. The default document hierarchy follows IEC 62304, and every check runs in CI/CD so your pipeline can enforce traceability on every commit.
+jamb treats requirements as code: you store them as YAML files in your git repository and link tests to them with `@pytest.mark.requirement`, so traceability lives alongside the source it describes. It generates traceability matrices in HTML, Markdown, JSON, CSV, and Excel, and automatically flags downstream items as suspect when an upstream requirement changes. Built-in review workflows track review status and enforce review cycles, while validation catches broken links, cycles, and orphan items. The default document hierarchy follows IEC 62304, and every check runs in CI/CD so your pipeline can enforce traceability on every commit.
+
+:::{note}
+jamb focuses on **requirements traceability and test coverage** — linking requirements to each other and to pytest tests, then generating the evidence artifacts. It does not provide project management, document control, risk analysis worksheets, electronic signatures, or other ALM capabilities. Teams typically use jamb alongside a QMS and risk management process (see {doc}`iec-62304/overview`).
+:::
 
 ## Quick Example
 
@@ -31,6 +35,8 @@ pytest --jamb --jamb-matrix matrix.html
 ```{image} _static/matrix-example.png
 :alt: Example traceability and test record matrix
 ```
+
+## Publishing Requirements Documents
 
 You can also publish requirements documents as standalone HTML, Markdown, or Word files:
 

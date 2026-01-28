@@ -14,9 +14,24 @@ doorstop offers a desktop GUI and web server, LaTeX/PDF publishing, and a longer
 
 In short, jamb is designed around the pytest workflow; doorstop is a more general-purpose requirements management tool.
 
+## Is jamb a full ALM or compliance solution?
+
+No. jamb handles **requirements traceability and test coverage** — it links requirements to each other and to pytest tests, validates the traceability chain, and generates matrices and published documents. It does not provide:
+
+- Risk analysis worksheets or probability/severity scoring (ISO 14971)
+- Quality management system processes (ISO 13485)
+- Electronic signatures or 21 CFR Part 11 compliance
+- Project planning, issue tracking, or workflow automation
+- Design documentation or architecture management
+- Configuration management beyond what git provides
+
+jamb's HAZ and RC document types support **risk-to-requirement traceability** (linking hazards to risk controls to software requirements), but the full risk management process — hazard analysis, risk estimation, residual risk evaluation, benefit-risk analysis — must be handled by your risk management process and tools.
+
+For early-stage teams, jamb can serve as your traceability tool while you use simpler methods (spreadsheets, documents) for risk management and QMS. As your team and regulatory needs grow, you may add a commercial ALM for cross-functional workflows while continuing to use jamb for developer-facing traceability.
+
 ## What standards does jamb support?
 
-The built-in `jamb init` command creates an IEC 62304 hierarchy, but the document/item/link model is generic enough for any standard requiring traceability (IEC 62443, DO-178C, ISO 26262, etc.).
+The built-in `jamb init` command creates an IEC 62304 hierarchy, but the document/item/link model is generic enough for the **traceability requirements** of other standards (IEC 62443, DO-178C, ISO 26262, etc.).
 
 ## Do I need to use `jamb init`?
 
