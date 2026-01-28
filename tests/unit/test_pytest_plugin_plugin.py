@@ -109,13 +109,17 @@ class TestPytestSessionfinish:
         mock_session.config.option.jamb_matrix = "output.html"
         mock_session.config.option.jamb_matrix_format = "html"
         mock_session.config.option.jamb_fail_uncovered = False
+        mock_session.config.option.jamb_tester_id = "CI Pipeline"
+        mock_session.config.option.jamb_software_version = "1.2.3"
 
         mock_collector = MagicMock()
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
         pytest_sessionfinish(mock_session, 0)
 
-        mock_collector.generate_matrix.assert_called_once_with("output.html", "html")
+        mock_collector.generate_matrix.assert_called_once_with(
+            "output.html", "html", "CI Pipeline", "1.2.3"
+        )
 
     def test_fails_when_uncovered_and_flag_set(self):
         """Test that exit status is 1 when uncovered items and flag is set."""

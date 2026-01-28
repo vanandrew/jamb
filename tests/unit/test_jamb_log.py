@@ -117,3 +117,46 @@ class TestJambLog:
         log = JambLog()
         log.note(None)
         assert log.notes == ["None"]
+
+    def test_actual_result_appends(self):
+        """actual_result() appends to list."""
+        log = JambLog()
+        log.actual_result("result1")
+        log.actual_result("result2")
+        assert log.actual_results == ["result1", "result2"]
+
+    def test_actual_results_returns_copy(self):
+        """actual_results property returns a copy."""
+        log = JambLog()
+        log.actual_result("a result")
+        returned = log.actual_results
+        returned.append("extra")
+        assert log.actual_results == ["a result"]
+
+    def test_actual_result_converts_non_string_to_str(self):
+        """actual_result() converts non-string to str."""
+        log = JambLog()
+        log.actual_result(123)
+        assert log.actual_results == ["123"]
+
+    def test_actual_results_initial_empty(self):
+        """actual_results starts empty."""
+        log = JambLog()
+        assert log.actual_results == []
+
+    def test_all_four_methods_independent(self):
+        """All four logging methods maintain separate lists."""
+        log = JambLog()
+        log.note("n1")
+        log.test_action("a1")
+        log.expected_result("e1")
+        log.actual_result("r1")
+        log.note("n2")
+        log.test_action("a2")
+        log.expected_result("e2")
+        log.actual_result("r2")
+
+        assert log.notes == ["n1", "n2"]
+        assert log.test_actions == ["a1", "a2"]
+        assert log.expected_results == ["e1", "e2"]
+        assert log.actual_results == ["r1", "r2"]

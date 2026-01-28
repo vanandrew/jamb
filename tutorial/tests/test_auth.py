@@ -31,9 +31,14 @@ def refresh_token(token: str) -> str:
 
 # SRS001: Credential Validation
 @pytest.mark.requirement("SRS001")
-def test_valid_credentials_accepted():
+def test_valid_credentials_accepted(jamb_log):
     """Test that valid credentials return True."""
+    jamb_log.test_action("Submit valid credentials for nurse1")
+    jamb_log.expected_result("Authentication returns True")
+    jamb_log.note("Verifying positive authentication path")
+    jamb_log.note("Using username: nurse1, password: secure123")
     assert validate_credentials("nurse1", "secure123") is True
+    jamb_log.actual_result("Authentication returned True")
 
 
 @pytest.mark.requirement("SRS001")
@@ -43,6 +48,7 @@ def test_invalid_credentials_rejected(jamb_log):
     jamb_log.expected_result("Authentication returns False")
     jamb_log.note("Verifying negative authentication path")
     assert validate_credentials("nurse1", "wrong") is False
+    jamb_log.actual_result("Authentication returned False")
 
 
 # SRS002: Password Hashing

@@ -613,3 +613,170 @@ class TestJambLogFixture:
         content = matrix_path.read_text()
         assert "HTML verification message" in content
         assert 'class="message"' in content
+
+    def test_actual_result_captured_in_json_matrix(self, pytester):
+        """Test that actual_result() entries appear in JSON matrix."""
+        import json
+
+        pytester.makepyfile(
+            """
+            import pytest
+
+            @pytest.mark.requirement("SRS001")
+            def test_with_actual_result(jamb_log):
+                jamb_log.test_action("Submit login form")
+                jamb_log.expected_result("Login succeeds")
+                jamb_log.actual_result("Login returned: success")
+                assert True
+            """
+        )
+
+        _setup_jamb(pytester)
+
+        matrix_path = pytester.path / "matrix.json"
+        result = pytester.runpytest(
+            "--jamb",
+            f"--jamb-matrix={matrix_path}",
+            "--jamb-matrix-format=json",
+        )
+
+        assert result.ret == 0
+        assert matrix_path.exists()
+
+        data = json.loads(matrix_path.read_text())
+        test = data["items"]["SRS001"]["linked_tests"][0]
+        assert "Login returned: success" in test["actual_results"]
+        assert "Submit login form" in test["test_actions"]
+        assert "Login succeeds" in test["expected_results"]
+
+
+class TestMatrixMetadataIntegration:
+    """Integration tests for matrix metadata (IEC 62304 5.7.5)."""
+
+    def test_tester_id_in_json_matrix(self, pytester):
+        """Test that --jamb-tester-id appears in JSON matrix."""
+        import json
+
+        pytester.makepyfile(
+            """
+            def test_simple():
+                assert True
+            """
+        )
+
+        _setup_jamb(pytester)
+
+        matrix_path = pytester.path / "matrix.json"
+        result = pytester.runpytest(
+            "--jamb",
+            f"--jamb-matrix={matrix_path}",
+            "--jamb-matrix-format=json",
+            "--jamb-tester-id=CI Pipeline",
+        )
+
+        assert result.ret == 0
+        data = json.loads(matrix_path.read_text())
+        assert data["metadata"]["tester_id"] == "CI Pipeline"
+
+    def test_software_version_in_json_matrix(self, pytester):
+        """Test that --jamb-software-version appears in JSON matrix."""
+        import json
+
+        pytester.makepyfile(
+            """
+            def test_simple():
+                assert True
+            """
+        )
+
+        _setup_jamb(pytester)
+
+        matrix_path = pytester.path / "matrix.json"
+        result = pytester.runpytest(
+            "--jamb",
+            f"--jamb-matrix={matrix_path}",
+            "--jamb-matrix-format=json",
+            "--jamb-software-version=2.5.0",
+        )
+
+        assert result.ret == 0
+        data = json.loads(matrix_path.read_text())
+        assert data["metadata"]["software_version"] == "2.5.0"
+
+    def test_metadata_has_environment(self, pytester):
+        """Test that matrix metadata includes environment info."""
+        import json
+
+        pytester.makepyfile(
+            """
+            def test_simple():
+                assert True
+            """
+        )
+
+        _setup_jamb(pytester)
+
+        matrix_path = pytester.path / "matrix.json"
+        result = pytester.runpytest(
+            "--jamb",
+            f"--jamb-matrix={matrix_path}",
+            "--jamb-matrix-format=json",
+            "--jamb-tester-id=Test",
+        )
+
+        assert result.ret == 0
+        data = json.loads(matrix_path.read_text())
+        meta = data["metadata"]
+        assert meta["environment"] is not None
+        assert "os_name" in meta["environment"]
+        assert "python_version" in meta["environment"]
+        assert meta["execution_timestamp"] is not None
+
+    def test_metadata_has_test_tools(self, pytester):
+        """Test that matrix metadata includes test tools."""
+        import json
+
+        pytester.makepyfile(
+            """
+            def test_simple():
+                assert True
+            """
+        )
+
+        _setup_jamb(pytester)
+
+        matrix_path = pytester.path / "matrix.json"
+        result = pytester.runpytest(
+            "--jamb",
+            f"--jamb-matrix={matrix_path}",
+            "--jamb-matrix-format=json",
+            "--jamb-tester-id=Test",
+        )
+
+        assert result.ret == 0
+        data = json.loads(matrix_path.read_text())
+        test_tools = data["metadata"]["test_tools"]
+        assert "pytest" in test_tools
+
+    def test_tester_id_in_html_matrix(self, pytester):
+        """Test that --jamb-tester-id appears in HTML matrix."""
+        pytester.makepyfile(
+            """
+            def test_simple():
+                assert True
+            """
+        )
+
+        _setup_jamb(pytester)
+
+        matrix_path = pytester.path / "matrix.html"
+        result = pytester.runpytest(
+            "--jamb",
+            f"--jamb-matrix={matrix_path}",
+            "--jamb-tester-id=QA Team",
+        )
+
+        assert result.ret == 0
+        content = matrix_path.read_text()
+        assert "QA Team" in content
+        assert "Traceability and Test Record Matrix" in content

@@ -55,7 +55,8 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
 
     Returns:
         Dict with keys: uid, text, document_prefix, active, type,
-        header, links, link_hashes, reviewed, custom_attributes.
+        header, links, link_hashes, reviewed, derived, testable,
+        custom_attributes.
     """
     with open(path) as f:
         data = yaml.safe_load(f) or {}
@@ -91,6 +92,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         "links",
         "reviewed",
         "derived",
+        "testable",
     }
     custom_attributes = {k: v for k, v in data.items() if k not in standard_fields}
 
@@ -105,6 +107,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         "link_hashes": link_hashes,
         "reviewed": data.get("reviewed"),
         "derived": data.get("derived", False),
+        "testable": data.get("testable", True),
         "custom_attributes": custom_attributes,
     }
 

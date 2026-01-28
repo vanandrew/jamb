@@ -55,6 +55,11 @@ trace_to_ignore = []
 : **Type:** `list[str]`
 : **Default:** `[]`
 
+`software_version`
+: Software version to display in the traceability matrix metadata. If not set, jamb auto-detects the version from `[project].version` in pyproject.toml, or from dynamic version files (hatch-vcs, setuptools_scm). Can be overridden at runtime with `--jamb-software-version`.
+: **Type:** `str | null`
+: **Default:** `null` (auto-detected)
+
 ### Example Configurations
 
 **Minimal (most projects):**

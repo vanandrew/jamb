@@ -1,6 +1,10 @@
 """Collector for test-to-requirement mappings."""
 
+import os
+import platform
+import socket
 from collections.abc import Generator
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -9,7 +13,13 @@ if TYPE_CHECKING:
     from _pytest.terminal import TerminalReporter
 
 from jamb.config.loader import JambConfig, load_config
-from jamb.core.models import ItemCoverage, LinkedTest, TraceabilityGraph
+from jamb.core.models import (
+    ItemCoverage,
+    LinkedTest,
+    MatrixMetadata,
+    TestEnvironment,
+    TraceabilityGraph,
+)
 from jamb.pytest_plugin.log import JAMB_LOG_KEY
 from jamb.pytest_plugin.markers import get_requirement_markers
 
@@ -44,6 +54,9 @@ class RequirementCollector:
         self.graph: TraceabilityGraph | None = None
         self.test_links: list[LinkedTest] = []
         self.unknown_items: set[str] = set()
+        self.execution_timestamp: str = datetime.now(timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
         self._load_requirements()
 
     def _load_requirements(self) -> None:
@@ -116,6 +129,7 @@ class RequirementCollector:
             notes: list[str] = []
             test_actions: list[str] = []
             expected_results: list[str] = []
+            actual_results: list[str] = []
 
             # Capture custom data from jamb_log fixture
             if JAMB_LOG_KEY in item.stash:
@@ -123,6 +137,7 @@ class RequirementCollector:
                 notes.extend(jamb_log.notes)
                 test_actions.extend(jamb_log.test_actions)
                 expected_results.extend(jamb_log.expected_results)
+                actual_results.extend(jamb_log.actual_results)
 
             # Capture failure message/traceback
             if report.failed and report.longreprtext:
@@ -138,6 +153,9 @@ class RequirementCollector:
                 elif report.longreprtext:
                     notes.append(f"[SKIPPED] {report.longreprtext}")
 
+            # Capture execution timestamp for this test
+            test_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
             # Update test outcomes and data for all links to this test
             for link in self.test_links:
                 if link.test_nodeid == item.nodeid:
@@ -145,6 +163,8 @@ class RequirementCollector:
                     link.notes = notes
                     link.test_actions = test_actions
                     link.expected_results = expected_results
+                    link.actual_results = actual_results
+                    link.execution_timestamp = test_timestamp
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
         """Build coverage report for all items in test documents.
@@ -215,22 +235,88 @@ class RequirementCollector:
                 return False
         return True
 
-    def generate_matrix(self, path: str, format: str) -> None:
+    def _build_test_environment(self) -> TestEnvironment:
+        """Build test environment information using stdlib modules.
+
+        Returns:
+            A TestEnvironment with current system information.
+        """
+        # Get test tools from pytest plugin manager
+        test_tools: dict[str, str] = {}
+
+        # Always include pytest version first
+        try:
+            import pytest as pytest_module
+
+            test_tools["pytest"] = pytest_module.__version__
+        except (ImportError, AttributeError):
+            pass
+
+        # Get all loaded pytest plugins with their versions
+        try:
+            plugin_info = self.pytest_config.pluginmanager.list_plugin_distinfo()
+            for _plugin, dist in plugin_info:
+                name = dist.project_name
+                version = dist.version
+                # Skip pytest itself (already added) and internal plugins
+                if name.lower() != "pytest" and not name.startswith("_"):
+                    test_tools[name] = version
+        except Exception:
+            # Fallback: at least try to get jamb version
+            try:
+                from importlib.metadata import version
+
+                test_tools["jamb"] = version("jamb")
+            except Exception:
+                pass
+
+        return TestEnvironment(
+            os_name=platform.system(),
+            os_version=platform.release(),
+            python_version=platform.python_version(),
+            platform=platform.machine(),
+            processor=platform.processor() or "unknown",
+            hostname=socket.gethostname(),
+            cpu_count=os.cpu_count(),
+            test_tools=test_tools,
+        )
+
+    def generate_matrix(
+        self,
+        path: str,
+        format: str,
+        tester_id: str = "Unknown",
+        software_version: str | None = None,
+    ) -> None:
         """Generate traceability matrix.
 
         Args:
             path: The output file path for the generated matrix.
             format: The output format (html, markdown, json, csv, or xlsx).
+            tester_id: Identification of the tester or CI system.
+            software_version: Software version override (takes precedence over config).
         """
         from jamb.matrix.generator import generate_matrix
 
         coverage = self.get_coverage()
+
+        # Build metadata for IEC 62304 5.7.5 compliance
+        # CLI flag takes precedence over config file / pyproject.toml
+        version = software_version or self.jamb_config.software_version
+        metadata = MatrixMetadata(
+            software_version=version,
+            tester_id=tester_id,
+            execution_timestamp=self.execution_timestamp,
+            environment=self._build_test_environment(),
+        )
+
         generate_matrix(
             coverage,
             self.graph,
             path,
             format,
             trace_to_ignore=set(self.jamb_config.trace_to_ignore),
+            metadata=metadata,
         )
 
 

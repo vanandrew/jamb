@@ -21,6 +21,8 @@ class Item:
             or ``None`` if never reviewed.
         derived (bool): Whether the item is derived (intentionally has no
             parent links).
+        testable (bool): Whether the item can be verified by testing. If False,
+            the item shows "N/A" instead of "NOT COVERED" in the matrix.
         custom_attributes (dict[str, Any]): Arbitrary user-defined key-value pairs.
 
     Examples:
@@ -57,6 +59,7 @@ class Item:
     links: list[str] = field(default_factory=list)
     reviewed: str | None = None
     derived: bool = False
+    testable: bool = True
     custom_attributes: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -80,6 +83,8 @@ class LinkedTest:
         notes (list[str]): Free-form notes captured during test execution.
         test_actions (list[str]): Steps performed by the test.
         expected_results (list[str]): Expected outcomes for each test action.
+        actual_results (list[str]): Actual outcomes observed during test execution.
+        execution_timestamp (str | None): ISO 8601 UTC timestamp of test execution.
     """
 
     test_nodeid: str
@@ -88,6 +93,53 @@ class LinkedTest:
     notes: list[str] = field(default_factory=list)
     test_actions: list[str] = field(default_factory=list)
     expected_results: list[str] = field(default_factory=list)
+    actual_results: list[str] = field(default_factory=list)
+    execution_timestamp: str | None = None
+
+
+@dataclass
+class TestEnvironment:
+    """Test environment info per IEC 62304 5.7.5.
+
+    Uses stdlib only for portability.
+
+    Attributes:
+        os_name (str): Operating system name (e.g., "Darwin").
+        os_version (str): Operating system version (e.g., "25.2.0").
+        python_version (str): Python version (e.g., "3.12.0").
+        platform (str): Platform architecture (e.g., "arm64").
+        processor (str): Processor type (e.g., "arm").
+        hostname (str): Machine hostname (e.g., "dev-machine.local").
+        cpu_count (int | None): Number of CPUs, or None if unavailable.
+        test_tools (dict[str, str]): Mapping of tool name to version
+            (e.g., {"pytest": "8.0.0", "jamb": "1.2.0"}).
+    """
+
+    os_name: str
+    os_version: str
+    python_version: str
+    platform: str
+    processor: str
+    hostname: str
+    cpu_count: int | None
+    test_tools: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class MatrixMetadata:
+    """Metadata for the traceability matrix per IEC 62304 5.7.5.
+
+    Attributes:
+        software_version (str | None): Version of the software under test.
+        tester_id (str): Identification of the tester or CI system.
+        execution_timestamp (str | None): ISO 8601 UTC timestamp of test execution.
+        environment (TestEnvironment | None): Test environment information.
+    """
+
+    software_version: str | None = None
+    tester_id: str = "Unknown"
+    execution_timestamp: str | None = None
+    environment: TestEnvironment | None = None
 
 
 @dataclass
