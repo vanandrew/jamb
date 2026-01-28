@@ -11,23 +11,32 @@ except ImportError:
 
 @dataclass
 class JambConfig:
-    """Configuration schema for jamb."""
+    """Configuration schema for jamb.
 
-    # Which documents represent test specifications
+    Attributes:
+        test_documents: Document prefixes that represent test
+            specifications.
+        fail_uncovered: Fail the pytest session when any normative item
+            lacks test coverage.
+        require_all_pass: Require all linked tests to pass for an item
+            to be considered covered.
+        matrix_output: File path for the generated traceability matrix,
+            or ``None`` to skip generation.
+        matrix_format: Output format for the traceability matrix
+            (``"html"``, ``"markdown"``, ``"json"``, ``"csv"``, or
+            ``"xlsx"``).
+        exclude_patterns: Glob patterns for documents or items to
+            exclude from processing.
+        trace_to_ignore: Document prefixes to exclude from the
+            "Traces To" column in the traceability matrix.
+    """
+
     test_documents: list[str] = field(default_factory=list)
-
-    # Coverage enforcement
     fail_uncovered: bool = False
     require_all_pass: bool = True
-
-    # Matrix output
     matrix_output: str | None = None
     matrix_format: str = "html"
-
-    # Exclusions
     exclude_patterns: list[str] = field(default_factory=list)
-
-    # Document prefixes to exclude from "Traces To" column
     trace_to_ignore: list[str] = field(default_factory=list)
 
 

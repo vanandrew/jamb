@@ -14,8 +14,7 @@ derived: false
 header: Authentication
 reviewed: "a1b2c3d4"
 links:
-  - uid: SYS001
-    hash: "e5f6a7b8"
+  - SYS001: "e5f6a7b8"
 text: |
   Software shall authenticate users with username and password.
 ```
@@ -51,7 +50,7 @@ text: |
 : **Default:** `false`
 
 `type`
-: Item type. Standard items use `requirement`. Headings and informational items use `heading` or `information`.
+: Item type. Standard items use `requirement`. Headings and informational items use `heading` or `info`.
 : **Type:** `str`
 : **Default:** `"requirement"`
 
@@ -69,13 +68,27 @@ links:
 **Full** (with content hash for suspect link detection):
 ```yaml
 links:
-  - uid: SYS001
-    hash: "e5f6a7b8"
-  - uid: SYS002
-    hash: "c3d4e5f6"
+  - SYS001: "e5f6a7b8"
+  - SYS002: "c3d4e5f6"
 ```
 
 The hash is a truncated SHA-256 of the parent item's content. When you run `jamb review clear`, the hash is updated to the parent's current content hash. If the parent is later modified, the stored hash no longer matches, making the link **suspect**.
+
+### Custom Attributes
+
+Any YAML keys in an item file that are not part of the standard fields (`active`, `text`, `header`, `links`, `reviewed`, `derived`, `type`) are preserved as custom attributes. This allows you to attach project-specific metadata to items:
+
+```yaml
+active: true
+header: Authentication
+text: |
+  Software shall authenticate users with username and password.
+category: security
+priority: high
+verification_method: test
+```
+
+Custom attributes are read and written by jamb without modification. They are available on the `Item.custom_attributes` dictionary and will be preserved across edits and imports.
 
 ## Document Configuration (`.jamb.yml`)
 

@@ -8,7 +8,17 @@ import yaml
 
 @dataclass
 class DocumentConfig:
-    """Configuration for a requirements document."""
+    """Configuration for a requirements document.
+
+    Attributes:
+        prefix: Unique identifier prefix for items in this document
+            (e.g. ``"REQ"``).
+        parents: Prefixes of parent documents in the document DAG.
+        digits: Number of zero-padded digits in generated UIDs
+            (e.g. ``3`` produces ``REQ001``).
+        sep: Separator between the prefix and numeric part of a UID
+            (e.g. ``"-"`` produces ``REQ-001``).
+    """
 
     prefix: str
     parents: list[str] = field(default_factory=list)

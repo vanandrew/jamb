@@ -12,6 +12,12 @@ class DocumentDAG:
     """Directed acyclic graph of document relationships.
 
     Supports multiple parents per document (DAG structure).
+
+    Attributes:
+        documents: Mapping of document prefix to its
+            :class:`~jamb.storage.document_config.DocumentConfig`.
+        document_paths: Mapping of document prefix to the filesystem
+            path of the document directory.
     """
 
     documents: dict[str, DocumentConfig] = field(default_factory=dict)
