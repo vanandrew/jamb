@@ -554,6 +554,11 @@ def _update_item(
         echo(f"  Error: {uid} contains invalid YAML (expected mapping)")
         return "error"
 
+    # Compute content hash before mutations to detect real changes
+    from jamb.storage.items import compute_content_hash
+
+    old_hash = compute_content_hash(existing_data)
+
     # Update fields from spec (only update what's provided)
     if "text" in spec:
         existing_data["text"] = spec["text"]
@@ -568,8 +573,9 @@ def _update_item(
         elif "links" in existing_data:
             del existing_data["links"]
 
-    # Clear reviewed status - item needs re-review after update
-    if "reviewed" in existing_data:
+    # Only clear reviewed status if content actually changed
+    new_hash = compute_content_hash(existing_data)
+    if old_hash != new_hash and "reviewed" in existing_data:
         del existing_data["reviewed"]
 
     # Write updated data

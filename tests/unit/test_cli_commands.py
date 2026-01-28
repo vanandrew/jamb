@@ -120,6 +120,46 @@ class TestScanTestsEdgeCases:
         result = _scan_tests_for_requirements(tmp_path)
         assert result == set()
 
+    def test_finds_markers_in_suffix_test_files(self, tmp_path):
+        """Files matching *_test.py are scanned."""
+        test_file = tmp_path / "login_test.py"
+        test_file.write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001')\n"
+            "def test_login():\n"
+            "    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert "SRS001" in result
+
+    def test_finds_keyword_arguments(self, tmp_path):
+        """Keyword string arguments to requirement marker are captured."""
+        test_file = tmp_path / "test_kw.py"
+        test_file.write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement(uid='SRS042')\n"
+            "def test_kw():\n"
+            "    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert "SRS042" in result
+
+    def test_finds_both_positional_and_keyword_args(self, tmp_path):
+        """Both positional and keyword string args are captured."""
+        test_file = tmp_path / "test_mixed.py"
+        test_file.write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001', uid='SRS002')\n"
+            "def test_mixed():\n"
+            "    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert "SRS001" in result
+        assert "SRS002" in result
+
 
 # =========================================================================
 # New comprehensive CLI command tests appended below

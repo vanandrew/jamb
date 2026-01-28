@@ -150,7 +150,7 @@ class TestMalformedYaml:
         assert result["text"] == "None"  # str(None)
         assert result["active"] is None  # data.get("active", True) returns None
         assert result["type"] is None
-        assert result["header"] == ""  # str(None or "") -> str("") -> ""
+        assert result["header"] is None  # None or "" -> None
         assert result["links"] == []  # None is not a list
         assert result["reviewed"] is None
         assert result["derived"] is None
@@ -1124,7 +1124,7 @@ class TestRoundTrip:
         }
         result = self._roundtrip(tmp_path, data)
         assert result["text"] == ""
-        assert result["header"] == ""
+        assert result["header"] is None
         assert result["links"] == []
         assert result["reviewed"] is None
 

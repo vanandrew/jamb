@@ -247,6 +247,36 @@ class TestUpdateItem:
         updated = yaml.safe_load(item_path.read_text())
         assert "header" not in updated
 
+    def test_preserves_reviewed_on_no_op_update(self, tmp_path):
+        """Reviewed status is preserved when content does not change."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\nreviewed: abc123\ntext: Same text\n")
+
+        _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "Same text"},
+            verbose=False,
+            echo=print,
+        )
+
+        updated = yaml.safe_load(item_path.read_text())
+        assert updated["reviewed"] == "abc123"
+
+    def test_clears_reviewed_when_content_changes(self, tmp_path):
+        """Reviewed status is cleared when content actually changes."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\nreviewed: abc123\ntext: Old text\n")
+
+        _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "New text"},
+            verbose=False,
+            echo=print,
+        )
+
+        updated = yaml.safe_load(item_path.read_text())
+        assert "reviewed" not in updated
+
     def test_update_item_verbose(self, tmp_path):
         """Test _update_item verbose output."""
         item_path = tmp_path / "SRS001.yml"

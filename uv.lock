@@ -461,7 +461,7 @@ dev = [
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
-    { name = "ruff" },
+    { name = "ruff", specifier = ">=0.9.4" },
     { name = "types-openpyxl" },
     { name = "types-pyyaml" },
 ]

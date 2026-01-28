@@ -175,7 +175,7 @@ def _setup_styles(doc: Any) -> None:
 def render_docx(
     items: list[Item],
     title: str,
-    include_child_links: bool = True,
+    include_links: bool = True,
     document_order: list[str] | None = None,
     graph: TraceabilityGraph | None = None,
     template_path: str | None = None,
@@ -185,7 +185,7 @@ def render_docx(
     Args:
         items: List of Item objects to include in the document.
         title: The document title.
-        include_child_links: Whether to include links section for each item.
+        include_links: Whether to include links section for each item.
         document_order: Optional list of document prefixes in hierarchy order
                        (root first, then children). If None, sorts alphabetically.
         graph: Optional traceability graph for child link lookup.
@@ -269,7 +269,7 @@ def render_docx(
                 doc.add_paragraph(item.text)
 
         # Add links section with hyperlinks
-        if include_child_links and item.links:
+        if include_links and item.links:
             links_para = doc.add_paragraph()
             links_run = links_para.add_run("Links: ")
             links_run.bold = True
@@ -285,7 +285,7 @@ def render_docx(
                     links_para.add_run(link_uid)
 
         # Add child links section (reverse links)
-        if include_child_links and graph is not None:
+        if include_links and graph is not None:
             children = graph.item_children.get(item.uid, [])
             visible_children = [c for c in children if c in all_uids]
             if visible_children:

@@ -107,7 +107,7 @@ Usage: jamb init [OPTIONS]
         └── RC (Risk Controls)
 
   Also creates an initial PRJ001 heading item using the project name
-  from pyproject.toml (or "Project" if pyproject.toml is not found).
+  from pyproject.toml (or the current directory name if pyproject.toml is not found).
 
   If pyproject.toml exists, adds [tool.jamb] configuration.
 

@@ -86,4 +86,4 @@ def save_document_config(config: DocumentConfig, directory: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     config_path = directory / ".jamb.yml"
     with open(config_path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(data, f, default_flow_style=False, sort_keys=False)

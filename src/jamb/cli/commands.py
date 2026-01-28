@@ -29,7 +29,7 @@ def _cli_error_handler(f: F) -> F:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return f(*args, **kwargs)
-        except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
+        except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as e:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
 
@@ -77,6 +77,7 @@ def cli() -> None:
 
 
 @cli.command()
+@_cli_error_handler
 def init() -> None:
     r"""Initialize a new jamb project with default IEC 62304 documents.
 
@@ -357,6 +358,7 @@ def check(documents: str | None, root: Path | None) -> None:
             if (
                 item.type == "requirement"
                 and item.active
+                and item.testable
                 and item.uid not in linked_items
             ):
                 uncovered.append(item)
@@ -371,7 +373,7 @@ def check(documents: str | None, root: Path | None) -> None:
             1
             for p in test_docs
             for item in graph.get_items_by_document(p)
-            if item.type == "requirement" and item.active
+            if item.type == "requirement" and item.active and item.testable
         )
         click.echo(f"\nAll {total} items in test documents have linked tests.")
 
@@ -394,22 +396,28 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
     linked: set[str] = set()
 
     # Find test files
-    for test_file in root.rglob("test_*.py"):
-        try:
-            source = test_file.read_text()
-            tree = ast.parse(source)
+    for pattern in ("test_*.py", "*_test.py"):
+        for test_file in root.rglob(pattern):
+            try:
+                source = test_file.read_text()
+                tree = ast.parse(source)
 
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Call):
-                    # Look for pytest.mark.requirement(...)
-                    if _is_requirement_marker(node):
-                        for arg in node.args:
-                            if isinstance(arg, ast.Constant) and isinstance(
-                                arg.value, str
-                            ):
-                                linked.add(arg.value)
-        except (SyntaxError, OSError, UnicodeDecodeError):
-            continue  # Skip unreadable/unparseable test files
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call):
+                        # Look for pytest.mark.requirement(...)
+                        if _is_requirement_marker(node):
+                            for arg in node.args:
+                                if isinstance(arg, ast.Constant) and isinstance(
+                                    arg.value, str
+                                ):
+                                    linked.add(arg.value)
+                            for kw in node.keywords:
+                                if isinstance(kw.value, ast.Constant) and isinstance(
+                                    kw.value.value, str
+                                ):
+                                    linked.add(kw.value.value)
+            except (SyntaxError, OSError, UnicodeDecodeError):
+                continue  # Skip unreadable/unparseable test files
 
     return linked
 
@@ -799,6 +807,7 @@ def item_list(prefix: str | None, root: Path | None) -> None:
 
 @item.command("remove")
 @click.argument("uid")
+@_cli_error_handler
 def item_remove(uid: str) -> None:
     """Remove an item by UID.
 
@@ -836,6 +845,7 @@ def item_remove(uid: str) -> None:
     "-T",
     help="Text editor to use (default: $EDITOR or vim)",
 )
+@_cli_error_handler
 def item_edit(uid: str, tool: str | None) -> None:
     """Edit an item in the default editor.
 
@@ -900,6 +910,7 @@ def link() -> None:
 @link.command("add")
 @click.argument("child")
 @click.argument("parent")
+@_cli_error_handler
 def link_add(child: str, parent: str) -> None:
     """Link a child item to a parent item.
 
@@ -941,6 +952,7 @@ def link_add(child: str, parent: str) -> None:
 @link.command("remove")
 @click.argument("child")
 @click.argument("parent")
+@_cli_error_handler
 def link_remove(child: str, parent: str) -> None:
     """Remove a link between items.
 
@@ -1083,7 +1095,7 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
                     target = graph.items[link_uid_str]
                     target_data = {
                         "text": target.text,
-                        "header": target.header,
+                        "header": target.header or "",
                         "links": target.links,
                         "type": target.type,
                     }
@@ -1149,14 +1161,15 @@ def review_reset(label: str, root: Path | None) -> None:
         # Strip link hashes, keeping just the UIDs
         links = data.get("links", [])
         if links:
-            new_links: list[str] = []
-            for entry in links:
-                if isinstance(entry, dict):
-                    new_links.extend(entry.keys())
-                else:
-                    new_links.append(entry)
-            data["links"] = new_links
-            if new_links != links:
+            has_dict_links = any(isinstance(entry, dict) for entry in links)
+            if has_dict_links:
+                new_links: list[str] = []
+                for entry in links:
+                    if isinstance(entry, dict):
+                        new_links.extend(entry.keys())
+                    else:
+                        new_links.append(entry)
+                data["links"] = new_links
                 changed = True
 
         if changed:
@@ -1498,7 +1511,7 @@ def _publish_markdown(prefix: str, path: str, include_links: bool = True) -> Non
 
 @_cli_error_handler
 def _publish_docx(
-    prefix: str, path: str, include_child_links: bool, template: Path | None = None
+    prefix: str, path: str, include_links: bool, template: Path | None = None
 ) -> None:
     """Publish documents as a single DOCX file.
 
@@ -1506,8 +1519,8 @@ def _publish_docx(
         prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
             document.
         path: Filesystem path for the output DOCX file.
-        include_child_links: Whether to include child (reverse) link
-            references in the generated document.
+        include_links: Whether to include link references in the
+            generated document.
         template: Optional path to a DOCX template file to use for styling.
     """
     from jamb.publish.formats.docx import render_docx
@@ -1532,7 +1545,7 @@ def _publish_docx(
 
     template_path = str(template) if template else None
     docx_bytes = render_docx(
-        items, title, include_child_links, doc_order, graph, template_path
+        items, title, include_links, doc_order, graph, template_path
     )
     output_path.write_bytes(docx_bytes)
     click.echo(f"Published to {output_path}")
