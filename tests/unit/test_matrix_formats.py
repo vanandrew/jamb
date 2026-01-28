@@ -117,6 +117,12 @@ class TestRenderHtml:
         assert "<table" in html
         assert "</html>" in html
 
+    def test_contains_charset_meta_tag(self, sample_coverage, sample_graph):
+        """Test that HTML output declares UTF-8 charset."""
+        html = render_html(sample_coverage, sample_graph)
+
+        assert '<meta charset="utf-8">' in html
+
     def test_contains_item_uid(self, sample_coverage, sample_graph):
         """Test that HTML contains item UID."""
         html = render_html(sample_coverage, sample_graph)

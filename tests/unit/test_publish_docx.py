@@ -117,7 +117,7 @@ class TestRenderDocx:
         assert "UN002" in full_text
 
     def test_render_docx_no_links_when_disabled(self):
-        """Test that render_docx omits links when include_child_links is False."""
+        """Test that render_docx omits links when include_links is False."""
         items = [
             Item(
                 uid="SRS001",
@@ -126,7 +126,7 @@ class TestRenderDocx:
                 links=["UN001"],
             ),
         ]
-        result = render_docx(items, "SRS", include_child_links=False)
+        result = render_docx(items, "SRS", include_links=False)
 
         doc = Document(io.BytesIO(result))
         paragraphs = [p.text for p in doc.paragraphs]
@@ -400,8 +400,8 @@ class TestRenderDocx:
 class TestRenderDocxEdgeCases:
     """Additional edge case tests for render_docx."""
 
-    def test_include_child_links_false_with_graph_suppresses_all_links(self):
-        """include_child_links=False with a graph suppresses
+    def test_include_links_false_with_graph_suppresses_all_links(self):
+        """include_links=False with a graph suppresses
         both parent links and child links."""
         graph = TraceabilityGraph()
         un_item = Item(uid="UN001", text="Customer need", document_prefix="UN")
@@ -418,7 +418,7 @@ class TestRenderDocxEdgeCases:
         result = render_docx(
             items,
             "Requirements",
-            include_child_links=False,
+            include_links=False,
             graph=graph,
         )
 

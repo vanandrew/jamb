@@ -170,6 +170,7 @@ def render_html(
     return f"""<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Traceability and Test Record Matrix</title>
     <style>
         body {{

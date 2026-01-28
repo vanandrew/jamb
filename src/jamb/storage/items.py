@@ -102,7 +102,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         "document_prefix": document_prefix,
         "active": data.get("active", True),
         "type": item_type,
-        "header": str(data.get("header", "") or ""),
+        "header": data.get("header") or None,
         "links": links,
         "link_hashes": link_hashes,
         "reviewed": data.get("reviewed"),
@@ -223,7 +223,7 @@ def compute_content_hash(item_data: dict[str, Any]) -> str:
     """
     content_parts = [
         str(item_data.get("text", "")),
-        str(item_data.get("header", "")),
+        str(item_data.get("header") or ""),
         str(sorted(item_data.get("links") or [])),
         str(item_data.get("type", "requirement")),
     ]

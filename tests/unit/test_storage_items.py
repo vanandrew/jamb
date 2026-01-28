@@ -60,11 +60,11 @@ class TestReadItem:
         assert data["links"] == ["SYS001", "SYS002"]
         assert data["link_hashes"] == {"SYS001": "abc"}
 
-    def test_reads_empty_header_as_empty_string(self, tmp_path):
+    def test_reads_empty_header_as_none(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("active: true\ntext: Test\nheader:\n")
         data = read_item(item_path, "SRS")
-        assert data["header"] == ""
+        assert data["header"] is None
 
     def test_reads_derived_flag(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
@@ -120,7 +120,7 @@ class TestReadItem:
         assert data["links"] == []
         assert data["link_hashes"] == {}
         assert data["type"] == "requirement"
-        assert data["header"] == ""
+        assert data["header"] is None
 
     def test_raises_on_yaml_syntax_error(self, tmp_path):
         """Malformed YAML content causes yaml.YAMLError to propagate."""
@@ -290,10 +290,10 @@ class TestComputeContentHash:
         assert compute_content_hash(data1) == compute_content_hash(data2)
 
     def test_header_none_vs_empty_string(self):
-        """1e: header=None vs header='' produce different hashes."""
+        """1e: header=None and header='' produce the same hash."""
         data_none = {"text": "test", "header": None, "type": "requirement"}
         data_empty = {"text": "test", "header": "", "type": "requirement"}
-        assert compute_content_hash(data_none) != compute_content_hash(data_empty)
+        assert compute_content_hash(data_none) == compute_content_hash(data_empty)
 
 
 class TestRoundTrip:
@@ -346,4 +346,4 @@ class TestRoundTrip:
         data = read_item(item_path, "SRS")
         assert data["text"] == "Simple"
         assert data["links"] == []
-        assert data["header"] == ""
+        assert data["header"] is None

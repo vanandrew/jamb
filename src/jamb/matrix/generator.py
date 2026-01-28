@@ -34,26 +34,26 @@ def generate_matrix(
         content = render_html(
             coverage, graph, trace_to_ignore=ignore, metadata=metadata
         )
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
     elif output_format == "markdown":
         from jamb.matrix.formats.markdown import render_markdown
 
         content = render_markdown(
             coverage, graph, trace_to_ignore=ignore, metadata=metadata
         )
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
     elif output_format == "json":
         from jamb.matrix.formats.json import render_json
 
         content = render_json(
             coverage, graph, trace_to_ignore=ignore, metadata=metadata
         )
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
     elif output_format == "csv":
         from jamb.matrix.formats.csv import render_csv
 
         content = render_csv(coverage, graph, trace_to_ignore=ignore, metadata=metadata)
-        path.write_text(content)
+        path.write_text(content, encoding="utf-8")
     elif output_format == "xlsx":
         from jamb.matrix.formats.xlsx import render_xlsx
 
