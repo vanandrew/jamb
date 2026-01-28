@@ -9,9 +9,18 @@ from jamb.storage.items import compute_content_hash, read_item
 
 @dataclass
 class ValidationIssue:
-    """A single validation issue."""
+    """A single validation issue.
 
-    level: str  # "error", "warning", "info"
+    Attributes:
+        level: Severity — ``"error"``, ``"warning"``, or ``"info"``.
+        uid: UID of the item involved, or ``None`` for document-level
+            issues.
+        prefix: Document prefix involved, or ``None`` when not
+            applicable.
+        message: Human-readable description of the issue.
+    """
+
+    level: str
     uid: str | None
     prefix: str | None
     message: str

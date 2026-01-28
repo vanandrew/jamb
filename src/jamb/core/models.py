@@ -5,7 +5,23 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Item:
-    """Represents a requirements item (requirement, info, heading, etc.)."""
+    """Represents a requirements item (requirement, info, heading, etc.).
+
+    Attributes:
+        uid: Unique identifier for the item (e.g. ``REQ001``).
+        text: Body text of the requirement.
+        document_prefix: Prefix of the document this item belongs to.
+        active: Whether the item is active. Inactive items are ignored
+            during validation and coverage checks.
+        type: Item type — ``"requirement"``, ``"info"``, or ``"heading"``.
+        header: Optional heading text displayed instead of body text.
+        links: UIDs of parent items this item traces to.
+        reviewed: Content hash recorded when the item was last reviewed,
+            or ``None`` if never reviewed.
+        derived: Whether the item is derived (intentionally has no
+            parent links).
+        custom_attributes: Arbitrary user-defined key-value pairs.
+    """
 
     uid: str
     text: str
@@ -28,7 +44,18 @@ class Item:
 
 @dataclass
 class LinkedTest:
-    """Represents a link from a pytest test to a requirements item."""
+    """Represents a link from a pytest test to a requirements item.
+
+    Attributes:
+        test_nodeid: The pytest node ID of the test (e.g.
+            ``tests/test_foo.py::test_bar``).
+        item_uid: UID of the requirements item the test covers.
+        test_outcome: Result of the test — ``"passed"``, ``"failed"``,
+            ``"skipped"``, or ``"error"``. ``None`` before execution.
+        notes: Free-form notes captured during test execution.
+        test_actions: Steps performed by the test.
+        expected_results: Expected outcomes for each test action.
+    """
 
     test_nodeid: str
     item_uid: str
@@ -40,7 +67,12 @@ class LinkedTest:
 
 @dataclass
 class ItemCoverage:
-    """Coverage status for a single requirements item."""
+    """Coverage status for a single requirements item.
+
+    Attributes:
+        item: The requirements item being tracked.
+        linked_tests: Tests linked to this item via requirement markers.
+    """
 
     item: Item
     linked_tests: list[LinkedTest] = field(default_factory=list)
@@ -65,14 +97,20 @@ class TraceabilityGraph:
 
     Stores items by UID and tracks parent-child relationships
     based on document hierarchy and item links.
+
+    Attributes:
+        items: Mapping of item UID to :class:`Item` instance.
+        item_parents: Mapping of item UID to list of parent item UIDs
+            (derived from each item's ``links`` field).
+        item_children: Reverse index mapping item UID to list of child
+            item UIDs that link to it.
+        document_parents: Mapping of document prefix to list of parent
+            document prefixes (the document-level DAG).
     """
 
     items: dict[str, Item] = field(default_factory=dict)
-    # Maps item UID -> list of parent item UIDs (from links field)
     item_parents: dict[str, list[str]] = field(default_factory=dict)
-    # Maps item UID -> list of child item UIDs (reverse index)
     item_children: dict[str, list[str]] = field(default_factory=dict)
-    # Maps document prefix -> list of parent document prefixes (DAG)
     document_parents: dict[str, list[str]] = field(default_factory=dict)
 
     def add_item(self, item: Item) -> None:

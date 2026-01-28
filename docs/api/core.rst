@@ -32,3 +32,12 @@ TraceabilityGraph
 .. autoclass:: TraceabilityGraph
    :members:
    :undoc-members:
+
+JambError
+---------
+
+.. module:: jamb.core.errors
+
+.. autoclass:: JambError
+   :members:
+   :undoc-members:

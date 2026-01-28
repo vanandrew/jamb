@@ -15,7 +15,19 @@ from jamb.pytest_plugin.markers import get_requirement_markers
 
 
 class RequirementCollector:
-    """Collects test-to-requirement mappings during pytest execution."""
+    """Collects test-to-requirement mappings during pytest execution.
+
+    Attributes:
+        pytest_config: The pytest configuration object.
+        jamb_config: Loaded jamb configuration
+            (:class:`~jamb.config.loader.JambConfig`).
+        graph: The traceability graph built from stored documents, or
+            ``None`` if loading failed.
+        test_links: Accumulated test-to-requirement links recorded
+            during collection and execution.
+        unknown_items: UIDs referenced in test markers that do not
+            exist in the traceability graph.
+    """
 
     def __init__(self, config: pytest.Config) -> None:
         """Initialize the requirement collector.

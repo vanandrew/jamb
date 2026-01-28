@@ -380,20 +380,13 @@ A regulatory submission package typically includes human-readable requirement do
 
 ### Generate HTML Documentation
 
-Export all documents as HTML:
+Export all documents as a single combined HTML file:
 
 ```bash
-mkdir -p docs
-jamb publish all ./docs --html
+jamb publish all ./docs/requirements.html --html
 ```
 
-This creates:
-- `docs/PRJ.html`
-- `docs/UN.html`
-- `docs/SYS.html`
-- `docs/SRS.html`
-- `docs/HAZ.html`
-- `docs/RC.html`
+This creates a single `docs/requirements.html` file containing all documents.
 
 ### Generate Markdown for GitHub
 
@@ -769,7 +762,7 @@ This updates text, header, and links while preserving other fields. The `reviewe
 | Check coverage | `jamb check` |
 | Review item | `jamb review mark UID` |
 | Clear suspect links | `jamb review clear UID` |
-| Publish HTML | `jamb publish all ./docs --html` |
+| Publish HTML | `jamb publish all ./docs/requirements.html --html` |
 | Import batch | `jamb import file.yml` |
 | Export | `jamb export file.yml` |
 

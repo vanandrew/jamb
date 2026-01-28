@@ -313,7 +313,7 @@ jamb export backup.yml --root ./examples/advanced
 ### jamb import
 
 ```
-Usage: jamb import [OPTIONS] FILE
+Usage: jamb import [OPTIONS] [FILE]
 
   Import documents and items from a YAML file.
 
@@ -323,8 +323,10 @@ Usage: jamb import [OPTIONS] FILE
       jamb import requirements.yml
       jamb import requirements.yml --dry-run
       jamb import requirements.yml --update
+      jamb import --template > requirements.yml
 
 Options:
+  --template     Print a starter YAML template to stdout and exit
   --dry-run      Show what would be created without making changes
   --update       Update existing items instead of skipping them
   -v, --verbose  Verbose output
@@ -333,6 +335,9 @@ Options:
 
 **Example:**
 ```bash
+# Generate a starter YAML template
+jamb import --template > requirements.yml
+
 # Preview what would be imported
 jamb import requirements.yml --dry-run
 
@@ -407,7 +412,7 @@ Usage: jamb doc create [OPTIONS] PREFIX PATH
   PATH is the directory where the document will be created.
 
 Options:
-  -p, --parent TEXT     Parent document prefix
+  -p, --parent TEXT     Parent document prefix (repeatable for multi-parent DAG)
   -d, --digits INTEGER  Number of digits for item IDs
   -s, --sep TEXT        Separator between prefix and number
   --help                Show this message and exit.
@@ -420,6 +425,9 @@ jamb doc create SYS reqs/sys
 
 # Create a child document with parent
 jamb doc create SRS reqs/srs --parent SYS
+
+# Create a document with multiple parents
+jamb doc create SRS reqs/srs --parent SYS --parent RC
 
 # Create with 4-digit item IDs
 jamb doc create UT tests/unit --parent SRS --digits 4

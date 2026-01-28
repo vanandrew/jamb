@@ -54,6 +54,8 @@ Items
 
 .. autofunction:: next_uid
 
+.. autofunction:: dump_yaml
+
 Validation
 ----------
 
