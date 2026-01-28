@@ -385,6 +385,59 @@ class TestAllTestItemsCovered:
 
         assert collector.all_test_items_covered() is True
 
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    @patch("jamb.pytest_plugin.collector.load_config")
+    def test_all_test_items_covered_ignores_non_testable(
+        self, mock_load_config, mock_build_graph, mock_discover
+    ):
+        """Test all_test_items_covered ignores items with testable=False."""
+        graph = TraceabilityGraph()
+        testable_item = Item(
+            uid="SRS001",
+            text="Testable requirement",
+            document_prefix="SRS",
+            active=True,
+            testable=True,
+        )
+        non_testable_item = Item(
+            uid="SRS002",
+            text="Non-testable requirement",
+            document_prefix="SRS",
+            active=True,
+            testable=False,
+        )
+        graph.add_item(testable_item)
+        graph.add_item(non_testable_item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        mock_config = MagicMock()
+        mock_config.test_documents = ["SRS"]
+        mock_config.require_all_pass = True
+        mock_config.exclude_patterns = []
+        mock_load_config.return_value = mock_config
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        # Only cover the testable item
+        collector.test_links.append(
+            LinkedTest(
+                test_nodeid="test.py::test_1",
+                item_uid="SRS001",
+                test_outcome="passed",
+            )
+        )
+        # SRS002 is non-testable, should be ignored even with no test link
+
+        assert collector.all_test_items_covered() is True
+
 
 class TestAllTestItemsCoveredRequireAllPass:
     """Tests for require_all_pass behavior in all_test_items_covered."""
@@ -1055,3 +1108,145 @@ class TestMakeReportXfailEmptyReason:
         notes = collector.test_links[0].notes
         assert any("[SKIPPED]" in n for n in notes)
         assert not any("[XFAIL]" in n for n in notes)
+
+
+# =========================================================================
+# Setup/teardown phase handling
+# =========================================================================
+
+
+class TestMakeReportSetupTeardown:
+    """Tests for setup failure, setup skip, and teardown failure handling."""
+
+    def _make_collector_with_link(self, mock_build_graph, mock_discover):
+        """Helper: create a collector with one linked test."""
+        graph = TraceabilityGraph()
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", active=True)
+        graph.add_item(item)
+        graph.set_document_parent("SRS", None)
+
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = graph
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.test_links.append(
+            LinkedTest(test_nodeid="test.py::test_one", item_uid="SRS001")
+        )
+        return collector
+
+    def _send_report(self, collector, mock_report):
+        """Drive the hookwrapper generator with a mock report."""
+        mock_item = MagicMock()
+        mock_item.nodeid = "test.py::test_one"
+        mock_item.stash = {}
+
+        mock_call = MagicMock()
+        mock_outcome = MagicMock()
+        mock_outcome.get_result.return_value = mock_report
+
+        gen = collector.pytest_runtest_makereport(mock_item, mock_call)
+        next(gen)
+        try:
+            gen.send(mock_outcome)
+        except StopIteration:
+            pass
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_setup_failure_sets_error_outcome(self, mock_build_graph, mock_discover):
+        """Setup failure records outcome as 'error' with note."""
+        collector = self._make_collector_with_link(mock_build_graph, mock_discover)
+
+        report = MagicMock()
+        report.when = "setup"
+        report.failed = True
+        report.skipped = False
+        report.longreprtext = "fixture not found"
+
+        self._send_report(collector, report)
+
+        link = collector.test_links[0]
+        assert link.test_outcome == "error"
+        assert any("[SETUP FAILURE]" in n for n in link.notes)
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_setup_skip_sets_skipped_outcome(self, mock_build_graph, mock_discover):
+        """Setup skip records outcome as 'skipped' with reason."""
+        collector = self._make_collector_with_link(mock_build_graph, mock_discover)
+
+        report = MagicMock()
+        report.when = "setup"
+        report.failed = False
+        report.skipped = True
+        report.wasxfail = ""
+        report.longreprtext = "requires network"
+
+        self._send_report(collector, report)
+
+        link = collector.test_links[0]
+        assert link.test_outcome == "skipped"
+        assert any("requires network" in n for n in link.notes)
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_teardown_failure_sets_error_when_call_passed(
+        self, mock_build_graph, mock_discover
+    ):
+        """Teardown failure sets 'error' when call phase passed."""
+        collector = self._make_collector_with_link(mock_build_graph, mock_discover)
+
+        # Simulate call phase passing first
+        call_report = MagicMock()
+        call_report.when = "call"
+        call_report.outcome = "passed"
+        call_report.failed = False
+        call_report.skipped = False
+        call_report.longreprtext = ""
+        self._send_report(collector, call_report)
+        assert collector.test_links[0].test_outcome == "passed"
+
+        # Now teardown fails
+        teardown_report = MagicMock()
+        teardown_report.when = "teardown"
+        teardown_report.failed = True
+        teardown_report.longreprtext = "cleanup error"
+        self._send_report(collector, teardown_report)
+
+        link = collector.test_links[0]
+        assert link.test_outcome == "error"
+        assert any("[TEARDOWN FAILURE]" in n for n in link.notes)
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    def test_teardown_failure_does_not_overwrite_call_failure(
+        self, mock_build_graph, mock_discover
+    ):
+        """Teardown failure does not overwrite a call-phase failure."""
+        collector = self._make_collector_with_link(mock_build_graph, mock_discover)
+
+        # Simulate call phase failing first
+        call_report = MagicMock()
+        call_report.when = "call"
+        call_report.outcome = "failed"
+        call_report.failed = True
+        call_report.skipped = False
+        call_report.longreprtext = "assertion error"
+        self._send_report(collector, call_report)
+        assert collector.test_links[0].test_outcome == "failed"
+
+        # Now teardown also fails
+        teardown_report = MagicMock()
+        teardown_report.when = "teardown"
+        teardown_report.failed = True
+        teardown_report.longreprtext = "cleanup error"
+        self._send_report(collector, teardown_report)
+
+        # Should still be "failed" from the call phase, not "error"
+        link = collector.test_links[0]
+        assert link.test_outcome == "failed"

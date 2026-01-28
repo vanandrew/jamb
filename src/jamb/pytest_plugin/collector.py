@@ -125,7 +125,27 @@ class RequirementCollector:
         outcome = yield
         report = outcome.get_result()
 
-        if report.when == "call":
+        links_for_node = self._links_by_nodeid.get(item.nodeid)
+        if links_for_node is None:
+            links_for_node = [
+                lk for lk in self.test_links if lk.test_nodeid == item.nodeid
+            ]
+
+        if report.when == "setup":
+            if report.failed:
+                for link in links_for_node:
+                    link.test_outcome = "error"
+                    link.notes = [f"[SETUP FAILURE] {report.longreprtext or ''}"]
+            elif report.skipped:
+                reason = ""
+                if hasattr(report, "wasxfail") and report.wasxfail:
+                    reason = report.wasxfail
+                elif report.longreprtext:
+                    reason = report.longreprtext
+                for link in links_for_node:
+                    link.test_outcome = "skipped"
+                    link.notes = [f"[SKIPPED] {reason}"]
+        elif report.when == "call":
             notes: list[str] = []
             test_actions: list[str] = []
             expected_results: list[str] = []
@@ -157,12 +177,6 @@ class RequirementCollector:
             test_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
             # Update test outcomes and data for all links to this test
-            # Use pre-built index if available, otherwise scan test_links
-            links_for_node = self._links_by_nodeid.get(item.nodeid)
-            if links_for_node is None:
-                links_for_node = [
-                    lk for lk in self.test_links if lk.test_nodeid == item.nodeid
-                ]
             for link in links_for_node:
                 link.test_outcome = report.outcome
                 link.notes = list(notes)
@@ -170,6 +184,14 @@ class RequirementCollector:
                 link.expected_results = list(expected_results)
                 link.actual_results = list(actual_results)
                 link.execution_timestamp = test_timestamp
+        elif report.when == "teardown":
+            if report.failed:
+                for link in links_for_node:
+                    if link.test_outcome not in ("failed", "error"):
+                        link.test_outcome = "error"
+                        link.notes.append(
+                            f"[TEARDOWN FAILURE] {report.longreprtext or ''}"
+                        )
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
         """Build coverage report for all items in test documents.
@@ -239,7 +261,7 @@ class RequirementCollector:
         coverage = self.get_coverage()
         require_all_pass = self.jamb_config.require_all_pass
         for cov in coverage.values():
-            if cov.item.type == "requirement" and cov.item.active:
+            if cov.item.type == "requirement" and cov.item.active and cov.item.testable:
                 if not cov.is_covered:
                     return False
                 if require_all_pass and not cov.all_tests_passed:

@@ -80,16 +80,13 @@ class TestDiscoverDocuments:
         assert len(dag.documents) == 3
         assert all(p in dag.documents for p in ["SRS", "SYS", "UN"])
 
-    def test_duplicate_prefix_overwrites(self, tmp_path):
-        """8a: Duplicate prefix in two dirs — second overwrites first."""
+    def test_duplicate_prefix_raises_error(self, tmp_path):
+        """8a: Duplicate prefix in two dirs raises ValueError."""
         self._make_doc(tmp_path, "aaa_srs", "SRS")
-        dir2 = self._make_doc(tmp_path, "zzz_srs", "SRS")
+        self._make_doc(tmp_path, "zzz_srs", "SRS")
 
-        dag = discover_documents(tmp_path)
-        # Both dirs have prefix "SRS"; the last one processed wins
-        assert "SRS" in dag.documents
-        # Since _find_config_files returns sorted paths, zzz comes after aaa
-        assert dag.document_paths["SRS"] == dir2
+        with pytest.raises(ValueError, match="Duplicate document prefix 'SRS'"):
+            discover_documents(tmp_path)
 
     def test_symlink_to_document_directory(self, tmp_path):
         """Symlinked directory with .jamb.yml is discovered."""

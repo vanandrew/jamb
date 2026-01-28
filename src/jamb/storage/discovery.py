@@ -39,6 +39,12 @@ def discover_documents(root: Path | None = None) -> DocumentDAG:
             logger.warning("Skipping %s: %s", config_path, e)
             continue
 
+        if config.prefix in dag.documents:
+            existing_path = dag.document_paths[config.prefix]
+            raise ValueError(
+                f"Duplicate document prefix '{config.prefix}' found at "
+                f"{existing_path} and {config_path.parent}"
+            )
         dag.documents[config.prefix] = config
         dag.document_paths[config.prefix] = config_path.parent
 
