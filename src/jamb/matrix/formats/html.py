@@ -1,5 +1,7 @@
 """HTML traceability matrix output."""
 
+import html as _html
+
 from jamb.core.models import ItemCoverage, MatrixMetadata, TraceabilityGraph
 
 
@@ -327,12 +329,7 @@ def _escape_html(text: str) -> str:
         text: The plain text to escape.
 
     Returns:
-        The string with ``&``, ``<``, ``>``, and ``"`` replaced by
-        their HTML entity equivalents.
+        The string with ``&``, ``<``, ``>``, ``"``, and ``'`` replaced
+        by their HTML entity equivalents.
     """
-    return (
-        text.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return _html.escape(text, quote=True)

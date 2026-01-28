@@ -136,7 +136,10 @@ class TestPytestSessionfinish:
         pytest_sessionfinish(mock_session, 0)
 
         mock_collector.generate_matrix.assert_called_once_with(
-            "output.html", "html", "CI Pipeline", "1.2.3"
+            "output.html",
+            output_format="html",
+            tester_id="CI Pipeline",
+            software_version="1.2.3",
         )
 
     def test_fails_when_uncovered_and_flag_set(self):
@@ -238,7 +241,10 @@ class TestPytestSessionfinish:
         pytest_sessionfinish(mock_session, 0)
 
         mock_collector.generate_matrix.assert_called_once_with(
-            "out.html", "html", "tester", None
+            "out.html",
+            output_format="html",
+            tester_id="tester",
+            software_version=None,
         )
 
     def test_cli_matrix_overrides_config(self):
@@ -261,7 +267,10 @@ class TestPytestSessionfinish:
         pytest_sessionfinish(mock_session, 0)
 
         mock_collector.generate_matrix.assert_called_once_with(
-            "cli.html", "html", "tester", None
+            "cli.html",
+            output_format="html",
+            tester_id="tester",
+            software_version=None,
         )
 
     def test_matrix_format_from_config(self):
@@ -284,7 +293,10 @@ class TestPytestSessionfinish:
         pytest_sessionfinish(mock_session, 0)
 
         mock_collector.generate_matrix.assert_called_once_with(
-            "out.json", "json", "tester", None
+            "out.json",
+            output_format="json",
+            tester_id="tester",
+            software_version=None,
         )
 
     def test_cli_matrix_format_overrides_config(self):
@@ -307,7 +319,10 @@ class TestPytestSessionfinish:
         pytest_sessionfinish(mock_session, 0)
 
         mock_collector.generate_matrix.assert_called_once_with(
-            "out.csv", "csv", "tester", None
+            "out.csv",
+            output_format="csv",
+            tester_id="tester",
+            software_version=None,
         )
 
 

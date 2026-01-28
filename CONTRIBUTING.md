@@ -41,8 +41,8 @@ uv run pytest
 Tests run with coverage enabled by default. To run a specific test file or test:
 
 ```bash
-uv run pytest tests/unit/test_models.py
-uv run pytest tests/unit/test_models.py::test_something -k "keyword"
+uv run pytest tests/unit/test_core_models.py
+uv run pytest tests/unit/test_core_models.py::test_something -k "keyword"
 ```
 
 ### Linting and Formatting
