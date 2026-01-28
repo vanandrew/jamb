@@ -160,10 +160,10 @@ class TestPublishCommand:
         assert "html" in result.output.lower()
         assert "markdown" in result.output.lower()
         assert "docx" in result.output.lower()
+        assert "--template" in result.output
         # Removed formats should NOT appear
         assert "--latex" not in result.output
         assert "--text" not in result.output
-        assert "--template" not in result.output
 
 
 class TestValidateCommand:
