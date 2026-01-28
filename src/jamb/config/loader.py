@@ -14,20 +14,20 @@ class JambConfig:
     """Configuration schema for jamb.
 
     Attributes:
-        test_documents: Document prefixes that represent test
+        test_documents (list[str]): Document prefixes that represent test
             specifications.
-        fail_uncovered: Fail the pytest session when any normative item
+        fail_uncovered (bool): Fail the pytest session when any normative item
             lacks test coverage.
-        require_all_pass: Require all linked tests to pass for an item
+        require_all_pass (bool): Require all linked tests to pass for an item
             to be considered covered.
-        matrix_output: File path for the generated traceability matrix,
+        matrix_output (str | None): File path for the generated traceability matrix,
             or ``None`` to skip generation.
-        matrix_format: Output format for the traceability matrix
+        matrix_format (str): Output format for the traceability matrix
             (``"html"``, ``"markdown"``, ``"json"``, ``"csv"``, or
             ``"xlsx"``).
-        exclude_patterns: Glob patterns for documents or items to
+        exclude_patterns (list[str]): Glob patterns for documents or items to
             exclude from processing.
-        trace_to_ignore: Document prefixes to exclude from the
+        trace_to_ignore (list[str]): Document prefixes to exclude from the
             "Traces To" column in the traceability matrix.
     """
 

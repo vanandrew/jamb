@@ -14,9 +14,9 @@ class DocumentDAG:
     Supports multiple parents per document (DAG structure).
 
     Attributes:
-        documents: Mapping of document prefix to its
+        documents (dict[str, DocumentConfig]): Mapping of document prefix to its
             :class:`~jamb.storage.document_config.DocumentConfig`.
-        document_paths: Mapping of document prefix to the filesystem
+        document_paths (dict[str, Path]): Mapping of document prefix to the filesystem
             path of the document directory.
     """
 

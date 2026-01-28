@@ -12,12 +12,12 @@ class ValidationIssue:
     """A single validation issue.
 
     Attributes:
-        level: Severity — ``"error"``, ``"warning"``, or ``"info"``.
-        uid: UID of the item involved, or ``None`` for document-level
+        level (str): Severity — ``"error"``, ``"warning"``, or ``"info"``.
+        uid (str | None): UID of the item involved, or ``None`` for document-level
             issues.
-        prefix: Document prefix involved, or ``None`` when not
+        prefix (str | None): Document prefix involved, or ``None`` when not
             applicable.
-        message: Human-readable description of the issue.
+        message (str): Human-readable description of the issue.
     """
 
     level: str
