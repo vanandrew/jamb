@@ -7,11 +7,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import RGBColor
+from docx.text.paragraph import Paragraph
 
 from jamb.core.models import Item, TraceabilityGraph
 
 
-def _add_bookmark(paragraph, bookmark_name: str) -> None:
+def _add_bookmark(paragraph: Paragraph, bookmark_name: str) -> None:
     """Add a bookmark to a paragraph for internal linking.
 
     Args:
@@ -33,7 +34,7 @@ def _add_bookmark(paragraph, bookmark_name: str) -> None:
     paragraph._p.append(bookmark_end)
 
 
-def _add_hyperlink(paragraph, anchor: str, text: str) -> None:
+def _add_hyperlink(paragraph: Paragraph, anchor: str, text: str) -> None:
     """Add an internal hyperlink to a paragraph.
 
     Args:

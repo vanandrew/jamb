@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -72,7 +73,7 @@ def save_document_config(config: DocumentConfig, directory: Path) -> None:
         config: The document configuration to save.
         directory: The directory to write .jamb.yml into.
     """
-    settings: dict = {
+    settings: dict[str, Any] = {
         "prefix": config.prefix,
         "digits": config.digits,
         "sep": config.sep,

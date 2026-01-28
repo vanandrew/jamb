@@ -1,6 +1,7 @@
 """Domain models for requirements traceability."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -32,7 +33,7 @@ class Item:
     links: list[str] = field(default_factory=list)
     reviewed: str | None = None
     derived: bool = False
-    custom_attributes: dict = field(default_factory=dict)
+    custom_attributes: dict[str, Any] = field(default_factory=dict)
 
     @property
     def display_text(self) -> str:

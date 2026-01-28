@@ -4,6 +4,7 @@ import base64
 import hashlib
 import re
 from pathlib import Path
+from typing import IO, Any
 
 import yaml
 
@@ -31,7 +32,7 @@ def _str_representer(dumper: _BlockScalarDumper, data: str) -> yaml.ScalarNode:
 _BlockScalarDumper.add_representer(str, _str_representer)
 
 
-def dump_yaml(data: dict, stream, **kwargs) -> None:
+def dump_yaml(data: dict[str, Any], stream: IO[str], **kwargs: Any) -> None:
     """Dump YAML using block scalar style for multiline strings.
 
     Args:
@@ -45,7 +46,7 @@ def dump_yaml(data: dict, stream, **kwargs) -> None:
     yaml.dump(data, stream, Dumper=_BlockScalarDumper, **kwargs)
 
 
-def read_item(path: Path, document_prefix: str) -> dict:
+def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
     """Read an item YAML file and return a normalized dict.
 
     Args:
@@ -108,7 +109,9 @@ def read_item(path: Path, document_prefix: str) -> dict:
     }
 
 
-def write_item(item_data: dict, path: Path, extra_fields: dict | None = None) -> None:
+def write_item(
+    item_data: dict[str, Any], path: Path, extra_fields: dict[str, Any] | None = None
+) -> None:
     """Write an item as a YAML file.
 
     Args:
@@ -116,7 +119,7 @@ def write_item(item_data: dict, path: Path, extra_fields: dict | None = None) ->
         path: Path to write the YAML file.
         extra_fields: Additional fields to include in the YAML output.
     """
-    output: dict = {}
+    output: dict[str, Any] = {}
     output["header"] = item_data.get("header", "")
     output["active"] = item_data.get("active", True)
     output["type"] = item_data.get("type", "requirement")
@@ -149,7 +152,7 @@ def write_item(item_data: dict, path: Path, extra_fields: dict | None = None) ->
 
 def read_document_items(
     doc_path: Path, prefix: str, include_inactive: bool = False, sep: str = ""
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Read all item YAML files from a document directory.
 
     Args:
@@ -201,7 +204,7 @@ def next_uid(prefix: str, digits: int, existing_uids: list[str], sep: str = "") 
     return f"{prefix}{sep}{next_num:0{digits}d}"
 
 
-def compute_content_hash(item_data: dict) -> str:
+def compute_content_hash(item_data: dict[str, Any]) -> str:
     """Compute a SHA-256 hash of item content for review/suspect detection.
 
     Hashes: text, header, links, type.
