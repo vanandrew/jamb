@@ -77,7 +77,7 @@ links:
   - SYS002: "c3d4e5f6"
 ```
 
-The hash is a truncated SHA-256 of the parent item's content. When you run `jamb review clear`, the hash is updated to the parent's current content hash. If the parent is later modified, the stored hash no longer matches, making the link **suspect**.
+The hash is a URL-safe base64-encoded SHA-256 of the parent item's content. When you run `jamb review clear`, the hash is updated to the parent's current content hash. If the parent is later modified, the stored hash no longer matches, making the link **suspect**.
 
 ### Non-Testable Requirements
 
@@ -114,12 +114,15 @@ Custom attributes are read and written by jamb without modification. They are av
 Each document directory contains a `.jamb.yml` configuration file:
 
 ```yaml
-prefix: SRS
-parents:
-  - SYS
-digits: 3
-sep: ""
+settings:
+  prefix: SRS
+  parents:
+    - SYS
+  digits: 3
+  sep: ""
 ```
+
+All fields are nested under a `settings` key.
 
 `prefix`
 : The document identifier used as the UID prefix.

@@ -13,9 +13,9 @@ pip install jamb
 ```
 
 :::{tip}
-A complete example project is available in the [`tutorial/`](https://github.com/anthropics/jamb/tree/main/tutorial) directory of the GitHub repository. Clone it to follow along:
+A complete example project is available in the [`tutorial/`](https://github.com/vanandrew/jamb/tree/main/tutorial) directory of the GitHub repository. Clone it to follow along:
 ```bash
-git clone https://github.com/anthropics/jamb.git
+git clone https://github.com/vanandrew/jamb.git
 cd jamb/tutorial
 ```
 :::
@@ -135,20 +135,21 @@ jamb doc list
 Output:
 ```
 Found 6 documents:
-  PRJ: 1 active items (parent: (root))
-  UN: 5 active items (parent: PRJ)
-  SYS: 8 active items (parent: UN)
-  SRS: 15 active items (parent: SYS)
-  HAZ: 2 active items (parent: PRJ)
-  RC: 2 active items (parent: HAZ)
+  PRJ: 1 active items (parents: (root))
+  UN: 5 active items (parents: PRJ)
+  SYS: 8 active items (parents: UN)
+  SRS: 15 active items (parents: SYS, RC)
+  HAZ: 2 active items (parents: PRJ)
+  RC: 2 active items (parents: HAZ)
 
 Hierarchy:
 `-- PRJ
-    |-- UN
-    |   `-- SYS
-    |       `-- SRS
-    `-- HAZ
-        `-- RC
+    |-- UN (parents: PRJ)
+    |   `-- SYS (parents: UN)
+    |       `-- SRS (parents: SYS, RC)
+    `-- HAZ (parents: PRJ)
+        `-- RC (parents: HAZ)
+            `-- SRS (parents: SYS, RC)
 ```
 
 List all requirements:
@@ -244,25 +245,15 @@ jamb import sample-import.yml --dry-run
 
 Output:
 ```
-DRY RUN - No changes will be made
+Dry run - no changes will be made:
+  Would create item: UN006 (links: PRJ001)
+  Would create item: SYS009 (links: UN006)
+  Would create item: SRS016 (links: SYS009)
+  Would create item: SRS017 (links: SYS009)
+  Would create item: HAZ003 (links: PRJ001)
+  Would create item: RC003 (links: HAZ003)
 
-Would create items:
-  UN006: Alert Preferences
-  SYS009: Customizable Thresholds
-  SRS016: Preference Storage
-  SRS017: Threshold Validation
-  HAZ003: Unsafe Custom Thresholds
-  RC003: Threshold Bounds Enforcement
-
-Would create links:
-  UN006 -> PRJ001
-  SYS009 -> UN006
-  SRS016 -> SYS009
-  SRS017 -> SYS009
-  HAZ003 -> PRJ001
-  RC003 -> HAZ003
-
-6 items and 6 links would be created
+Would create 6 items
 ```
 
 ### Execute the Import
@@ -461,6 +452,8 @@ For example, a markdown matrix renders as:
 
 Auditors look for a complete traceability chain — every SRS traces to SYS, every SYS to UN, and every RC traces to HAZ — with software requirements that implement risk controls linking to both SYS and RC. They expect every testable requirement to have at least one linked test, no suspect links (demonstrating that all changes have been reviewed), and git commit history showing how requirements evolved over time.
 
+The traceability matrix and test records are one component of the evidence package auditors review. You will also need design documentation, risk management files (ISO 14971), software development plans, and other lifecycle artifacts that jamb does not generate.
+
 ## Part 5: Export for External Review
 
 `jamb export` serializes your requirements into a portable YAML file that stakeholders can review outside the repository. This supports a round-trip workflow: export your current requirements, send them to a clinical expert or product manager for review, receive the edited YAML back, and import the changes. Because the import command handles conflicts safely (skipping existing items by default), this workflow supports incremental collaboration.
@@ -564,7 +557,7 @@ repos:
 
 ## Part 7: Advanced Validation
 
-`jamb validate` runs ten independent checks covering structural integrity, content correctness, and completeness. By default all checks run, but verbose mode (`-v`) shows the full tree with per-item status so you can pinpoint exactly where an issue lies.
+`jamb validate` runs a suite of independent checks covering structural integrity, content correctness, and completeness. By default all checks run, but verbose mode (`-v`) includes info-level issues in addition to warnings and errors, giving you more detail about the validation results.
 
 ### Detailed Tree Inspection
 
@@ -572,7 +565,7 @@ repos:
 jamb validate -v
 ```
 
-Shows the full document tree with status for each item.
+Shows all validation issues including info-level details.
 
 ### Specific Document Coverage
 
@@ -622,12 +615,13 @@ def test_something():
 
 The traceability matrix captures structured test record data aligned with IEC 62304 §5.7.5. This is valuable for documenting what actions a test performed and what results were expected, showing failure details when tests fail, and providing evidence for auditors about test execution.
 
-The `jamb_log` fixture provides three methods for structured test records:
+The `jamb_log` fixture provides four methods for structured test records:
 
 | Method | Column | Purpose |
 |--------|--------|---------|
 | `jamb_log.test_action(...)` | Test Actions | What the test does (steps performed) |
 | `jamb_log.expected_result(...)` | Expected Results | What should happen (acceptance criteria) |
+| `jamb_log.actual_result(...)` | Actual Results | What actually happened (observed behavior) |
 | `jamb_log.note(...)` | Notes | Free-form observations, context, or commentary |
 
 ### Test Actions and Expected Results
@@ -674,13 +668,13 @@ def test_data_encryption(jamb_log):
 
 ### Generating the Matrix
 
-When you generate the traceability matrix, all three fields appear in their own columns:
+When you generate the traceability matrix, all four fields appear in their own columns:
 
 ```bash
 pytest tests/ --jamb --jamb-matrix matrix.html
 ```
 
-The HTML matrix will show each test's name with its pass/fail status, a Test Actions column listing the steps performed, an Expected Results column with the acceptance criteria, a Notes column with free-form observations, and automatically captured failure messages if the test fails.
+The HTML matrix will show each test's name with its pass/fail status, a Test Actions column listing the steps performed, an Expected Results column with the acceptance criteria, an Actual Results column with observed behavior, a Notes column with free-form observations, and automatically captured failure messages if the test fails.
 
 ### Automatic Failure Capture
 
@@ -697,13 +691,13 @@ The matrix will show `[FAILURE] AssertionError: Threshold 95 != 100` in the Note
 
 ### Test Records in Different Output Formats
 
-Test actions, expected results, and notes appear in all matrix output formats:
+Test actions, expected results, actual results, and notes appear in all matrix output formats:
 
 | Format | How They Appear |
 |--------|-----------------|
 | HTML | Separate columns with styled divs; notes are color-coded for failures |
-| JSON | `"test_actions"`, `"expected_results"`, and `"notes"` arrays per linked test |
-| CSV | Semicolon-separated in "Test Actions", "Expected Results", and "Notes" columns |
+| JSON | `"test_actions"`, `"expected_results"`, `"actual_results"`, and `"notes"` arrays per linked test |
+| CSV | Semicolon-separated in "Test Actions", "Expected Results", "Actual Results", and "Notes" columns |
 | XLSX | Newline-separated in dedicated columns with text wrap |
 | Markdown | Semicolon-separated in dedicated columns |
 
@@ -718,6 +712,11 @@ Test actions, expected results, and notes appear in all matrix output formats:
 - "Login succeeds and session token is returned"
 - "Error message is displayed"
 - "Response status is 401 Unauthorized"
+
+**`actual_result()`** — what actually happened:
+- "auth() returned True"
+- "Response status was 200 OK"
+- "Threshold value was 95"
 
 **`note()`** — additional context:
 - "Using test data set #3"

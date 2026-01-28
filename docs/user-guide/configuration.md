@@ -46,7 +46,7 @@ trace_to_ignore = []
 : **Choices:** `"html"`, `"markdown"`, `"json"`, `"csv"`, `"xlsx"`
 
 `exclude_patterns`
-: Glob patterns for test files to exclude from requirement marker scanning.
+: Glob patterns for documents or items to exclude from processing.
 : **Type:** `list[str]`
 : **Default:** `[]`
 
@@ -86,12 +86,15 @@ trace_to_ignore = ["PRJ"]
 Each document directory contains a `.jamb.yml` file that configures the document:
 
 ```yaml
-prefix: SRS
-parents:
-  - SYS
-digits: 3
-sep: ""
+settings:
+  prefix: SRS
+  parents:
+    - SYS
+  digits: 3
+  sep: ""
 ```
+
+All fields are nested under a `settings` key.
 
 ### Fields
 

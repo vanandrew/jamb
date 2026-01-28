@@ -320,8 +320,10 @@ def check(documents: str | None, root: Path | None) -> None:
 
     try:
         dag = discover_documents(root)
-        graph = build_traceability_graph(dag)
         config = load_config()
+        graph = build_traceability_graph(
+            dag, exclude_patterns=config.exclude_patterns or None
+        )
 
         # Determine test documents to check
         if documents:

@@ -8,6 +8,10 @@ implemented as part of the software development lifecycle.
 
 Key requirements include identifying software items that could contribute to hazardous situations, defining risk control measures for identified hazards, verifying that risk controls are implemented and effective, and tracing from hazards through risk controls to software requirements and their tests.
 
+:::{note}
+jamb supports **risk-to-requirement traceability** — linking hazards to risk controls to software requirements and their tests. It does not provide the full ISO 14971 risk management process (hazard analysis worksheets, probability/severity estimation, risk evaluation, overall residual risk evaluation, or benefit-risk assessment). These must be handled by your risk management process and tools.
+:::
+
 The risk management process runs in parallel with software development. As new hazards are
 identified or risks change, the software requirements and design must be updated
 accordingly.
@@ -36,6 +40,6 @@ to software implementation and verification:
 
 > Hazard (HAZ) --> Risk Control (RC) --> Software Requirement (SRS) --> Test
 
-This chain satisfies IEC 62304 Clause 7.4 (risk control verification) by demonstrating
+This chain satisfies IEC 62304 Clause 7.3 (verification of risk control measures) by demonstrating
 that every identified hazard has a defined control, that control is implemented as a
 software requirement, and that requirement is verified by a test.
