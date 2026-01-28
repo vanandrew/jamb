@@ -160,15 +160,14 @@ The publish package renders human-readable requirement documents in **HTML**, **
 
 ## Validation Architecture
 
-The `validate()` function (`storage/validation.py`) is the single entry point for all validation. It runs ten independent checks across three categories. Nine are controlled by keyword flags (all defaulting to `True`); DAG acyclicity always runs:
+The `validate()` function (`storage/validation.py`) is the single entry point for all validation. It runs nine independent checks across three categories. Eight are controlled by keyword flags (all defaulting to `True`); DAG acyclicity always runs:
 
 **Structural checks:**
 - **DAG acyclicity** -- Detects cycles in the document hierarchy.
 - **Item link cycles** -- DFS with three-color marking (white/gray/black) to find cycles in item-to-item links.
-- **Link conformance** -- Verifies links point to items in valid parent documents per the DAG.
+- **Link validity and conformance** -- A single `_check_links` function that catches self-links, links to non-existent items, links to inactive items, non-normative items with links, and verifies links point to items in valid parent documents per the DAG.
 
 **Content checks:**
-- **Link validity** -- Catches self-links, links to non-existent items, links to inactive items, and non-normative items with links.
 - **Suspect links** -- Content-hash comparison (see above).
 - **Review status** -- Checks that normative items have a `reviewed` hash matching current content.
 - **Empty text** -- Flags items with blank or whitespace-only text.

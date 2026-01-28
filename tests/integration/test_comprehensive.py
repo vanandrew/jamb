@@ -20,10 +20,6 @@ from click.testing import CliRunner
 
 from jamb.cli.commands import cli
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 
 def _invoke(runner: CliRunner, args: list[str], *, cwd: Path | None = None):
     """Invoke CLI, optionally inside *cwd*.  Returns the Click result."""
@@ -555,25 +551,21 @@ class TestPhase4LinkEdgeCases:
         assert r.exit_code == 0, r.output
 
     def test_4_4_broken_link(self, runner, medpump):
-        """4.4 – Link to non-existent item."""
-        _invoke(runner, ["link", "add", "SRS001", "NONEXIST001"], cwd=medpump)
-        # CLI link add doesn't validate existence; it just writes to YAML
-        # Record whether it succeeds or fails
-        # Either outcome is acceptable behavior to document
+        """4.4 – Link to non-existent item is rejected by CLI."""
+        r = _invoke(runner, ["link", "add", "SRS001", "NONEXIST001"], cwd=medpump)
+        assert r.exit_code != 0, f"Expected failure, got: {r.output}"
 
     def test_4_5_validate_broken_link(self, runner, medpump):
-        """4.5 – Validate should error on non-existent link target."""
+        """4.5 – Validate after rejected broken link (no broken link in YAML)."""
         r = _invoke(runner, ["validate", "-S", "-W"], cwd=medpump)
-        # Check if broken link is detected
-        has_broken = "non-existent" in r.output.lower() or "NONEXIST" in r.output
-        if not has_broken:
-            # Maybe the link wasn't added successfully in 4.4
-            pass
+        # The broken link was rejected in 4.4, so validate should be clean
+        assert r.exit_code == 0 or "error" in r.output.lower()
 
     def test_4_6_remove_broken_link(self, runner, medpump):
-        """4.6 – Remove broken link."""
-        _invoke(runner, ["link", "remove", "SRS001", "NONEXIST001"], cwd=medpump)
-        # If the link was never added, this might fail - that's okay
+        """4.6 – Remove link that was never added (rejected in 4.4)."""
+        r = _invoke(runner, ["link", "remove", "SRS001", "NONEXIST001"], cwd=medpump)
+        # Link was never added, so remove may fail — either outcome is fine
+        assert r.exit_code in (0, 1), r.output
 
     def test_4_7_duplicate_link(self, runner, medpump):
         """4.7 – Duplicate link should report 'already exists'."""
@@ -715,8 +707,8 @@ class TestPhase5Removal:
         NOTE: Due to separator discovery bug, validation already reports API
         items as non-existent. This test documents the cascading effect.
         """
-        _invoke(runner, ["validate", "-S", "-W"], cwd=databridge)
-        # Document behavior
+        r = _invoke(runner, ["validate", "-S", "-W"], cwd=databridge)
+        assert r.exit_code in (0, 1), r.output
 
     def test_5_10_item_list_api_gap(self, runner, databridge):
         """5.10 – API list should show gap.
@@ -925,7 +917,8 @@ class TestPhase8Review:
 
     def test_8_3_validate_clean(self, runner, medpump):
         """8.3 – Validate should pass cleanly."""
-        _invoke(runner, ["validate"], cwd=medpump)
+        r = _invoke(runner, ["validate"], cwd=medpump)
+        assert r.exit_code in (0, 1), r.output
         # May still have empty text warnings from inserted items
         # But no suspect or review warnings
 
@@ -1124,13 +1117,13 @@ class TestPhase10Deletion:
 
     def test_10_2_validate_broken(self, runner, medpump):
         """10.2 – Validate should report multiple broken link errors."""
-        _invoke(runner, ["validate", "-S", "-W"], cwd=medpump)
-        # Not asserting exit code because broken links cause exit 1
-        # but the important thing is validation runs
+        r = _invoke(runner, ["validate", "-S", "-W"], cwd=medpump)
+        assert r.exit_code in (0, 1), r.output
 
     def test_10_3_reorder_with_broken_links(self, runner, medpump):
         """10.3 – Reorder with broken links: should fail."""
-        _invoke(runner, ["reorder", "SRS"], cwd=medpump)
+        r = _invoke(runner, ["reorder", "SRS"], cwd=medpump)
+        assert r.exit_code in (0, 1), r.output
         # Reorder checks broken links and aborts
         # Document behavior regardless
 
@@ -1142,7 +1135,8 @@ class TestPhase10Deletion:
 
     def test_10_5_validate_after_delete(self, runner, medpump):
         """10.5 – Validate after SRS deletion."""
-        _invoke(runner, ["validate", "-S", "-W"], cwd=medpump)
+        r = _invoke(runner, ["validate", "-S", "-W"], cwd=medpump)
+        assert r.exit_code in (0, 1), r.output
         # SYS items should now have "no children" warnings
 
     def test_10_6_doc_list_no_srs(self, runner, medpump):
@@ -1771,10 +1765,11 @@ class TestEdgeCases:
 
     def test_e17_duplicate_prefix(self, runner, edge_project):
         """E17 – Create document with prefix that already exists."""
-        _invoke(
+        r = _invoke(
             runner,
             ["doc", "create", "SRS", str(edge_project / "reqs" / "srs2")],
             cwd=edge_project,
         )
+        assert r.exit_code in (0, 1), r.output
         # Document whether this errors or creates a second SRS doc
         # Either behavior is acceptable to document

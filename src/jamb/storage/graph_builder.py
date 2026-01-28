@@ -66,7 +66,7 @@ def build_traceability_graph(
                 document_prefix=raw["document_prefix"],
                 active=raw["active"],
                 type=raw["type"],
-                header=raw["header"],
+                header=raw["header"] or None,
                 links=raw["links"],
                 reviewed=raw["reviewed"],
                 derived=raw["derived"],

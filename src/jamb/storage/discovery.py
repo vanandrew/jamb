@@ -36,7 +36,7 @@ def discover_documents(root: Path | None = None) -> DocumentDAG:
         try:
             config = load_document_config(config_path)
         except (ValueError, yaml.YAMLError, OSError) as e:
-            logger.debug("Skipping %s: %s", config_path, e)
+            logger.warning("Skipping %s: %s", config_path, e)
             continue
 
         dag.documents[config.prefix] = config

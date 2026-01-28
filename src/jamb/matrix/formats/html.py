@@ -61,7 +61,11 @@ def render_html(
         for test in cov.linked_tests:
             outcome = test.test_outcome or "unknown"
             test_name = test.test_nodeid.split("::")[-1]
-            tests_html += f'<div class="test {outcome}">{test_name} [{outcome}]</div>'
+            tests_html += (
+                f'<div class="test {_escape_html(outcome)}">'
+                f"{_escape_html(test_name)} "
+                f"[{_escape_html(outcome)}]</div>"
+            )
 
             # Add test name header if this test has any logged entries
             has_actions = len(test.test_actions) > 0
@@ -115,7 +119,7 @@ def render_html(
         rows.append(
             f"""
             <tr class="{status_class}">
-                <td>{uid}</td>
+                <td>{_escape_html(uid)}</td>
                 <td>{_escape_html(cov.item.display_text)}</td>
                 <td>{ancestors_html or "-"}</td>
                 <td>{tests_html or "-"}</td>

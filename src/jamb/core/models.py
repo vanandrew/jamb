@@ -1,5 +1,6 @@
 """Domain models for requirements traceability."""
 
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -89,7 +90,7 @@ class LinkedTest:
 
     test_nodeid: str
     item_uid: str
-    test_outcome: str | None = None  # "passed", "failed", "skipped", "error"
+    test_outcome: Literal["passed", "failed", "skipped", "error"] | None = None
     notes: list[str] = field(default_factory=list)
     test_actions: list[str] = field(default_factory=list)
     expected_results: list[str] = field(default_factory=list)
@@ -218,6 +219,13 @@ class TraceabilityGraph:
             item: The Item to add. Its links are used to populate the
                 parent and child reverse-index maps.
         """
+        if item.uid in self.items:
+            for old_parent in self.item_parents.get(item.uid, []):
+                if old_parent in self.item_children:
+                    try:
+                        self.item_children[old_parent].remove(item.uid)
+                    except ValueError:
+                        pass
         self.items[item.uid] = item
         self.item_parents[item.uid] = item.links.copy()
         # Initialize children list for this item if not exists
@@ -273,10 +281,10 @@ class TraceabilityGraph:
         """
         ancestors = []
         visited = set()
-        to_visit = list(self.item_parents.get(uid, []))
+        to_visit = deque(self.item_parents.get(uid, []))
 
         while to_visit:
-            parent_uid = to_visit.pop(0)
+            parent_uid = to_visit.popleft()
             if parent_uid in visited:
                 continue
             visited.add(parent_uid)
@@ -296,10 +304,10 @@ class TraceabilityGraph:
         """
         descendants = []
         visited = set()
-        to_visit = list(self.item_children.get(uid, []))
+        to_visit = deque(self.item_children.get(uid, []))
 
         while to_visit:
-            child_uid = to_visit.pop(0)
+            child_uid = to_visit.popleft()
             if child_uid in visited:
                 continue
             visited.add(child_uid)

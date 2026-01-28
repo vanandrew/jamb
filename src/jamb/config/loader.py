@@ -1,6 +1,7 @@
 """Load jamb configuration from pyproject.toml."""
 
 import re
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -119,23 +120,35 @@ def _get_dynamic_version(pyproject: dict[str, Any], project_root: Path) -> str |
         .get("version-file")
     )
     if version_file:
-        version = _extract_version_from_file(project_root / version_file)
-        if version:
-            return version
+        resolved = (project_root / version_file).resolve()
+        if not resolved.is_relative_to(project_root.resolve()):
+            pass
+        else:
+            version = _extract_version_from_file(resolved)
+            if version:
+                return version
 
     # Check hatch path-based: [tool.hatch.version].path
     version_file = tool.get("hatch", {}).get("version", {}).get("path")
     if version_file:
-        version = _extract_version_from_file(project_root / version_file)
-        if version:
-            return version
+        resolved = (project_root / version_file).resolve()
+        if not resolved.is_relative_to(project_root.resolve()):
+            pass
+        else:
+            version = _extract_version_from_file(resolved)
+            if version:
+                return version
 
     # Check setuptools_scm: [tool.setuptools_scm].write_to
     version_file = tool.get("setuptools_scm", {}).get("write_to")
     if version_file:
-        version = _extract_version_from_file(project_root / version_file)
-        if version:
-            return version
+        resolved = (project_root / version_file).resolve()
+        if not resolved.is_relative_to(project_root.resolve()):
+            pass
+        else:
+            version = _extract_version_from_file(resolved)
+            if version:
+                return version
 
     return None
 
@@ -177,6 +190,23 @@ def load_config(config_path: Path | None = None) -> JambConfig:
 
     jamb_config = pyproject.get("tool", {}).get("jamb", {})
 
+    RECOGNIZED_KEYS = {
+        "test_documents",
+        "fail_uncovered",
+        "require_all_pass",
+        "matrix_output",
+        "matrix_format",
+        "exclude_patterns",
+        "trace_to_ignore",
+        "software_version",
+    }
+    unknown = set(jamb_config.keys()) - RECOGNIZED_KEYS
+    if unknown:
+        warnings.warn(
+            f"Unrecognized keys in [tool.jamb]: {', '.join(sorted(unknown))}",
+            stacklevel=2,
+        )
+
     # Get software_version with fallback chain:
     # 1. [tool.jamb].software_version (explicit override)
     # 2. [project].version (static version)
@@ -190,12 +220,20 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         if "version" in dynamic:
             software_version = _get_dynamic_version(pyproject, config_path.parent)
 
+    matrix_format = jamb_config.get("matrix_format", "html")
+    valid_formats = {"html", "markdown", "json", "csv", "xlsx"}
+    if matrix_format not in valid_formats:
+        raise ValueError(
+            f"Invalid matrix_format '{matrix_format}' in [tool.jamb]. "
+            f"Must be one of: {', '.join(sorted(valid_formats))}"
+        )
+
     return JambConfig(
         test_documents=jamb_config.get("test_documents", []),
         fail_uncovered=jamb_config.get("fail_uncovered", False),
         require_all_pass=jamb_config.get("require_all_pass", True),
         matrix_output=jamb_config.get("matrix_output"),
-        matrix_format=jamb_config.get("matrix_format", "html"),
+        matrix_format=matrix_format,
         exclude_patterns=jamb_config.get("exclude_patterns", []),
         trace_to_ignore=jamb_config.get("trace_to_ignore", []),
         software_version=software_version,

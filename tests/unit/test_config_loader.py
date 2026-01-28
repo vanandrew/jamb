@@ -187,7 +187,9 @@ fail_uncovered = "yes"
         assert config.fail_uncovered == "yes"
 
     def test_matrix_format_as_int(self, tmp_path):
-        """matrix_format = 42 passes through as int."""
+        """matrix_format = 42 raises ValueError."""
+        import pytest
+
         content = """
 [tool.jamb]
 matrix_format = 42
@@ -195,8 +197,8 @@ matrix_format = 42
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        config = load_config(pyproject)
-        assert config.matrix_format == 42
+        with pytest.raises(ValueError, match="Invalid matrix_format"):
+            load_config(pyproject)
 
     def test_exclude_patterns_as_string(self, tmp_path):
         """exclude_patterns = '*.py' passes through as string."""
