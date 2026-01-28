@@ -140,9 +140,9 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         software_version = session.config.option.jamb_software_version
         collector.generate_matrix(
             matrix_path,
-            matrix_format,
-            tester_id,
-            software_version,
+            output_format=matrix_format,
+            tester_id=tester_id,
+            software_version=software_version,
         )
 
     # Check coverage and potentially modify exit status

@@ -36,6 +36,13 @@ class ItemDict(_ItemDictOptional):
     text: str
 
 
+def _dump_yaml(data: dict[str, Any], stream: Any) -> None:
+    """Write YAML using block scalar style for multiline strings."""
+    from jamb.storage.items import dump_yaml
+
+    dump_yaml(data, stream)
+
+
 def export_items_to_yaml(
     output_path: Path,
     item_uids: list[str],
@@ -442,7 +449,7 @@ def _create_item(
         item_data["links"] = links
 
     with open(item_path, "w") as f:
-        yaml.dump(item_data, f, default_flow_style=False, sort_keys=False)
+        _dump_yaml(item_data, f)
 
     if verbose:
         echo(f"  Created item: {uid}")
@@ -458,16 +465,10 @@ def _document_exists(prefix: str) -> bool:
     Returns:
         True if a document with the given prefix exists, False otherwise.
     """
-    import os
+    from jamb.storage import discover_documents
 
-    for root_dir, _, files in os.walk("."):
-        if ".jamb.yml" in files:
-            config_path = Path(root_dir) / ".jamb.yml"
-            with open(config_path) as f:
-                config = yaml.safe_load(f)
-            if config.get("settings", {}).get("prefix") == prefix:
-                return True
-    return False
+    dag = discover_documents()
+    return prefix in dag.documents
 
 
 def _extract_prefix(uid: str) -> str | None:
@@ -494,16 +495,10 @@ def _get_document_path(prefix: str) -> Path | None:
         The Path to the document directory, or None if no document with
         the given prefix is found.
     """
-    import os
+    from jamb.storage import discover_documents
 
-    for root_dir, _, files in os.walk("."):
-        if ".jamb.yml" in files:
-            config_path = Path(root_dir) / ".jamb.yml"
-            with open(config_path) as f:
-                config = yaml.safe_load(f)
-            if config.get("settings", {}).get("prefix") == prefix:
-                return Path(root_dir)
-    return None
+    dag = discover_documents()
+    return dag.document_paths.get(prefix)
 
 
 def _update_item(
@@ -548,7 +543,7 @@ def _update_item(
 
     # Write updated data
     with open(item_path, "w") as f:
-        yaml.dump(existing_data, f, default_flow_style=False, sort_keys=False)
+        _dump_yaml(existing_data, f)
 
     if verbose:
         echo(f"  Updated item: {uid}")

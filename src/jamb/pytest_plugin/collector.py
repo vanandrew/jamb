@@ -5,12 +5,9 @@ import platform
 import socket
 from collections.abc import Generator
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pytest
-
-if TYPE_CHECKING:
-    from _pytest.terminal import TerminalReporter
 
 from jamb.config.loader import JambConfig, load_config
 from jamb.core.models import (
@@ -290,7 +287,7 @@ class RequirementCollector:
     def generate_matrix(
         self,
         path: str,
-        format: str,
+        output_format: str,
         tester_id: str = "Unknown",
         software_version: str | None = None,
     ) -> None:
@@ -298,7 +295,7 @@ class RequirementCollector:
 
         Args:
             path: The output file path for the generated matrix.
-            format: The output format (html, markdown, json, csv, or xlsx).
+            output_format: The output format (html, markdown, json, csv, or xlsx).
             tester_id: Identification of the tester or CI system.
             software_version: Software version override (takes precedence over config).
         """
@@ -320,89 +317,7 @@ class RequirementCollector:
             coverage,
             self.graph,
             path,
-            format,
+            output_format,
             trace_to_ignore=set(self.jamb_config.trace_to_ignore),
             metadata=metadata,
         )
-
-
-@pytest.hookimpl(trylast=True)
-def pytest_report_header(config: pytest.Config) -> list[str] | None:
-    """Add jamb info to pytest header.
-
-    Args:
-        config: The pytest configuration object.
-
-    Returns:
-        A list containing a single summary string when jamb is enabled,
-        or None otherwise.
-    """
-    if config.option.jamb:
-        collector = config.pluginmanager.get_plugin("jamb_collector")
-        if collector and collector.graph:
-            return [
-                f"jamb: tracking {len(collector.graph.items)} requirement items",
-            ]
-    return None
-
-
-@pytest.hookimpl(trylast=True)
-def pytest_terminal_summary(
-    terminalreporter: "TerminalReporter",
-    exitstatus: int,  # noqa: ARG001
-    config: pytest.Config,
-) -> None:
-    """Add coverage summary to terminal output.
-
-    Args:
-        terminalreporter: The pytest terminal reporter instance.
-        exitstatus: The exit status of the test session (unused).
-        config: The pytest configuration object.
-    """
-    _ = exitstatus  # Required by pytest hook signature
-    if not config.option.jamb:
-        return
-
-    collector = config.pluginmanager.get_plugin("jamb_collector")
-    if not collector:
-        return
-
-    coverage = collector.get_coverage()
-    if not coverage:
-        return
-
-    terminalreporter.write_sep("=", "Requirements Coverage Summary")
-
-    # Count statistics
-    total = len(coverage)
-    covered = sum(1 for c in coverage.values() if c.is_covered)
-    passed = sum(1 for c in coverage.values() if c.all_tests_passed)
-
-    terminalreporter.write_line(f"Total test spec items: {total}")
-    if total > 0:
-        terminalreporter.write_line(
-            f"Covered by pytest tests: {covered} ({100 * covered / total:.1f}%)"
-        )
-        terminalreporter.write_line(f"All tests passing: {passed}")
-
-    # Report uncovered items
-    uncovered = [
-        uid
-        for uid, c in coverage.items()
-        if not c.is_covered and c.item.type == "requirement" and c.item.active
-    ]
-    if uncovered:
-        terminalreporter.write_line("")
-        terminalreporter.write_line("Uncovered test spec items:", red=True, bold=True)
-        for uid in uncovered:
-            item = coverage[uid].item
-            terminalreporter.write_line(f"  - {uid}: {item.display_text}", red=True)
-
-    # Report unknown items referenced in tests
-    if collector.unknown_items:
-        terminalreporter.write_line("")
-        terminalreporter.write_line(
-            "Unknown items referenced in tests:", yellow=True, bold=True
-        )
-        for uid in sorted(collector.unknown_items):
-            terminalreporter.write_line(f"  - {uid}", yellow=True)

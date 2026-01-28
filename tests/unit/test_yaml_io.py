@@ -568,54 +568,62 @@ class TestCreateItem:
 class TestDocumentExists:
     """Tests for _document_exists function."""
 
-    def test_document_exists_with_jamb_yml(self, tmp_path, monkeypatch):
-        """Test _document_exists finds document via .jamb.yml."""
-        monkeypatch.chdir(tmp_path)
-
+    def test_document_exists_with_jamb_yml(self, tmp_path):
+        """Test _document_exists finds document via discover_documents."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text("settings:\n  prefix: SRS\n  digits: 3\n")
 
-        assert _document_exists("SRS") is True
+        dag = DocumentDAG()
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=[], digits=3)
+        dag.document_paths["SRS"] = srs_dir
 
-    def test_document_exists_false(self, tmp_path, monkeypatch):
+        with patch("jamb.storage.discover_documents", return_value=dag):
+            assert _document_exists("SRS") is True
+
+    def test_document_exists_false(self):
         """Test _document_exists returns False for missing doc."""
-        monkeypatch.chdir(tmp_path)
+        dag = DocumentDAG()
 
-        assert _document_exists("NONEXISTENT") is False
+        with patch("jamb.storage.discover_documents", return_value=dag):
+            assert _document_exists("NONEXISTENT") is False
 
-    def test_document_exists_false_wrong_prefix(self, tmp_path, monkeypatch):
+    def test_document_exists_false_wrong_prefix(self, tmp_path):
         """Test _document_exists returns False when prefix doesn't match."""
-        monkeypatch.chdir(tmp_path)
-
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text("settings:\n  prefix: SRS\n  digits: 3\n")
 
-        assert _document_exists("UN") is False
+        dag = DocumentDAG()
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=[], digits=3)
+        dag.document_paths["SRS"] = srs_dir
+
+        with patch("jamb.storage.discover_documents", return_value=dag):
+            assert _document_exists("UN") is False
 
 
 class TestGetDocumentPath:
     """Tests for _get_document_path function."""
 
-    def test_get_document_path_found_jamb_yml(self, tmp_path, monkeypatch):
-        """Test _get_document_path finds correct path via .jamb.yml."""
-        monkeypatch.chdir(tmp_path)
-
+    def test_get_document_path_found_jamb_yml(self, tmp_path):
+        """Test _get_document_path finds correct path via discover_documents."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text("settings:\n  prefix: SRS\n  digits: 3\n")
 
-        result = _get_document_path("SRS")
+        dag = DocumentDAG()
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=[], digits=3)
+        dag.document_paths["SRS"] = srs_dir
+
+        with patch("jamb.storage.discover_documents", return_value=dag):
+            result = _get_document_path("SRS")
 
         assert result is not None
         assert result.name == "srs"
 
-    def test_get_document_path_not_found(self, tmp_path, monkeypatch):
+    def test_get_document_path_not_found(self):
         """Test _get_document_path returns None when not found."""
-        monkeypatch.chdir(tmp_path)
+        dag = DocumentDAG()
 
-        result = _get_document_path("NONEXISTENT")
+        with patch("jamb.storage.discover_documents", return_value=dag):
+            result = _get_document_path("NONEXISTENT")
 
         assert result is None
 
