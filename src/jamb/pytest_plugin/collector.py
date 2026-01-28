@@ -18,14 +18,15 @@ class RequirementCollector:
     """Collects test-to-requirement mappings during pytest execution.
 
     Attributes:
-        pytest_config: The pytest configuration object.
-        jamb_config: Loaded jamb configuration
+        pytest_config (pytest.Config): The pytest configuration object.
+        jamb_config (JambConfig): Loaded jamb configuration
             (:class:`~jamb.config.loader.JambConfig`).
-        graph: The traceability graph built from stored documents, or
-            ``None`` if loading failed.
-        test_links: Accumulated test-to-requirement links recorded
+        graph (TraceabilityGraph | None): The traceability graph
+            built from stored documents, or ``None`` if loading
+            failed.
+        test_links (list[LinkedTest]): Accumulated test-to-requirement links recorded
             during collection and execution.
-        unknown_items: UIDs referenced in test markers that do not
+        unknown_items (set[str]): UIDs referenced in test markers that do not
             exist in the traceability graph.
     """
 

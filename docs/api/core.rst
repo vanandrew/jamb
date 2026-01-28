@@ -10,28 +10,24 @@ Item
 
 .. autoclass:: Item
    :members:
-   :undoc-members:
 
 LinkedTest
 ----------
 
 .. autoclass:: LinkedTest
    :members:
-   :undoc-members:
 
 ItemCoverage
 ------------
 
 .. autoclass:: ItemCoverage
    :members:
-   :undoc-members:
 
 TraceabilityGraph
 -----------------
 
 .. autoclass:: TraceabilityGraph
    :members:
-   :undoc-members:
 
 JambError
 ---------
@@ -40,4 +36,3 @@ JambError
 
 .. autoclass:: JambError
    :members:
-   :undoc-members:

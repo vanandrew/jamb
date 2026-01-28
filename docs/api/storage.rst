@@ -10,7 +10,6 @@ Document DAG
 
 .. autoclass:: DocumentDAG
    :members:
-   :undoc-members:
 
 Document Configuration
 ----------------------
@@ -19,7 +18,6 @@ Document Configuration
 
 .. autoclass:: DocumentConfig
    :members:
-   :undoc-members:
 
 .. autofunction:: load_document_config
 
@@ -63,7 +61,6 @@ Validation
 
 .. autoclass:: ValidationIssue
    :members:
-   :undoc-members:
 
 .. autofunction:: validate
 

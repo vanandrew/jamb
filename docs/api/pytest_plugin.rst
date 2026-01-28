@@ -23,7 +23,6 @@ Collector
 
 .. autoclass:: RequirementCollector
    :members:
-   :undoc-members:
 
 Markers
 -------
@@ -39,4 +38,3 @@ JambLog
 
 .. autoclass:: JambLog
    :members:
-   :undoc-members:

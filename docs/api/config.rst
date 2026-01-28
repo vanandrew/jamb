@@ -10,7 +10,6 @@ JambConfig
 
 .. autoclass:: JambConfig
    :members:
-   :undoc-members:
 
 load_config
 -----------

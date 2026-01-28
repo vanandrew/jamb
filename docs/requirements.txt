@@ -3,3 +3,4 @@ myst-parser>=3.0
 pydata-sphinx-theme>=0.15
 sphinx-copybutton>=0.5
 sphinx-autobuild>=2024.0
+sphinx-autodoc-typehints>=2.0

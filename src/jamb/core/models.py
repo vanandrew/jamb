@@ -9,19 +9,19 @@ class Item:
     """Represents a requirements item (requirement, info, heading, etc.).
 
     Attributes:
-        uid: Unique identifier for the item (e.g. ``REQ001``).
-        text: Body text of the requirement.
-        document_prefix: Prefix of the document this item belongs to.
-        active: Whether the item is active. Inactive items are ignored
+        uid (str): Unique identifier for the item (e.g. ``REQ001``).
+        text (str): Body text of the requirement.
+        document_prefix (str): Prefix of the document this item belongs to.
+        active (bool): Whether the item is active. Inactive items are ignored
             during validation and coverage checks.
-        type: Item type — ``"requirement"``, ``"info"``, or ``"heading"``.
-        header: Optional heading text displayed instead of body text.
-        links: UIDs of parent items this item traces to.
-        reviewed: Content hash recorded when the item was last reviewed,
+        type (str): Item type — ``"requirement"``, ``"info"``, or ``"heading"``.
+        header (str | None): Optional heading text displayed instead of body text.
+        links (list[str]): UIDs of parent items this item traces to.
+        reviewed (str | None): Content hash recorded when the item was last reviewed,
             or ``None`` if never reviewed.
-        derived: Whether the item is derived (intentionally has no
+        derived (bool): Whether the item is derived (intentionally has no
             parent links).
-        custom_attributes: Arbitrary user-defined key-value pairs.
+        custom_attributes (dict[str, Any]): Arbitrary user-defined key-value pairs.
     """
 
     uid: str
@@ -48,14 +48,14 @@ class LinkedTest:
     """Represents a link from a pytest test to a requirements item.
 
     Attributes:
-        test_nodeid: The pytest node ID of the test (e.g.
+        test_nodeid (str): The pytest node ID of the test (e.g.
             ``tests/test_foo.py::test_bar``).
-        item_uid: UID of the requirements item the test covers.
-        test_outcome: Result of the test — ``"passed"``, ``"failed"``,
+        item_uid (str): UID of the requirements item the test covers.
+        test_outcome (str | None): Result of the test — ``"passed"``, ``"failed"``,
             ``"skipped"``, or ``"error"``. ``None`` before execution.
-        notes: Free-form notes captured during test execution.
-        test_actions: Steps performed by the test.
-        expected_results: Expected outcomes for each test action.
+        notes (list[str]): Free-form notes captured during test execution.
+        test_actions (list[str]): Steps performed by the test.
+        expected_results (list[str]): Expected outcomes for each test action.
     """
 
     test_nodeid: str
@@ -71,8 +71,9 @@ class ItemCoverage:
     """Coverage status for a single requirements item.
 
     Attributes:
-        item: The requirements item being tracked.
-        linked_tests: Tests linked to this item via requirement markers.
+        item (Item): The requirements item being tracked.
+        linked_tests (list[LinkedTest]): Tests linked to this item
+            via requirement markers.
     """
 
     item: Item
@@ -100,13 +101,15 @@ class TraceabilityGraph:
     based on document hierarchy and item links.
 
     Attributes:
-        items: Mapping of item UID to :class:`Item` instance.
-        item_parents: Mapping of item UID to list of parent item UIDs
-            (derived from each item's ``links`` field).
-        item_children: Reverse index mapping item UID to list of child
-            item UIDs that link to it.
-        document_parents: Mapping of document prefix to list of parent
-            document prefixes (the document-level DAG).
+        items (dict[str, Item]): Mapping of item UID to :class:`Item` instance.
+        item_parents (dict[str, list[str]]): Mapping of item UID to
+            list of parent item UIDs (derived from each item's
+            ``links`` field).
+        item_children (dict[str, list[str]]): Reverse index mapping
+            item UID to list of child item UIDs that link to it.
+        document_parents (dict[str, list[str]]): Mapping of document
+            prefix to list of parent document prefixes (the
+            document-level DAG).
     """
 
     items: dict[str, Item] = field(default_factory=dict)

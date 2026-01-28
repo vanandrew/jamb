@@ -114,4 +114,5 @@ docs = [
     "sphinx-copybutton>=0.5",
     "sphinx-autobuild>=2024.0",
     "sphinxcontrib-mermaid>=0.9",
+    "sphinx-autodoc-typehints>=2.0",
 ]
