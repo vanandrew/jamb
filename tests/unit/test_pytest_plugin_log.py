@@ -135,3 +135,41 @@ class TestJambLogExpectedResults:
         results.append("Modified")
 
         assert log.expected_results == ["Original"]
+
+
+class TestJambLogActualResults:
+    """Tests for JambLog actual_result() method."""
+
+    def test_init_empty_actual_results(self):
+        """Test JambLog initializes with empty actual_results list."""
+        log = JambLog()
+        assert log.actual_results == []
+
+    def test_actual_result_adds_to_list(self):
+        """Test actual_result() adds result to internal list."""
+        log = JambLog()
+        log.actual_result("Login returned: success")
+        assert log.actual_results == ["Login returned: success"]
+
+    def test_actual_result_multiple(self):
+        """Test adding multiple actual results."""
+        log = JambLog()
+        log.actual_result("Result 1")
+        log.actual_result("Result 2")
+        assert log.actual_results == ["Result 1", "Result 2"]
+
+    def test_actual_result_converts_to_string(self):
+        """Test actual_result() converts non-string to string."""
+        log = JambLog()
+        log.actual_result(42)  # type: ignore[arg-type]
+        assert log.actual_results == ["42"]
+
+    def test_actual_results_returns_copy(self):
+        """Test actual_results property returns a copy."""
+        log = JambLog()
+        log.actual_result("Original")
+
+        results = log.actual_results
+        results.append("Modified")
+
+        assert log.actual_results == ["Original"]
