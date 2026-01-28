@@ -430,15 +430,32 @@ pytest tests/ --jamb --jamb-matrix matrix.json --jamb-matrix-format json
 pytest tests/ --jamb --jamb-matrix matrix.md --jamb-matrix-format markdown
 ```
 
+For IEC 62304 compliant test records, include tester and version metadata:
+
+```bash
+pytest tests/ --jamb --jamb-matrix matrix.html \
+    --jamb-tester-id "QA Team" \
+    --jamb-software-version "1.0.0"
+```
+
 For example, a markdown matrix renders as:
+
+#### Metadata
+
+- **Software Version:** 1.0.0
+- **Tester:** QA Team
+- **Date:** 2026-01-28T14:30:00Z
+- **Environment:** Darwin 25.2.0, Python 3.12.0, arm64, arm, dev-machine, 10 cores
+- **Test Tools:** jamb 1.2.0, pytest 8.0.0, pytest-cov 4.1.0
 
 #### Coverage Details
 
-| UID | Description | Traces To | Tests | Test Actions | Expected Results | Notes | Status |
-|-----|-------------|-----------|-------|--------------|------------------|-------|--------|
-| SRS001 | Software shall authenticate users with username and password | SYS001, UN001 | `test_credential_validation` [passed] | Submit valid credentials (nurse1 / secure123); Submit invalid password (nurse1 / wrong) | Authentication returns True; Authentication returns False | Verified both positive and negative authentication paths | Passed |
-| SRS002 | Software shall lock account after 3 failed login attempts | SYS001, UN001 | `test_account_lockout` [failed] | Submit 3 invalid passwords | Account is locked | [FAILURE] AssertionError: Account not locked after 3 attempts | Failed |
-| SRS003 | Software shall display heart rate in real-time | SYS002, UN002 | - | - | - | - | Not Covered |
+| UID | Description | Traces To | Tests | Test Actions | Expected Results | Actual Results | Notes | Status |
+|-----|-------------|-----------|-------|--------------|------------------|----------------|-------|--------|
+| SRS001 | Software shall authenticate users | SYS001, UN001 | `test_credential_validation` [passed] | Submit valid credentials | Auth returns True | auth() returned True | Verified auth paths | Passed |
+| SRS002 | Software shall lock account after 3 failed attempts | SYS001, UN001 | `test_account_lockout` [failed] | Submit 3 invalid passwords | Account is locked | account.locked = False | [FAILURE] AssertionError | Failed |
+| SRS003 | Software shall display heart rate in real-time | SYS002, UN002 | - | - | - | - | - | Not Covered |
+| SRS099 | User manual shall be provided | SYS003 | - | - | - | - | Verified by inspection | N/A |
 
 ### What Auditors Want to See
 
@@ -781,9 +798,9 @@ This updates text, header, and links while preserving other fields. The `reviewe
 - [ ] `pytest --jamb --jamb-fail-uncovered` passes
 - [ ] Traceability matrix uploaded as artifact
 
-## Derived Requirements for Risk Controls
+## Derived Requirements
 
-Risk-driven SRS items that only implement risk controls (RC) and don't trace to a system requirement (SYS) should be marked as `derived: true`:
+Items that don't link to any parent, should be marked as `derived: true`:
 
 ```yaml
 # SRS item that only implements a risk control
@@ -796,6 +813,4 @@ text: |
   Software shall validate all input against buffer overflow attacks.
 ```
 
-This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from risk analysis rather than user needs.
-
-Use `derived: true` for requirements that emerge from risk or hazard analysis, security hardening requirements, defensive coding requirements, or any requirement that implements a risk control without tracing to a user need.
+This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from outside considerations.

@@ -45,6 +45,51 @@ Running `jamb validate` before a release provides evidence that the traceability
 complete and that all changes have been assessed. This is a key audit artifact for
 IEC 62304 compliance.
 
+## Test Record Contents (Clause 5.7.5)
+
+IEC 62304 Clause 5.7.5 specifies what information must be included in software system test records. jamb's traceability matrix includes all required fields:
+
+| IEC 62304 5.7.5 Requirement | jamb Implementation |
+|----------------------------|---------------------|
+| Test identification | Test name from pytest node ID |
+| Software version tested | `--jamb-software-version` flag or auto-detected from pyproject.toml |
+| Test date | Automatically captured execution timestamp (ISO 8601 UTC) |
+| Tester identification | `--jamb-tester-id` flag |
+| Test environment | Automatically captured (OS, Python version, platform, hostname) |
+| Test tools | Automatically captured (all loaded pytest plugins with versions) |
+| Pass/fail criteria | `jamb_log.expected_result()` entries |
+| Actual results | `jamb_log.actual_result()` entries |
+| Pass/fail determination | Status column (Passed/Failed/Not Covered/N/A) |
+
+### Generating Compliant Test Records
+
+```bash
+pytest --jamb --jamb-matrix matrix.html \
+    --jamb-tester-id "QA Team / CI Pipeline" \
+    --jamb-software-version "1.2.3"
+```
+
+The generated matrix includes a metadata header with:
+
+- **Software Version**: Version under test
+- **Tester**: Who executed the tests
+- **Date**: Execution timestamp
+- **Environment**: OS name/version, Python version, platform, processor, hostname, CPU count
+- **Test Tools**: All loaded pytest plugins with versions (pytest, jamb, pytest-cov, etc.)
+
+### Non-Testable Requirements
+
+Some requirements cannot be verified by automated tests (e.g., documentation requirements, process requirements). Mark these with `testable: false` in the YAML file:
+
+```yaml
+header: Documentation Requirements
+testable: false
+text: |
+  User manual shall be provided with each software release.
+```
+
+These items show "N/A" status instead of "Not Covered", indicating they are verified by other means (inspection, analysis, demonstration).
+
 ## Further Reading
 
 See the {doc}`/user-guide/concepts` page for detailed information on how to use jamb's

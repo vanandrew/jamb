@@ -3,13 +3,14 @@
 import json
 from typing import Any
 
-from jamb.core.models import ItemCoverage, TraceabilityGraph
+from jamb.core.models import ItemCoverage, MatrixMetadata, TraceabilityGraph
 
 
 def render_json(
     coverage: dict[str, ItemCoverage],
     graph: TraceabilityGraph | None,
     trace_to_ignore: frozenset[str] | set[str] = frozenset(),
+    metadata: MatrixMetadata | None = None,
 ) -> str:
     """Render coverage as JSON for machine processing.
 
@@ -20,11 +21,12 @@ def render_json(
             for each item. When None, ancestor lists are left empty.
         trace_to_ignore: Set of document prefixes to exclude from the
             ancestor display.
+        metadata: Optional matrix metadata for IEC 62304 5.7.5 compliance.
 
     Returns:
-        A string containing pretty-printed JSON with a ``summary``
-        object (totals and coverage percentage) and an ``items`` object
-        keyed by UID.
+        A string containing pretty-printed JSON with a ``metadata`` object
+        (if provided), a ``summary`` object (totals and coverage percentage),
+        and an ``items`` object keyed by UID.
     """
     # Calculate stats
     total = len(coverage)
@@ -41,6 +43,27 @@ def render_json(
         "items": {},
     }
 
+    # Add metadata if provided
+    if metadata:
+        env = metadata.environment
+        data["metadata"] = {
+            "software_version": metadata.software_version,
+            "tester_id": metadata.tester_id,
+            "execution_timestamp": metadata.execution_timestamp,
+            "environment": {
+                "os_name": env.os_name,
+                "os_version": env.os_version,
+                "python_version": env.python_version,
+                "platform": env.platform,
+                "processor": env.processor,
+                "hostname": env.hostname,
+                "cpu_count": env.cpu_count,
+            }
+            if env
+            else None,
+            "test_tools": env.test_tools if env else None,
+        }
+
     for uid, cov in coverage.items():
         # Get ancestors
         ancestors = []
@@ -55,12 +78,22 @@ def render_json(
                     }
                 )
 
+        # Determine status (with N/A support for non-testable items)
+        if not cov.is_covered:
+            status = "N/A" if not cov.item.testable else "Not Covered"
+        elif cov.all_tests_passed:
+            status = "Passed"
+        else:
+            status = "Failed"
+
         data["items"][uid] = {
             "uid": uid,
             "text": cov.item.text,
             "header": cov.item.header,
             "normative": cov.item.type == "requirement",
             "active": cov.item.active,
+            "testable": cov.item.testable,
+            "status": status,
             "traces_to": ancestors,
             "is_covered": cov.is_covered,
             "all_tests_passed": cov.all_tests_passed,
@@ -68,8 +101,10 @@ def render_json(
                 {
                     "nodeid": t.test_nodeid,
                     "outcome": t.test_outcome,
+                    "execution_timestamp": t.execution_timestamp,
                     "test_actions": t.test_actions,
                     "expected_results": t.expected_results,
+                    "actual_results": t.actual_results,
                     "notes": t.notes,
                 }
                 for t in cov.linked_tests
