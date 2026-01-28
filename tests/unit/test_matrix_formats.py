@@ -733,3 +733,293 @@ class TestXlsxConditionalFormatting:
         status_cell = ws.cell(row=8, column=9)
         assert status_cell.value == "Not Covered"
         assert status_cell.fill.start_color.rgb == "00FFEB9C"
+
+
+# =========================================================================
+# Tests for actual_results field in matrices
+# =========================================================================
+
+
+class TestActualResultsInRenderers:
+    """Tests for actual_results display in all renderers."""
+
+    @pytest.fixture
+    def coverage_with_actual_results(self):
+        """Coverage data with actual results."""
+        item = Item(
+            uid="SRS010",
+            text="Requirement with actual results",
+            document_prefix="SRS",
+        )
+        link = LinkedTest(
+            test_nodeid="test_actual.py::test_with_actual_results",
+            item_uid="SRS010",
+            test_outcome="passed",
+            test_actions=["Submit login form"],
+            expected_results=["Login succeeds"],
+            actual_results=["Login returned: success", "Token generated"],
+        )
+        return {"SRS010": ItemCoverage(item=item, linked_tests=[link])}
+
+    def test_html_contains_actual_results(
+        self, coverage_with_actual_results, sample_graph
+    ):
+        """Test that HTML output contains actual results."""
+        html = render_html(coverage_with_actual_results, sample_graph)
+        assert "Login returned: success" in html
+        assert "Token generated" in html
+        assert "<th>Actual Results</th>" in html
+
+    def test_json_contains_actual_results(
+        self, coverage_with_actual_results, sample_graph
+    ):
+        """Test that JSON output includes actual_results array."""
+        json_str = render_json(coverage_with_actual_results, sample_graph)
+        data = json.loads(json_str)
+        test = data["items"]["SRS010"]["linked_tests"][0]
+        assert "actual_results" in test
+        assert "Login returned: success" in test["actual_results"]
+
+    def test_csv_contains_actual_results(
+        self, coverage_with_actual_results, sample_graph
+    ):
+        """Test that CSV output has Actual Results column and content."""
+        csv_str = render_csv(coverage_with_actual_results, sample_graph)
+        reader = csv.reader(io.StringIO(csv_str))
+        header = next(reader)
+        assert "Actual Results" in header
+        assert "Login returned: success" in csv_str
+
+    def test_markdown_contains_actual_results(
+        self, coverage_with_actual_results, sample_graph
+    ):
+        """Test that Markdown output has Actual Results column and content."""
+        md = render_markdown(coverage_with_actual_results, sample_graph)
+        assert "| Actual Results |" in md
+        assert "Login returned: success" in md
+
+    def test_xlsx_contains_actual_results(
+        self, coverage_with_actual_results, sample_graph
+    ):
+        """Test that XLSX output has Actual Results column and content."""
+        xlsx_bytes = render_xlsx(coverage_with_actual_results, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+        assert ws.cell(row=7, column=7).value == "Actual Results"
+        actual_cell = ws.cell(row=8, column=7).value
+        assert "Login returned: success" in actual_cell
+
+
+# =========================================================================
+# Tests for multi-test grouping (test name headers)
+# =========================================================================
+
+
+class TestMultiTestGrouping:
+    """Tests for grouping entries by test name when multi-test items."""
+
+    @pytest.fixture
+    def coverage_with_multiple_tests(self):
+        """Coverage data with multiple tests linked to one requirement."""
+        item = Item(
+            uid="SRS020",
+            text="Requirement with multiple tests",
+            document_prefix="SRS",
+        )
+        test1 = LinkedTest(
+            test_nodeid="test_multi.py::test_first",
+            item_uid="SRS020",
+            test_outcome="passed",
+            test_actions=["First action"],
+            expected_results=["First expected"],
+            actual_results=["First actual"],
+            notes=["First note"],
+        )
+        test2 = LinkedTest(
+            test_nodeid="test_multi.py::test_second",
+            item_uid="SRS020",
+            test_outcome="passed",
+            test_actions=["Second action"],
+            expected_results=["Second expected"],
+            actual_results=["Second actual"],
+            notes=["Second note"],
+        )
+        return {"SRS020": ItemCoverage(item=item, linked_tests=[test1, test2])}
+
+    def test_html_groups_by_test_name(self, coverage_with_multiple_tests, sample_graph):
+        """Test that HTML shows test name headers for multi-test items."""
+        html = render_html(coverage_with_multiple_tests, sample_graph)
+        assert "test_first" in html
+        assert "test_second" in html
+        assert 'class="test-header"' in html
+
+    def test_markdown_prefixes_with_test_name(
+        self, coverage_with_multiple_tests, sample_graph
+    ):
+        """Test that Markdown prefixes entries with [test_name] for multi-test items."""
+        md = render_markdown(coverage_with_multiple_tests, sample_graph)
+        assert "[test_first]" in md
+        assert "[test_second]" in md
+
+    def test_csv_prefixes_with_test_name(
+        self, coverage_with_multiple_tests, sample_graph
+    ):
+        """Test that CSV prefixes entries with [test_name] for multi-test items."""
+        csv_str = render_csv(coverage_with_multiple_tests, sample_graph)
+        assert "[test_first]" in csv_str
+        assert "[test_second]" in csv_str
+
+    def test_xlsx_groups_by_test_name(self, coverage_with_multiple_tests, sample_graph):
+        """Test that XLSX shows test name headers for multi-test items."""
+        xlsx_bytes = render_xlsx(coverage_with_multiple_tests, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+        actions_cell = ws.cell(row=8, column=5).value
+        assert "[test_first]" in actions_cell
+        assert "[test_second]" in actions_cell
+
+    def test_single_test_no_prefix(self, sample_coverage, sample_graph):
+        """Test that single-test items don't get test name prefix."""
+        md = render_markdown(sample_coverage, sample_graph)
+        # Should not have brackets around test name in the content
+        assert "[test_valid]" not in md
+
+
+# =========================================================================
+# Tests for metadata in matrix output
+# =========================================================================
+
+
+class TestMatrixMetadata:
+    """Tests for metadata header in matrix output."""
+
+    @pytest.fixture
+    def sample_metadata(self):
+        """Sample metadata for testing."""
+        from jamb.core.models import MatrixMetadata, TestEnvironment
+
+        return MatrixMetadata(
+            software_version="1.2.3",
+            tester_id="QA Team",
+            execution_timestamp="2026-01-28T12:00:00Z",
+            environment=TestEnvironment(
+                os_name="Darwin",
+                os_version="25.2.0",
+                python_version="3.12.0",
+                platform="arm64",
+                processor="arm",
+                hostname="test-machine",
+                cpu_count=10,
+                test_tools={"pytest": "8.0.0", "jamb": "1.0.0"},
+            ),
+        )
+
+    def test_html_contains_metadata(
+        self, sample_coverage, sample_graph, sample_metadata
+    ):
+        """Test that HTML output contains metadata section."""
+        html = render_html(sample_coverage, sample_graph, metadata=sample_metadata)
+        assert "1.2.3" in html
+        assert "QA Team" in html
+        assert "2026-01-28T12:00:00Z" in html
+        assert "Darwin" in html
+        assert "pytest 8.0.0" in html
+
+    def test_json_contains_metadata(
+        self, sample_coverage, sample_graph, sample_metadata
+    ):
+        """Test that JSON output contains metadata object."""
+        json_str = render_json(sample_coverage, sample_graph, metadata=sample_metadata)
+        data = json.loads(json_str)
+        assert "metadata" in data
+        assert data["metadata"]["software_version"] == "1.2.3"
+        assert data["metadata"]["tester_id"] == "QA Team"
+        assert data["metadata"]["test_tools"]["pytest"] == "8.0.0"
+
+    def test_markdown_contains_metadata(
+        self, sample_coverage, sample_graph, sample_metadata
+    ):
+        """Test that Markdown output contains metadata section."""
+        md = render_markdown(sample_coverage, sample_graph, metadata=sample_metadata)
+        assert "**Software Version:** 1.2.3" in md
+        assert "**Tester:** QA Team" in md
+        assert "pytest 8.0.0" in md
+
+    def test_csv_contains_metadata(
+        self, sample_coverage, sample_graph, sample_metadata
+    ):
+        """Test that CSV output contains metadata rows."""
+        csv_str = render_csv(sample_coverage, sample_graph, metadata=sample_metadata)
+        assert "Software Version,1.2.3" in csv_str
+        assert "Tester,QA Team" in csv_str
+
+    def test_xlsx_contains_metadata(
+        self, sample_coverage, sample_graph, sample_metadata
+    ):
+        """Test that XLSX output contains metadata rows."""
+        xlsx_bytes = render_xlsx(
+            sample_coverage, sample_graph, metadata=sample_metadata
+        )
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+        # Metadata starts at row 3
+        assert ws.cell(row=3, column=1).value == "Software Version:"
+        assert ws.cell(row=3, column=2).value == "1.2.3"
+
+
+# =========================================================================
+# Tests for testable: false items (N/A status)
+# =========================================================================
+
+
+class TestNonTestableItems:
+    """Tests for non-testable items showing N/A status."""
+
+    @pytest.fixture
+    def nontestable_coverage(self):
+        """Coverage data with non-testable item."""
+        item = Item(
+            uid="SRS099",
+            text="User manual shall be provided",
+            document_prefix="SRS",
+            testable=False,
+        )
+        return {"SRS099": ItemCoverage(item=item, linked_tests=[])}
+
+    def test_html_shows_na_status(self, nontestable_coverage, sample_graph):
+        """Test that HTML shows N/A status for non-testable items."""
+        html = render_html(nontestable_coverage, sample_graph)
+        assert "N/A" in html
+        assert 'class="na"' in html or "na" in html.lower()
+
+    def test_json_shows_na_status(self, nontestable_coverage, sample_graph):
+        """Test that JSON shows N/A status for non-testable items."""
+        json_str = render_json(nontestable_coverage, sample_graph)
+        data = json.loads(json_str)
+        assert data["items"]["SRS099"]["status"] == "N/A"
+        assert data["items"]["SRS099"]["testable"] is False
+
+    def test_markdown_shows_na_status(self, nontestable_coverage, sample_graph):
+        """Test that Markdown shows N/A status for non-testable items."""
+        md = render_markdown(nontestable_coverage, sample_graph)
+        assert "| N/A |" in md
+
+    def test_csv_shows_na_status(self, nontestable_coverage, sample_graph):
+        """Test that CSV shows N/A status for non-testable items."""
+        csv_str = render_csv(nontestable_coverage, sample_graph)
+        assert ",N/A" in csv_str
+
+    def test_xlsx_shows_na_status(self, nontestable_coverage, sample_graph):
+        """Test that XLSX shows N/A status for non-testable items."""
+        xlsx_bytes = render_xlsx(nontestable_coverage, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+        assert ws.cell(row=8, column=9).value == "N/A"
+
+    def test_xlsx_na_has_gray_fill(self, nontestable_coverage, sample_graph):
+        """Test that N/A status cell has gray fill (D9D9D9)."""
+        xlsx_bytes = render_xlsx(nontestable_coverage, sample_graph)
+        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        ws = wb.active
+        status_cell = ws.cell(row=8, column=9)
+        assert status_cell.fill.start_color.rgb == "00D9D9D9"
