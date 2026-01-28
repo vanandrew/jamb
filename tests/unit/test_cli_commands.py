@@ -279,6 +279,32 @@ class TestDocCrud:
         r = _invoke(runner, ["doc", "delete", "NOPE"], cwd=tmp_path)
         assert r.exit_code == 1
 
+    def test_doc_delete_warns_dangling_links(self, tmp_path):
+        """doc delete refuses when other docs link to items in the target."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        # Create items and a cross-doc link
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+
+        r = _invoke(runner, ["doc", "delete", "SYS"], cwd=tmp_path)
+        assert r.exit_code == 1
+        combined = r.output + (getattr(r, "stderr", "") or "")
+        assert "link" in combined.lower()
+
+    def test_doc_delete_force_overrides_dangling_links(self, tmp_path):
+        """doc delete --force deletes despite dangling links."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+
+        r = _invoke(runner, ["doc", "delete", "SYS", "--force"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert not (tmp_path / "reqs" / "sys").exists()
+
     def test_doc_list_shows_all(self, tmp_path):
         """doc list shows every discovered document."""
         _init_project(tmp_path)

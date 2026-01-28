@@ -415,6 +415,7 @@ dependencies = [
     { name = "pytest" },
     { name = "python-docx" },
     { name = "pyyaml" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "tomlkit" },
 ]
 
@@ -451,6 +452,7 @@ requires-dist = [
     { name = "pytest", specifier = ">=7.0" },
     { name = "python-docx", specifier = ">=1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
     { name = "tomlkit", specifier = ">=0.12" },
 ]
 

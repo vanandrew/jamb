@@ -1260,7 +1260,7 @@ class TestMatrixEdgeCases:
         item = Item(uid="SRS001", text="test", document_prefix="SRS")
         coverage = self._make_coverage([item])
         output = tmp_path / "matrix.html"
-        generate_matrix(coverage, None, str(output), format="html")
+        generate_matrix(coverage, None, str(output), output_format="html")
         content = output.read_text()
         assert "<!DOCTYPE html>" in content
 
@@ -1271,7 +1271,7 @@ class TestMatrixEdgeCases:
         item = Item(uid="SRS001", text="test", document_prefix="SRS")
         coverage = self._make_coverage([item])
         output = tmp_path / "matrix.json"
-        generate_matrix(coverage, None, str(output), format="json")
+        generate_matrix(coverage, None, str(output), output_format="json")
         data = json.loads(output.read_text())
         assert "summary" in data
         assert "items" in data
@@ -1284,7 +1284,7 @@ class TestMatrixEdgeCases:
         item = Item(uid="SRS001", text="test", document_prefix="SRS")
         coverage = self._make_coverage([item])
         output = tmp_path / "matrix.csv"
-        generate_matrix(coverage, None, str(output), format="csv")
+        generate_matrix(coverage, None, str(output), output_format="csv")
         content = output.read_text()
         reader = csv.reader(io.StringIO(content))
         rows = list(reader)
@@ -1298,7 +1298,7 @@ class TestMatrixEdgeCases:
         item = Item(uid="SRS001", text="test", document_prefix="SRS")
         coverage = self._make_coverage([item])
         output = tmp_path / "matrix.md"
-        generate_matrix(coverage, None, str(output), format="markdown")
+        generate_matrix(coverage, None, str(output), output_format="markdown")
         content = output.read_text()
         assert "# Traceability and Test Record Matrix" in content
         assert "| SRS001 |" in content
@@ -1310,7 +1310,7 @@ class TestMatrixEdgeCases:
         item = Item(uid="SRS001", text="test", document_prefix="SRS")
         coverage = self._make_coverage([item])
         output = tmp_path / "matrix.xlsx"
-        generate_matrix(coverage, None, str(output), format="xlsx")
+        generate_matrix(coverage, None, str(output), output_format="xlsx")
         content = output.read_bytes()
         # XLSX files start with PK (ZIP format)
         assert content[:2] == b"PK"

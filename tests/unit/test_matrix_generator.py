@@ -20,7 +20,7 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.html.render_html", return_value="<html></html>"
         ) as mock:
-            generate_matrix(_make_coverage(), None, str(output), format="html")
+            generate_matrix(_make_coverage(), None, str(output), output_format="html")
         mock.assert_called_once()
         assert output.read_text() == "<html></html>"
 
@@ -29,7 +29,9 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.markdown.render_markdown", return_value="# Matrix"
         ) as mock:
-            generate_matrix(_make_coverage(), None, str(output), format="markdown")
+            generate_matrix(
+                _make_coverage(), None, str(output), output_format="markdown"
+            )
         mock.assert_called_once()
         assert output.read_text() == "# Matrix"
 
@@ -38,7 +40,7 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.json.render_json", return_value='{"items":[]}'
         ) as mock:
-            generate_matrix(_make_coverage(), None, str(output), format="json")
+            generate_matrix(_make_coverage(), None, str(output), output_format="json")
         mock.assert_called_once()
         assert output.read_text() == '{"items":[]}'
 
@@ -47,7 +49,7 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.csv.render_csv", return_value="uid,text\n"
         ) as mock:
-            generate_matrix(_make_coverage(), None, str(output), format="csv")
+            generate_matrix(_make_coverage(), None, str(output), output_format="csv")
         mock.assert_called_once()
         assert output.read_text() == "uid,text\n"
 
@@ -56,19 +58,19 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.xlsx.render_xlsx", return_value=b"\x00\x01"
         ) as mock:
-            generate_matrix(_make_coverage(), None, str(output), format="xlsx")
+            generate_matrix(_make_coverage(), None, str(output), output_format="xlsx")
         mock.assert_called_once()
         assert output.read_bytes() == b"\x00\x01"
 
     def test_unknown_format_raises(self, tmp_path):
         output = tmp_path / "matrix.txt"
         with pytest.raises(ValueError, match="Unknown format: txt"):
-            generate_matrix(_make_coverage(), None, str(output), format="txt")
+            generate_matrix(_make_coverage(), None, str(output), output_format="txt")
 
     def test_creates_parent_directories(self, tmp_path):
         output = tmp_path / "subdir" / "nested" / "matrix.html"
         with patch("jamb.matrix.formats.html.render_html", return_value="<html/>"):
-            generate_matrix(_make_coverage(), None, str(output), format="html")
+            generate_matrix(_make_coverage(), None, str(output), output_format="html")
         assert output.exists()
 
     def test_trace_to_ignore_passed_to_renderer(self, tmp_path):
@@ -81,7 +83,7 @@ class TestGenerateMatrix:
                 _make_coverage(),
                 None,
                 str(output),
-                format="html",
+                output_format="html",
                 trace_to_ignore=ignore,
             )
         _, kwargs = mock.call_args
@@ -93,7 +95,11 @@ class TestGenerateMatrix:
             "jamb.matrix.formats.html.render_html", return_value="<html/>"
         ) as mock:
             generate_matrix(
-                _make_coverage(), None, str(output), format="html", trace_to_ignore=None
+                _make_coverage(),
+                None,
+                str(output),
+                output_format="html",
+                trace_to_ignore=None,
             )
         _, kwargs = mock.call_args
         assert kwargs["trace_to_ignore"] == frozenset()
@@ -104,7 +110,7 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.html.render_html", return_value="<html/>"
         ) as mock:
-            generate_matrix(_make_coverage(), graph, str(output), format="html")
+            generate_matrix(_make_coverage(), graph, str(output), output_format="html")
         args, _ = mock.call_args
         assert args[1] is graph
 
@@ -114,7 +120,7 @@ class TestGenerateMatrix:
         with patch(
             "jamb.matrix.formats.html.render_html", return_value="<empty/>"
         ) as mock:
-            generate_matrix({}, None, str(output), format="html")
+            generate_matrix({}, None, str(output), output_format="html")
         mock.assert_called_once()
         assert output.read_text() == "<empty/>"
 
@@ -122,7 +128,7 @@ class TestGenerateMatrix:
         """a/b/c/d/matrix.html creates all parents."""
         output = tmp_path / "a" / "b" / "c" / "d" / "matrix.html"
         with patch("jamb.matrix.formats.html.render_html", return_value="<html/>"):
-            generate_matrix(_make_coverage(), None, str(output), format="html")
+            generate_matrix(_make_coverage(), None, str(output), output_format="html")
         assert output.exists()
 
     def test_overwrite_existing_file(self, tmp_path):
@@ -130,11 +136,11 @@ class TestGenerateMatrix:
         output = tmp_path / "matrix.html"
         output.write_text("old content")
         with patch("jamb.matrix.formats.html.render_html", return_value="new content"):
-            generate_matrix(_make_coverage(), None, str(output), format="html")
+            generate_matrix(_make_coverage(), None, str(output), output_format="html")
         assert output.read_text() == "new content"
 
     def test_empty_string_format_raises(self, tmp_path):
-        """format='' raises ValueError."""
+        """output_format='' (empty string) raises ValueError."""
         output = tmp_path / "matrix.txt"
         with pytest.raises(ValueError, match="Unknown format: "):
-            generate_matrix(_make_coverage(), None, str(output), format="")
+            generate_matrix(_make_coverage(), None, str(output), output_format="")

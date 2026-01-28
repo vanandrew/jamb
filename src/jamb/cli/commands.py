@@ -1,15 +1,21 @@
 """CLI commands for jamb."""
 
+from __future__ import annotations
+
 import ast
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 import yaml
 
 from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.items import dump_yaml
+
+if TYPE_CHECKING:
+    from jamb.core.models import Item, TraceabilityGraph
 
 
 def _find_item_path(
@@ -144,8 +150,6 @@ def _create_initial_prj_item(prj_path: Path) -> None:
     """
     from typing import cast
 
-    import yaml
-
     project_name = Path.cwd().name  # fallback
     pyproject_path = Path.cwd() / "pyproject.toml"
     if pyproject_path.exists():
@@ -173,7 +177,7 @@ def _create_initial_prj_item(prj_path: Path) -> None:
         "text": project_name,
     }
     with open(item_path, "w") as f:
-        yaml.dump(item_data, f, default_flow_style=False, sort_keys=False)
+        dump_yaml(item_data, f)
 
     click.echo(f"Created item: PRJ001 ({project_name})")
 
@@ -220,16 +224,11 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
 
 @cli.command("info")
 @click.option(
-    "--documents",
-    "-d",
-    help="Comma-separated test document prefixes to check",
-)
-@click.option(
     "--root",
     type=click.Path(exists=True, path_type=Path),
     help="Project root directory",
 )
-def info(documents: str | None, root: Path | None) -> None:
+def info(root: Path | None) -> None:
     """Display document information.
 
     Shows document structure, hierarchy, and item counts.
@@ -238,8 +237,6 @@ def info(documents: str | None, root: Path | None) -> None:
     """
     from jamb.storage import discover_documents
     from jamb.storage.items import read_document_items
-
-    _ = documents  # Reserved for future filtering functionality
 
     try:
         dag = discover_documents(root)
@@ -526,18 +523,53 @@ def doc_create(
     type=click.Path(exists=True, path_type=Path),
     help="Project root directory",
 )
-def doc_delete(prefix: str, root: Path | None) -> None:
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Force deletion even if other documents link to items in this document",
+)
+def doc_delete(prefix: str, root: Path | None, force: bool) -> None:
     """Delete a document.
 
     PREFIX is the document identifier to delete (e.g., SRS, UT).
     """
-    from jamb.storage import discover_documents
+    from jamb.storage import build_traceability_graph, discover_documents
 
     try:
         dag = discover_documents(root)
         if prefix not in dag.document_paths:
             click.echo(f"Error: Document '{prefix}' not found", err=True)
             sys.exit(1)
+
+        # Check for dangling links unless --force is specified
+        if not force:
+            graph = build_traceability_graph(dag)
+            doc_items = {
+                uid
+                for uid, item in graph.items.items()
+                if item.document_prefix == prefix
+            }
+            dangling: list[tuple[str, str]] = []
+            for uid, item in graph.items.items():
+                if item.document_prefix == prefix:
+                    continue
+                for link in item.links:
+                    if link in doc_items:
+                        dangling.append((uid, link))
+            if dangling:
+                click.echo(
+                    f"Warning: {len(dangling)} link(s) from other documents "
+                    f"reference items in '{prefix}':",
+                    err=True,
+                )
+                for source_uid, target_uid in dangling:
+                    click.echo(f"  {source_uid} -> {target_uid}", err=True)
+                click.echo(
+                    "Use --force to delete anyway.",
+                    err=True,
+                )
+                sys.exit(1)
 
         doc_path = dag.document_paths[prefix]
         import shutil
@@ -1278,7 +1310,6 @@ def _publish_html(prefix: str, path: str, include_links: bool) -> None:
         include_links: Whether to render child-link references in the
             output.
     """
-    from jamb.core.models import Item
     from jamb.publish.formats.html import render_html
     from jamb.storage import build_traceability_graph, discover_documents
 
@@ -1310,6 +1341,56 @@ def _publish_html(prefix: str, path: str, include_links: bool) -> None:
         sys.exit(1)
 
 
+def _render_markdown_lines(
+    items: list[Item],
+    graph: TraceabilityGraph,
+    use_anchors: bool = False,
+) -> list[str]:
+    """Render items as markdown lines.
+
+    Args:
+        items: Sorted list of items to render.
+        graph: The traceability graph for link resolution.
+        use_anchors: If True, emit ``[uid](#uid)`` anchor links for
+            links and child references; otherwise emit plain text UIDs.
+
+    Returns:
+        A list of markdown-formatted strings (one per logical line).
+    """
+    lines: list[str] = []
+    for item_obj in items:
+        item_type = getattr(item_obj, "type", "requirement")
+        if item_type == "heading":
+            heading_display = item_obj.header if item_obj.header else item_obj.uid
+            lines.append(f"## {item_obj.uid}: {heading_display}\n")
+        else:
+            if item_obj.header:
+                lines.append(f"## {item_obj.uid}: {item_obj.header}\n")
+            else:
+                lines.append(f"## {item_obj.uid}\n")
+            if item_obj.text:
+                if item_type == "info":
+                    lines.append(f"*{item_obj.text}*\n")
+                else:
+                    lines.append(f"{item_obj.text}\n")
+        if item_obj.links:
+            if use_anchors:
+                link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links]
+            else:
+                link_parts = list(item_obj.links)
+            lines.append(f"*Links: {', '.join(link_parts)}*\n")
+        children = graph.item_children.get(item_obj.uid, [])
+        if children:
+            if use_anchors:
+                child_parts = [f"[{uid}](#{uid})" for uid in children]
+            else:
+                child_parts = list(children)
+            lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
+        if use_anchors:
+            lines.append("")
+    return lines
+
+
 def _publish_markdown_stdout(prefix: str) -> None:
     """Publish a document as markdown to stdout.
 
@@ -1330,26 +1411,8 @@ def _publish_markdown_stdout(prefix: str) -> None:
 
         items.sort(key=lambda i: i.uid)
         click.echo(f"# {prefix}\n")
-        for item_obj in items:
-            item_type = getattr(item_obj, "type", "requirement")
-            if item_type == "heading":
-                heading_display = item_obj.header if item_obj.header else item_obj.uid
-                click.echo(f"## {item_obj.uid}: {heading_display}\n")
-            else:
-                if item_obj.header:
-                    click.echo(f"## {item_obj.uid}: {item_obj.header}\n")
-                else:
-                    click.echo(f"## {item_obj.uid}\n")
-                if item_obj.text:
-                    if item_type == "info":
-                        click.echo(f"*{item_obj.text}*\n")
-                    else:
-                        click.echo(f"{item_obj.text}\n")
-            if item_obj.links:
-                click.echo(f"*Links: {', '.join(item_obj.links)}*\n")
-            children = graph.item_children.get(item_obj.uid, [])
-            if children:
-                click.echo(f"*Linked from: {', '.join(children)}*\n")
+        for line in _render_markdown_lines(items, graph, use_anchors=False):
+            click.echo(line)
 
     except (ValueError, FileNotFoundError, KeyError, OSError, yaml.YAMLError) as e:
         click.echo(f"Error: {e}", err=True)
@@ -1381,34 +1444,9 @@ def _publish_markdown(prefix: str, path: str) -> None:
             items = graph.get_items_by_document(p)
             if not items:
                 continue
-
             items.sort(key=lambda i: i.uid)
             lines.append(f"# {p}\n")
-            for item_obj in items:
-                item_type = getattr(item_obj, "type", "requirement")
-                if item_type == "heading":
-                    heading_display = (
-                        item_obj.header if item_obj.header else item_obj.uid
-                    )
-                    lines.append(f"## {item_obj.uid}: {heading_display}\n")
-                else:
-                    if item_obj.header:
-                        lines.append(f"## {item_obj.uid}: {item_obj.header}\n")
-                    else:
-                        lines.append(f"## {item_obj.uid}\n")
-                    if item_obj.text:
-                        if item_type == "info":
-                            lines.append(f"*{item_obj.text}*\n")
-                        else:
-                            lines.append(f"{item_obj.text}\n")
-                if item_obj.links:
-                    link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links]
-                    lines.append(f"*Links: {', '.join(link_parts)}*\n")
-                children = graph.item_children.get(item_obj.uid, [])
-                if children:
-                    child_parts = [f"[{uid}](#{uid})" for uid in children]
-                    lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
-                lines.append("")
+            lines.extend(_render_markdown_lines(items, graph, use_anchors=True))
 
         if not lines:
             click.echo(f"Error: No items found for '{prefix}'", err=True)
@@ -1436,7 +1474,6 @@ def _publish_docx(
             references in the generated document.
         template: Optional path to a DOCX template file to use for styling.
     """
-    from jamb.core.models import Item
     from jamb.publish.formats.docx import render_docx
     from jamb.storage import build_traceability_graph, discover_documents
 
