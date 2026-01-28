@@ -106,6 +106,9 @@ Usage: jamb init [OPTIONS]
     └── HAZ (Hazards)
         └── RC (Risk Controls)
 
+  Also creates an initial PRJ001 heading item using the project name
+  from pyproject.toml (or "Project" if pyproject.toml is not found).
+
   If pyproject.toml exists, adds [tool.jamb] configuration.
 
 Options:
@@ -135,7 +138,6 @@ Usage: jamb info [OPTIONS]
   Shows document structure, hierarchy, and item counts.
 
 Options:
-  -d, --documents TEXT  Comma-separated test document prefixes to check
   --root PATH           Project root directory
   --help                Show this message and exit.
 ```
@@ -144,9 +146,6 @@ Options:
 ```bash
 # Show all documents in the current project
 jamb info
-
-# Show specific documents
-jamb info --documents SRS,SYS
 
 # Specify a different project root
 jamb info --root /path/to/project
@@ -503,13 +502,21 @@ Usage: jamb doc delete [OPTIONS] PREFIX
   PREFIX is the document identifier to delete (e.g., SRS, UT).
 
 Options:
-  --help  Show this message and exit.
+  --root PATH  Project root directory
+  --force      Force deletion even if other documents link to items in this document
+  --help       Show this message and exit.
 ```
 
 **Example:**
 ```bash
 # Delete a document
 jamb doc delete UT
+
+# Delete a document in a specific project
+jamb doc delete UT --root /path/to/project
+
+# Force deletion even if other documents reference this one
+jamb doc delete SYS --force
 ```
 
 ---

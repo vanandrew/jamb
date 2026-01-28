@@ -107,17 +107,18 @@ def render_xlsx(
     current_row += 2  # Extra row before header
 
     # Header row
-    headers = [
-        "UID",
-        "Description",
-        "Traces To",
-        "Tests",
-        "Test Actions",
-        "Expected Results",
-        "Actual Results",
-        "Notes",
-        "Status",
+    header_widths = [
+        ("UID", 12),
+        ("Description", 50),
+        ("Traces To", 20),
+        ("Tests", 40),
+        ("Test Actions", 40),
+        ("Expected Results", 40),
+        ("Actual Results", 40),
+        ("Notes", 50),
+        ("Status", 15),
     ]
+    headers = [h for h, _ in header_widths]
     header_row = current_row
     for col, header in enumerate(headers, start=1):
         cell = ws.cell(row=header_row, column=col, value=header)
@@ -210,8 +211,7 @@ def render_xlsx(
         row += 1
 
     # Auto-adjust column widths
-    column_widths = [12, 50, 20, 40, 40, 40, 40, 50, 15]
-    for col, width in enumerate(column_widths, start=1):
+    for col, (_, width) in enumerate(header_widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
 
     # Save to bytes

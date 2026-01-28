@@ -15,14 +15,13 @@ if TYPE_CHECKING:
 
 
 class _ItemDictOptional(TypedDict, total=False):
-    """Optional fields for ItemDict.
-
-    Defines the optional header and links fields that may be present
-    in an item's YAML export representation.
-    """
+    """Optional fields for ItemDict."""
 
     header: str
     links: list[str]
+    type: str
+    derived: bool
+    testable: bool
 
 
 class ItemDict(_ItemDictOptional):
@@ -183,16 +182,7 @@ def export_to_yaml(
 
 
 def _graph_item_to_dict(item: Item) -> ItemDict:
-    """Convert a graph Item to dict with plain Python types.
-
-    Args:
-        item: A graph Item object containing uid, text, and optional
-            header and links attributes.
-
-    Returns:
-        An ItemDict with uid and text fields, and optional header and
-        links fields if present on the source item.
-    """
+    """Convert a graph Item to dict with plain Python types."""
     d: ItemDict = {
         "uid": str(item.uid),
         "text": str(item.text),
@@ -201,6 +191,12 @@ def _graph_item_to_dict(item: Item) -> ItemDict:
         d["header"] = str(item.header)
     if item.links:
         d["links"] = [str(link) for link in item.links]
+    if item.type != "requirement":
+        d["type"] = item.type
+    if item.derived:
+        d["derived"] = True
+    if not item.testable:
+        d["testable"] = False
     return d
 
 
@@ -245,16 +241,16 @@ def load_import_file(
     # Validate documents
     for doc in data["documents"]:
         if "prefix" not in doc:
-            raise ValueError(f"Document missing 'prefix': {doc}")
+            raise ValueError(f"Document missing 'prefix': {repr(doc)[:200]}")
         if "path" not in doc:
-            raise ValueError(f"Document missing 'path': {doc}")
+            raise ValueError(f"Document missing 'path': {repr(doc)[:200]}")
 
     # Validate items
     for item in data["items"]:
         if "uid" not in item:
-            raise ValueError(f"Item missing 'uid': {item}")
+            raise ValueError(f"Item missing 'uid': {repr(item)[:200]}")
         if "text" not in item:
-            raise ValueError(f"Item missing 'text': {item}")
+            raise ValueError(f"Item missing 'text': {repr(item)[:200]}")
 
     # Check for duplicate UIDs
     seen = set()
@@ -378,6 +374,19 @@ def _create_document(
         digits=digits,
     )
     doc_path = Path(path)
+    # Guard against path traversal
+    try:
+        resolved = doc_path.resolve()
+        cwd = Path.cwd().resolve()
+        if doc_path.is_absolute() or not resolved.is_relative_to(cwd):
+            echo(
+                f"  Error creating document {prefix}: "
+                "path must be relative and within project"
+            )
+            return "error"
+    except (OSError, ValueError):
+        echo(f"  Error creating document {prefix}: invalid path '{path}'")
+        return "error"
     try:
         save_document_config(config, doc_path)
     except (OSError, ValueError) as e:
@@ -540,6 +549,10 @@ def _update_item(
     # Load existing item data
     with open(item_path, encoding="utf-8") as f:
         existing_data = yaml.safe_load(f) or {}
+
+    if not isinstance(existing_data, dict):
+        echo(f"  Error: {uid} contains invalid YAML (expected mapping)")
+        return "error"
 
     # Update fields from spec (only update what's provided)
     if "text" in spec:

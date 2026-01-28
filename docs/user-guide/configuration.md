@@ -13,6 +13,7 @@ fail_uncovered = false
 require_all_pass = true
 matrix_output = "matrix.html"
 matrix_format = "html"
+software_version = "1.0.0"
 exclude_patterns = []
 trace_to_ignore = []
 ```

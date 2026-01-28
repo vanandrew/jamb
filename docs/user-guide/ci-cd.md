@@ -47,6 +47,8 @@ jobs:
 | `jamb check` | Static test coverage scan | Uncovered requirements in test documents |
 | `pytest --jamb --jamb-fail-uncovered` | Run tests with coverage enforcement | Uncovered requirements or test failures |
 
+> **Note:** `jamb validate` exits with a non-zero status only when errors are found. Suspect links and conformance issues are reported as warnings by default and do not cause a non-zero exit. To treat warnings as errors, use `jamb validate --error-all`.
+
 ## Pre-commit Hook
 
 Add to `.pre-commit-config.yaml`:

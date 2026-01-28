@@ -90,7 +90,11 @@ class TestCoverageSummary:
         assert result.ret == 0
         # Output should contain some coverage-related text
         output = result.stdout.str()
-        assert "passed" in output.lower() or "coverage" in output.lower()
+        assert (
+            "passed" in output.lower()
+            or "Coverage" in output
+            or "Total test spec items" in output
+        )
 
 
 class TestFailUncovered:
@@ -287,7 +291,7 @@ class TestJambDocumentsOption:
         assert result.ret == 0
         # Should show coverage for SRS only
         output = result.stdout.str()
-        assert "SRS" in output or "passed" in output.lower()
+        assert "SRS" in output or "Total test spec items" in output
 
 
 class TestReportHeader:
@@ -350,11 +354,7 @@ class TestTerminalSummaryExtended:
         assert result.ret == 0
         output = result.stdout.str()
         # Should show coverage summary
-        assert (
-            "Coverage Summary" in output
-            or "coverage" in output.lower()
-            or "Covered" in output
-        )
+        assert "Coverage Summary" in output or "Covered" in output
 
     def test_terminal_summary_shows_uncovered_items(self, pytester):
         """Test terminal summary lists uncovered items."""
@@ -402,7 +402,7 @@ class TestTerminalSummaryExtended:
         assert result.ret == 0
         output = result.stdout.str()
         # Should show unknown items
-        assert "NONEXISTENT001" in output or "Unknown" in output or "unknown" in output
+        assert "NONEXISTENT001" in output or "Unknown" in output
 
 
 class TestFailUncoveredExtended:

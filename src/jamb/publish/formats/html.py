@@ -187,8 +187,10 @@ def render_html(
     else:
         doc_order_index = {}
 
+    fallback_order = len(document_order) if document_order else 0
+
     def get_doc_order(item: Item) -> int:
-        return doc_order_index.get(item.document_prefix, 999)
+        return doc_order_index.get(item.document_prefix, fallback_order)
 
     sorted_items = sorted(
         items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid)
@@ -215,7 +217,7 @@ def render_html(
 
         heading_text = f"{item.uid}: {item.header}" if item.header else item.uid
 
-        item_type = getattr(item, "type", "requirement")
+        item_type = item.type
         if item_type == "heading":
             css_class = "item item-heading"
         elif item_type == "info":

@@ -165,10 +165,10 @@ class RequirementCollector:
                 ]
             for link in links_for_node:
                 link.test_outcome = report.outcome
-                link.notes = notes
-                link.test_actions = test_actions
-                link.expected_results = expected_results
-                link.actual_results = actual_results
+                link.notes = list(notes)
+                link.test_actions = list(test_actions)
+                link.expected_results = list(expected_results)
+                link.actual_results = list(actual_results)
                 link.execution_timestamp = test_timestamp
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
@@ -272,13 +272,13 @@ class RequirementCollector:
                 # Skip pytest itself (already added) and internal plugins
                 if name.lower() != "pytest" and not name.startswith("_"):
                     test_tools[name] = version
-        except Exception:
+        except (AttributeError, ImportError, TypeError, OSError):
             # Fallback: at least try to get jamb version
             try:
                 from importlib.metadata import version
 
                 test_tools["jamb"] = version("jamb")
-            except Exception:
+            except (AttributeError, ImportError, TypeError, OSError):
                 pass
 
         return TestEnvironment(

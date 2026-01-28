@@ -152,7 +152,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     )
     if fail_uncovered:
         if not collector.all_test_items_covered():
-            session.exitstatus = 1
+            if session.exitstatus == 0:
+                session.exitstatus = 1
 
 
 def pytest_report_header(config: pytest.Config) -> list[str] | None:

@@ -75,9 +75,7 @@ def render_markdown(
             "| UID | Description | Traces To "
             "| Tests | Test Actions | Expected Results | Actual Results "
             "| Notes | Status |",
-            "|-----|-------------|-----------|"
-            "-------|--------------|------------------|----------------"
-            "|-------|--------|",
+            "| " + " | ".join(["---"] * 9) + " |",
         ]
     )
 
@@ -103,7 +101,8 @@ def render_markdown(
         for test in cov.linked_tests:
             test_name = test.test_nodeid.split("::")[-1]
             outcome = test.test_outcome or "?"
-            tests.append(f"`{test_name}` [{outcome}]")
+            escaped_outcome = outcome.replace("|", "\\|")
+            tests.append(f"`{test_name}` [{escaped_outcome}]")
             # Prefix each entry with test name if there are multiple tests
             prefix = f"[{test_name}] " if len(cov.linked_tests) > 1 else ""
             for action in test.test_actions:
