@@ -7,7 +7,7 @@
 ](https://pypi.org/project/jamb/)
 [![Docs](https://readthedocs.org/projects/jamb/badge/?version=latest)](https://jamb.readthedocs.io)
 
-# <img src="docs/_static/icon-light.svg" alt="jamb icon" width="40" style="vertical-align: middle;" class="only-light"> jamb
+# jamb
 
 IEC 62304 requirements traceability for pytest.
 
@@ -53,7 +53,3 @@ Full documentation is available at [jamb.readthedocs.io](https://jamb.readthedoc
 - [Configuration](https://jamb.readthedocs.io/en/latest/user-guide/configuration.html) -- `pyproject.toml` and document settings
 - [pytest Integration](https://jamb.readthedocs.io/en/latest/user-guide/pytest-integration.html) -- markers, options, and matrix formats
 - [CI/CD](https://jamb.readthedocs.io/en/latest/user-guide/ci-cd.html) -- GitHub Actions, pre-commit hooks
-
-## License
-
-MIT

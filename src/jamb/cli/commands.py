@@ -599,7 +599,7 @@ def item() -> None:
 @click.option("--before", "before_uid", default=None, help="Insert before this UID")
 @click.option("--header", default=None, help="Set the item header")
 @click.option("--text", default=None, help="Set the item body text")
-@click.option("--links", multiple=True, help="Add parent link(s)")
+@click.option("--links", multiple=True, help="Add parent link(s) (multiple allowed)")
 def item_add(
     prefix: str,
     count: int,
