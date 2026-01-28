@@ -429,6 +429,16 @@ pytest tests/ --jamb --jamb-matrix matrix.json --jamb-matrix-format json
 pytest tests/ --jamb --jamb-matrix matrix.md --jamb-matrix-format markdown
 ```
 
+For example, a markdown matrix renders as:
+
+#### Coverage Details
+
+| UID | Description | Traces To | Tests | Test Actions | Expected Results | Notes | Status |
+|-----|-------------|-----------|-------|--------------|------------------|-------|--------|
+| SRS001 | Software shall authenticate users with username and password | SYS001, UN001 | `test_credential_validation` [passed] | Submit valid credentials (nurse1 / secure123); Submit invalid password (nurse1 / wrong) | Authentication returns True; Authentication returns False | Verified both positive and negative authentication paths | Passed |
+| SRS002 | Software shall lock account after 3 failed login attempts | SYS001, UN001 | `test_account_lockout` [failed] | Submit 3 invalid passwords | Account is locked | [FAILURE] AssertionError: Account not locked after 3 attempts | Failed |
+| SRS003 | Software shall display heart rate in real-time | SYS002, UN002 | - | - | - | - | Not Covered |
+
 ### What Auditors Want to See
 
 Auditors look for a complete traceability chain — every SRS traces to SYS, every SYS to UN, and every RC traces to HAZ — with software requirements that implement risk controls linking to both SYS and RC. They expect every testable requirement to have at least one linked test, no suspect links (demonstrating that all changes have been reviewed), and git commit history showing how requirements evolved over time.

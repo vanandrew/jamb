@@ -1688,7 +1688,8 @@ def import_yaml_cmd(
     FILE is the path to a YAML file containing documents and items to create.
 
     \b
-    Expected YAML schema:
+    Expected YAML schema::
+
         documents:                # optional
           - prefix: SRS           # required - document prefix
             path: reqs/srs        # required - directory path
@@ -1701,7 +1702,8 @@ def import_yaml_cmd(
             links: [SYS001]       # optional - linked parent item UIDs
 
     \b
-    Examples:
+    Examples::
+
         jamb import requirements.yml
         jamb import requirements.yml --dry-run
         jamb import requirements.yml --update

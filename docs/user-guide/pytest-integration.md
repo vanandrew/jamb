@@ -111,6 +111,14 @@ The traceability matrix can be generated in several formats:
 
 ### Format Details
 
+#### Example
+
+| UID | Description | Traces To | Tests | Test Actions | Expected Results | Notes | Status |
+|-----|-------------|-----------|-------|--------------|------------------|-------|--------|
+| SRS001 | Software shall authenticate users with username and password | SYS001, UN001 | `test_credential_validation` [passed] | Submit valid credentials (nurse1 / secure123); Submit invalid password (nurse1 / wrong) | Authentication returns True; Authentication returns False | Verified both positive and negative authentication paths | Passed |
+| SRS002 | Software shall lock account after 3 failed login attempts | SYS001, UN001 | `test_account_lockout` [failed] | Submit 3 invalid passwords | Account is locked | [FAILURE] AssertionError: Account not locked after 3 attempts | Failed |
+| SRS003 | Software shall display heart rate in real-time | SYS002, UN002 | - | - | - | - | Not Covered |
+
 **HTML** -- Standalone document with inline CSS. Includes styled tables, color-coded status, and hyperlinked UIDs. Test actions, expected results, and notes appear in separate columns.
 
 **Markdown** -- Pipe-delimited table. Test actions, expected results, and notes are semicolon-separated within their columns.
@@ -129,7 +137,6 @@ The generated matrix includes:
 |--------|-------------|
 | UID | Item identifier (e.g., SRS001) |
 | Description | Requirement text |
-| Document | Which document the item belongs to |
 | Traces To | Parent requirements this item links to |
 | Tests | pytest tests linked via `@pytest.mark.requirement` |
 | Status | PASSED (green), FAILED (red), or UNCOVERED (yellow) |

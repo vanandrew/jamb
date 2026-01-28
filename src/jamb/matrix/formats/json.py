@@ -52,7 +52,6 @@ def render_json(
                     {
                         "uid": ancestor.uid,
                         "text": ancestor.display_text,
-                        "document": ancestor.document_prefix,
                     }
                 )
 
@@ -60,7 +59,6 @@ def render_json(
             "uid": uid,
             "text": cov.item.text,
             "header": cov.item.header,
-            "document": cov.item.document_prefix,
             "normative": cov.item.type == "requirement",
             "active": cov.item.active,
             "traces_to": ancestors,

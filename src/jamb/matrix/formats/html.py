@@ -75,7 +75,6 @@ def render_html(
             <tr class="{status_class}">
                 <td>{uid}</td>
                 <td>{_escape_html(cov.item.display_text)}</td>
-                <td>{cov.item.document_prefix}</td>
                 <td>{ancestors_html or "-"}</td>
                 <td>{tests_html or "-"}</td>
                 <td>{test_actions_html or "-"}</td>
@@ -204,7 +203,6 @@ def render_html(
             <tr>
                 <th>UID</th>
                 <th>Description</th>
-                <th>Document</th>
                 <th>Traces To</th>
                 <th>Tests</th>
                 <th>Test Actions</th>
