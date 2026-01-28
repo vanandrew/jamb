@@ -1,7 +1,7 @@
 """Domain models for requirements traceability."""
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass
@@ -14,7 +14,7 @@ class Item:
         document_prefix (str): Prefix of the document this item belongs to.
         active (bool): Whether the item is active. Inactive items are ignored
             during validation and coverage checks.
-        type (str): Item type — ``"requirement"``, ``"info"``, or ``"heading"``.
+        type (Literal["requirement", "info", "heading"]): Item type.
         header (str | None): Optional heading text displayed instead of body text.
         links (list[str]): UIDs of parent items this item traces to.
         reviewed (str | None): Content hash recorded when the item was last reviewed,
@@ -54,7 +54,7 @@ class Item:
     text: str
     document_prefix: str
     active: bool = True
-    type: str = "requirement"  # "requirement", "info", "heading"
+    type: Literal["requirement", "info", "heading"] = "requirement"
     header: str | None = None
     links: list[str] = field(default_factory=list)
     reviewed: str | None = None

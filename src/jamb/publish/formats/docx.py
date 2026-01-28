@@ -14,22 +14,23 @@ from docx.text.paragraph import Paragraph
 from jamb.core.models import Item, TraceabilityGraph
 
 
-def _add_bookmark(paragraph: Paragraph, bookmark_name: str) -> None:
+def _add_bookmark(paragraph: Paragraph, bookmark_name: str, bookmark_id: int) -> None:
     """Add a bookmark to a paragraph for internal linking.
 
     Args:
         paragraph: The docx paragraph object to add the bookmark to.
         bookmark_name: The bookmark identifier used for internal
             cross-references.
+        bookmark_id: Unique numeric ID for the bookmark element.
     """
     # Create bookmark start
     bookmark_start = OxmlElement("w:bookmarkStart")
-    bookmark_start.set(qn("w:id"), "0")
+    bookmark_start.set(qn("w:id"), str(bookmark_id))
     bookmark_start.set(qn("w:name"), bookmark_name)
 
     # Create bookmark end
     bookmark_end = OxmlElement("w:bookmarkEnd")
-    bookmark_end.set(qn("w:id"), "0")
+    bookmark_end.set(qn("w:id"), str(bookmark_id))
 
     # Insert into paragraph
     paragraph._p.insert(0, bookmark_start)
@@ -233,7 +234,7 @@ def render_docx(
     # Track current document for section headers
     current_doc = None
 
-    for item in sorted_items:
+    for idx, item in enumerate(sorted_items):
         # Add document section header if document changed
         if item.document_prefix != current_doc:
             current_doc = item.document_prefix
@@ -253,7 +254,7 @@ def render_docx(
             heading = doc.add_heading(heading_text, level=2)
 
         # Add bookmark for this item so links can reference it
-        _add_bookmark(heading, item.uid)
+        _add_bookmark(heading, item.uid, idx)
 
         # Add item text
         if item.text:

@@ -11,6 +11,7 @@ import yaml
 
 if TYPE_CHECKING:
     from jamb.core.models import Item
+    from jamb.storage.document_dag import DocumentDAG
 
 
 class _ItemDictOptional(TypedDict, total=False):
@@ -121,7 +122,7 @@ def export_items_to_yaml(
                 data["items"].append(_graph_item_to_dict(item))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(
             data, f, default_flow_style=False, sort_keys=False, allow_unicode=True
         )
@@ -175,7 +176,7 @@ def export_to_yaml(
                 data["items"].append(_graph_item_to_dict(item))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(
             data, f, default_flow_style=False, sort_keys=False, allow_unicode=True
         )
@@ -221,7 +222,7 @@ def load_import_file(
     if echo is None:
         echo = print
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     if not isinstance(data, dict):
@@ -294,6 +295,8 @@ def import_from_yaml(
     if echo is None:
         echo = print
 
+    from jamb.storage import discover_documents
+
     data = load_import_file(path, echo=echo)
     stats = {
         "documents_created": 0,
@@ -302,17 +305,21 @@ def import_from_yaml(
         "skipped": 0,
     }
 
+    dag = discover_documents()
+
     # Import documents first (in order - parents before children)
     for doc_spec in data["documents"]:
-        result = _create_document(doc_spec, dry_run, verbose, echo)
+        result = _create_document(doc_spec, dry_run, verbose, echo, dag=dag)
         if result == "created":
             stats["documents_created"] += 1
+            # Re-discover after creating a document so items can find it
+            dag = discover_documents()
         elif result == "skipped":
             stats["skipped"] += 1
 
     # Import items
     for item_spec in data["items"]:
-        result = _create_item(item_spec, dry_run, update, verbose, echo)
+        result = _create_item(item_spec, dry_run, update, verbose, echo, dag=dag)
         if result == "created":
             stats["items_created"] += 1
         elif result == "updated":
@@ -324,7 +331,11 @@ def import_from_yaml(
 
 
 def _create_document(
-    spec: dict[str, Any], dry_run: bool, verbose: bool, echo: Callable[[str], object]
+    spec: dict[str, Any],
+    dry_run: bool,
+    verbose: bool,
+    echo: Callable[[str], object],
+    dag: DocumentDAG | None = None,
 ) -> str:
     """Create a document from spec.
 
@@ -336,6 +347,7 @@ def _create_document(
         dry_run: If True, report what would happen without making changes.
         verbose: If True, print detailed output including skip messages.
         echo: Callable for output (e.g., print or click.echo).
+        dag: Optional pre-built DAG to avoid repeated discovery.
 
     Returns:
         A string indicating the result: 'created', 'skipped', or 'error'.
@@ -350,7 +362,7 @@ def _create_document(
     digits = spec.get("digits", 3)
 
     # Check if document already exists
-    if _document_exists(prefix):
+    if _document_exists(prefix, dag=dag):
         if verbose:
             echo(f"  Skipping document {prefix} (already exists)")
         return "skipped"
@@ -383,6 +395,7 @@ def _create_item(
     update: bool,
     verbose: bool,
     echo: Callable[[str], object],
+    dag: DocumentDAG | None = None,
 ) -> str:
     """Create or update an item.
 
@@ -394,6 +407,7 @@ def _create_item(
         update: If True, update existing items instead of skipping them.
         verbose: If True, print detailed output including skip messages.
         echo: Callable for output (e.g., print or click.echo).
+        dag: Optional pre-built DAG to avoid repeated discovery.
 
     Returns:
         A string indicating the result: 'created', 'updated', 'skipped',
@@ -411,7 +425,7 @@ def _create_item(
         return "error"
 
     # Get document path
-    doc_path = _get_document_path(prefix)
+    doc_path = _get_document_path(prefix, dag=dag)
     if not doc_path:
         echo(f"  Error: Cannot find document path for {prefix}")
         return "error"
@@ -448,7 +462,7 @@ def _create_item(
     if links:
         item_data["links"] = links
 
-    with open(item_path, "w") as f:
+    with open(item_path, "w", encoding="utf-8") as f:
         _dump_yaml(item_data, f)
 
     if verbose:
@@ -456,18 +470,20 @@ def _create_item(
     return "created"
 
 
-def _document_exists(prefix: str) -> bool:
+def _document_exists(prefix: str, dag: DocumentDAG | None = None) -> bool:
     """Check if a document with the given prefix exists on the filesystem.
 
     Args:
         prefix: The document prefix to search for (e.g., 'SRS').
+        dag: Optional pre-built DAG. If None, calls discover_documents().
 
     Returns:
         True if a document with the given prefix exists, False otherwise.
     """
-    from jamb.storage import discover_documents
+    if dag is None:
+        from jamb.storage import discover_documents
 
-    dag = discover_documents()
+        dag = discover_documents()
     return prefix in dag.documents
 
 
@@ -485,19 +501,21 @@ def _extract_prefix(uid: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _get_document_path(prefix: str) -> Path | None:
+def _get_document_path(prefix: str, dag: DocumentDAG | None = None) -> Path | None:
     """Get the filesystem path for a document prefix.
 
     Args:
         prefix: The document prefix to look up (e.g., 'SRS').
+        dag: Optional pre-built DAG. If None, calls discover_documents().
 
     Returns:
         The Path to the document directory, or None if no document with
         the given prefix is found.
     """
-    from jamb.storage import discover_documents
+    if dag is None:
+        from jamb.storage import discover_documents
 
-    dag = discover_documents()
+        dag = discover_documents()
     return dag.document_paths.get(prefix)
 
 
@@ -520,7 +538,7 @@ def _update_item(
     uid = spec["uid"]
 
     # Load existing item data
-    with open(item_path) as f:
+    with open(item_path, encoding="utf-8") as f:
         existing_data = yaml.safe_load(f) or {}
 
     # Update fields from spec (only update what's provided)
@@ -542,7 +560,7 @@ def _update_item(
         del existing_data["reviewed"]
 
     # Write updated data
-    with open(item_path, "w") as f:
+    with open(item_path, "w", encoding="utf-8") as f:
         _dump_yaml(existing_data, f)
 
     if verbose:

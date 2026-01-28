@@ -39,7 +39,7 @@ def load_document_config(path: Path) -> DocumentConfig:
     Raises:
         ValueError: If the config file is missing required fields.
     """
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
     if not data or "settings" not in data:
@@ -85,5 +85,5 @@ def save_document_config(config: DocumentConfig, directory: Path) -> None:
 
     directory.mkdir(parents=True, exist_ok=True)
     config_path = directory / ".jamb.yml"
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
