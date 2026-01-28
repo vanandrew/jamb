@@ -105,6 +105,38 @@ class TestLoadImportFile:
         with pytest.raises(ValueError, match="missing 'text'"):
             load_import_file(yaml_file)
 
+    def test_duplicate_uids_raises(self, tmp_path):
+        """Test error when import file contains duplicate UIDs."""
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text(
+            "items:\n"
+            "  - uid: SRS001\n"
+            "    text: First\n"
+            "  - uid: SRS001\n"
+            "    text: Second\n"
+        )
+
+        with pytest.raises(ValueError, match="Duplicate UIDs.*SRS001"):
+            load_import_file(yaml_file)
+
+    def test_multiple_duplicate_uids_raises(self, tmp_path):
+        """Test error lists all duplicated UIDs."""
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text(
+            "items:\n"
+            "  - uid: SRS001\n"
+            "    text: First\n"
+            "  - uid: SRS002\n"
+            "    text: Second\n"
+            "  - uid: SRS001\n"
+            "    text: Third\n"
+            "  - uid: SRS002\n"
+            "    text: Fourth\n"
+        )
+
+        with pytest.raises(ValueError, match="Duplicate UIDs.*SRS001.*SRS002"):
+            load_import_file(yaml_file)
+
     def test_raises_on_invalid_yaml(self, tmp_path):
         """Test error on non-mapping YAML."""
         yaml_file = tmp_path / "test.yml"

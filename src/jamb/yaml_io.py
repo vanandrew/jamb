@@ -242,6 +242,19 @@ def load_import_file(path: Path, echo=None) -> dict:
         if "text" not in item:
             raise ValueError(f"Item missing 'text': {item}")
 
+    # Check for duplicate UIDs
+    seen = set()
+    duplicates = set()
+    for item in data["items"]:
+        uid = item["uid"]
+        if uid in seen:
+            duplicates.add(uid)
+        seen.add(uid)
+    if duplicates:
+        raise ValueError(
+            f"Duplicate UIDs in import file: {', '.join(sorted(duplicates))}"
+        )
+
     return data
 
 

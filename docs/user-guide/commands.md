@@ -509,6 +509,9 @@ Options:
   -c, --count INTEGER  Number of items to add
   --after TEXT         Insert after this UID
   --before TEXT        Insert before this UID
+  --header TEXT        Set the item header
+  --text TEXT          Set the item body text
+  --links TEXT         Add parent link(s) (multiple allowed)
   --help               Show this message and exit.
 ```
 
@@ -525,6 +528,12 @@ jamb item add SRS --after SRS003
 
 # Insert before a specific item
 jamb item add SRS --before SRS005
+
+# Add an item with a header and body text
+jamb item add SRS --header "Login Page" --text "The system shall display a login page."
+
+# Add an item with parent links
+jamb item add UT --links SRS001 --links SRS002
 ```
 
 ---
