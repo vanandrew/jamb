@@ -290,8 +290,8 @@ class TestDocCrud:
 
         r = _invoke(runner, ["doc", "delete", "SYS"], cwd=tmp_path)
         assert r.exit_code == 1
-        combined = r.output + (getattr(r, "stderr", "") or "")
-        assert "link" in combined.lower()
+        assert "link" in r.output.lower()
+        assert "--force" in r.output
 
     def test_doc_delete_force_overrides_dangling_links(self, tmp_path):
         """doc delete --force deletes despite dangling links."""
@@ -702,6 +702,83 @@ class TestPublishCommand:
         assert r.exit_code == 0
         assert out.exists()
         assert "SRS001" in out.read_text()
+
+    def test_publish_markdown_stdout_with_rich_items(self, tmp_path):
+        """Markdown stdout renders headings, info, links, and children."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+        # heading item
+        p1 = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        _write_yaml(
+            p1,
+            {
+                "active": True,
+                "type": "heading",
+                "header": "Overview",
+                "text": "Overview section",
+            },
+        )
+        # info item
+        p2 = tmp_path / "reqs" / "srs" / "SRS002.yml"
+        _write_yaml(
+            p2,
+            {
+                "active": True,
+                "type": "info",
+                "text": "Informational note",
+            },
+        )
+        # requirement with link
+        p3 = tmp_path / "reqs" / "srs" / "SRS003.yml"
+        _write_yaml(
+            p3,
+            {
+                "active": True,
+                "text": "Linked requirement",
+                "links": ["SRS001"],
+            },
+        )
+        r = _invoke(runner, ["publish", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "## SRS001: Overview" in r.output
+        assert "*Informational note*" in r.output
+        assert "Links:" in r.output
+        assert "Linked from:" in r.output
+
+    def test_publish_markdown_file_with_rich_items(self, tmp_path):
+        """Markdown file renders anchor links for links and children."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        p1 = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        _write_yaml(
+            p1,
+            {
+                "active": True,
+                "header": "Auth",
+                "text": "Auth requirement",
+            },
+        )
+        p2 = tmp_path / "reqs" / "srs" / "SRS002.yml"
+        _write_yaml(
+            p2,
+            {
+                "active": True,
+                "text": "Child requirement",
+                "links": ["SRS001"],
+            },
+        )
+        out = tmp_path / "out.md"
+        r = _invoke(
+            runner,
+            ["publish", "SRS", str(out), "--markdown"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 0
+        content = out.read_text()
+        assert "[SRS001](#SRS001)" in content
+        assert "Linked from:" in content
 
     def test_publish_html_requires_path(self, tmp_path):
         """publish --html without PATH exits with code 1."""
