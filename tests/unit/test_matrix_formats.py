@@ -351,7 +351,7 @@ class TestRenderXlsx:
         ws = wb.active
 
         # Check for summary title
-        assert "Traceability Matrix" in str(ws["A1"].value)
+        assert "Traceability and Test Record Matrix" in str(ws["A1"].value)
 
     def test_contains_header_row(self, sample_coverage, sample_graph):
         """Test that XLSX contains header row."""
@@ -363,8 +363,9 @@ class TestRenderXlsx:
         assert ws.cell(row=7, column=1).value == "UID"
         assert ws.cell(row=7, column=5).value == "Test Actions"
         assert ws.cell(row=7, column=6).value == "Expected Results"
-        assert ws.cell(row=7, column=7).value == "Notes"
-        assert ws.cell(row=7, column=8).value == "Status"
+        assert ws.cell(row=7, column=7).value == "Actual Results"
+        assert ws.cell(row=7, column=8).value == "Notes"
+        assert ws.cell(row=7, column=9).value == "Status"
 
     def test_contains_item_uid(self, sample_coverage, sample_graph):
         """Test that XLSX contains item UID."""
@@ -381,8 +382,8 @@ class TestRenderXlsx:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        # Status is in column 8 (after Notes column)
-        assert ws.cell(row=8, column=8).value == "Passed"
+        # Status is in column 9 (after Actual Results and Notes columns)
+        assert ws.cell(row=8, column=9).value == "Passed"
 
     def test_uncovered_status(self, uncovered_coverage, sample_graph):
         """Test that uncovered items show Not Covered status."""
@@ -390,7 +391,7 @@ class TestRenderXlsx:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        assert ws.cell(row=8, column=8).value == "Not Covered"
+        assert ws.cell(row=8, column=9).value == "Not Covered"
 
     def test_failed_status(self, failed_coverage, sample_graph):
         """Test that failed items show Failed status."""
@@ -398,7 +399,7 @@ class TestRenderXlsx:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        assert ws.cell(row=8, column=8).value == "Failed"
+        assert ws.cell(row=8, column=9).value == "Failed"
 
     def test_empty_coverage(self, sample_graph):
         """Test rendering with empty coverage."""
@@ -633,8 +634,8 @@ class TestNotesInRenderers:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        # Notes is in column 7
-        assert ws.cell(row=7, column=7).value == "Notes"
+        # Notes is in column 8 (after Actual Results)
+        assert ws.cell(row=7, column=8).value == "Notes"
 
     def test_xlsx_contains_test_actions_column(
         self, coverage_with_messages, sample_graph
@@ -662,8 +663,8 @@ class TestNotesInRenderers:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        # Notes are in column 7, data row 8
-        notes_cell = ws.cell(row=8, column=7).value
+        # Notes are in column 8, data row 8
+        notes_cell = ws.cell(row=8, column=8).value
         assert "Custom verification message" in notes_cell
 
     def test_markdown_contains_notes_column(self, coverage_with_messages, sample_graph):
@@ -709,7 +710,7 @@ class TestXlsxConditionalFormatting:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        status_cell = ws.cell(row=8, column=8)
+        status_cell = ws.cell(row=8, column=9)
         assert status_cell.value == "Passed"
         assert status_cell.fill.start_color.rgb == "00C6EFCE"
 
@@ -719,7 +720,7 @@ class TestXlsxConditionalFormatting:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        status_cell = ws.cell(row=8, column=8)
+        status_cell = ws.cell(row=8, column=9)
         assert status_cell.value == "Failed"
         assert status_cell.fill.start_color.rgb == "00FFC7CE"
 
@@ -729,6 +730,6 @@ class TestXlsxConditionalFormatting:
         wb = load_workbook(io.BytesIO(xlsx_bytes))
         ws = wb.active
 
-        status_cell = ws.cell(row=8, column=8)
+        status_cell = ws.cell(row=8, column=9)
         assert status_cell.value == "Not Covered"
         assert status_cell.fill.start_color.rgb == "00FFEB9C"

@@ -1300,7 +1300,7 @@ class TestMatrixEdgeCases:
         output = tmp_path / "matrix.md"
         generate_matrix(coverage, None, str(output), format="markdown")
         content = output.read_text()
-        assert "# Traceability Matrix" in content
+        assert "# Traceability and Test Record Matrix" in content
         assert "| SRS001 |" in content
 
     def test_matrix_xlsx_format(self, tmp_path: Path) -> None:

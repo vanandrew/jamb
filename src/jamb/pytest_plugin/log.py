@@ -17,6 +17,8 @@ class JambLog:
             jamb_log.note("Custom verification note")
             jamb_log.test_action("Entered valid credentials")
             jamb_log.expected_result("Login succeeds")
+            result = do_something()
+            jamb_log.actual_result(f"Got: {result}")
             assert something
     """
 
@@ -24,6 +26,7 @@ class JambLog:
         self._notes: list[str] = []
         self._test_actions: list[str] = []
         self._expected_results: list[str] = []
+        self._actual_results: list[str] = []
 
     def note(self, msg: str) -> None:
         """
@@ -55,6 +58,16 @@ class JambLog:
         """
         self._expected_results.append(str(result))
 
+    def actual_result(self, result: str) -> None:
+        """
+        Log an actual result to be included in the traceability matrix.
+
+        Args:
+            result: Description of an actual result observed during test execution.
+                    Will appear in the "Actual Results" column.
+        """
+        self._actual_results.append(str(result))
+
     @property
     def notes(self) -> list[str]:
         """Return all logged notes."""
@@ -69,3 +82,8 @@ class JambLog:
     def expected_results(self) -> list[str]:
         """Return all logged expected results."""
         return self._expected_results.copy()
+
+    @property
+    def actual_results(self) -> list[str]:
+        """Return all logged actual results."""
+        return self._actual_results.copy()

@@ -67,6 +67,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         metavar="PREFIXES",
         help="Comma-separated list of test document prefixes to check",
     )
+    group.addoption(
+        "--jamb-tester-id",
+        default="Unknown",
+        metavar="ID",
+        help="Tester identification for traceability matrix (default: Unknown)",
+    )
+    group.addoption(
+        "--jamb-software-version",
+        default=None,
+        metavar="VERSION",
+        help="Software version for traceability matrix (overrides pyproject.toml)",
+    )
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -112,7 +124,14 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     # Generate traceability matrix if requested
     if matrix_path := session.config.option.jamb_matrix:
-        collector.generate_matrix(matrix_path, session.config.option.jamb_matrix_format)
+        tester_id = session.config.option.jamb_tester_id
+        software_version = session.config.option.jamb_software_version
+        collector.generate_matrix(
+            matrix_path,
+            session.config.option.jamb_matrix_format,
+            tester_id,
+            software_version,
+        )
 
     # Check coverage and potentially modify exit status
     if session.config.option.jamb_fail_uncovered:

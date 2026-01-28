@@ -22,28 +22,14 @@ management:
 This structure mirrors the ISO 14971 process: identify hazards, then define controls for
 those hazards.
 
-## Derived Requirements and `derived: true`
-
-Some software requirements do not originate from user needs. Instead, they derive from
-risk analysis -- they exist because a risk control requires a specific software behavior.
-These are called **derived requirements**.
-
-In jamb, mark derived requirements with `derived: true` in the item metadata. This tells
-jamb that the item does not need a parent link in the normal traceability chain (UN or SYS).
-Instead, it traces to an RC (risk control) item.
-
-Without the `derived: true` flag, `jamb validate` would flag these items as unlinked
-because they lack the expected parent link. The flag signals that the item's provenance
-is the risk management process rather than the requirements decomposition chain.
-
 ## Risk Controls to Software Requirements Tracing
 
 The complete risk management traceability chain in jamb is:
 
 1. **HAZ** items identify hazards and link to PRJ items.
 2. **RC** items define risk controls and link to HAZ items.
-3. **SRS** items (marked `derived: true`) implement risk controls and link to RC items.
-4. **Tests** verify the derived SRS items using `@pytest.mark.requirement`.
+3. **SRS** items implement risk controls and link to RC items.
+4. **Tests** verify the SRS items using `@pytest.mark.requirement`.
 
 This creates a complete chain from hazard identification through risk control definition
 to software implementation and verification:

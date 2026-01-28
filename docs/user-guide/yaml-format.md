@@ -49,6 +49,11 @@ text: |
 : **Type:** `bool`
 : **Default:** `false`
 
+`testable`
+: Whether the item can be verified by automated testing. When `false`, the item shows "N/A" instead of "Not Covered" in the traceability matrix. Use this for requirements verified by inspection, analysis, or other non-test methods.
+: **Type:** `bool`
+: **Default:** `true`
+
 `type`
 : Item type. Standard items use `requirement`. Headings and informational items use `heading` or `info`.
 : **Type:** `str`
@@ -74,9 +79,23 @@ links:
 
 The hash is a truncated SHA-256 of the parent item's content. When you run `jamb review clear`, the hash is updated to the parent's current content hash. If the parent is later modified, the stored hash no longer matches, making the link **suspect**.
 
+### Non-Testable Requirements
+
+For requirements that cannot or should not be verified by automated tests (e.g., documentation requirements, process requirements, or items verified by inspection), set `testable: false`:
+
+```yaml
+active: true
+header: Documentation Requirements
+testable: false
+text: |
+  User manual shall be provided with each software release.
+```
+
+Non-testable items show "N/A" status in the traceability matrix instead of "Not Covered", indicating they are intentionally not linked to automated tests.
+
 ### Custom Attributes
 
-Any YAML keys in an item file that are not part of the standard fields (`active`, `text`, `header`, `links`, `reviewed`, `derived`, `type`) are preserved as custom attributes. This allows you to attach project-specific metadata to items:
+Any YAML keys in an item file that are not part of the standard fields (`active`, `text`, `header`, `links`, `reviewed`, `derived`, `testable`, `type`) are preserved as custom attributes. This allows you to attach project-specific metadata to items:
 
 ```yaml
 active: true

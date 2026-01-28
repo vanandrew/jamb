@@ -70,6 +70,16 @@ pytest --jamb --jamb-matrix matrix.html
 
 Open `matrix.html` in a browser to see which requirements have passing tests.
 
+For IEC 62304 compliant test records, include tester and version metadata:
+
+```bash
+pytest --jamb --jamb-matrix matrix.html \
+    --jamb-tester-id "CI Pipeline" \
+    --jamb-software-version "1.0.0"
+```
+
+The matrix includes software version, tester ID, execution timestamp, and test environment details.
+
 ## 6. Validate the Requirements Tree
 
 ```bash
