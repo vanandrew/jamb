@@ -48,3 +48,21 @@ test_documents = ["SRS", "SYS"]
 ```
 
 Or use the `--jamb-documents` flag with pytest: `pytest --jamb --jamb-documents SRS,SYS`
+
+## How large a project can jamb handle?
+
+jamb stores each item as an individual YAML file on disk, so disk I/O scales linearly with the number of items. When you run `jamb validate`, `jamb check`, or `pytest --jamb`, jamb reads every item file and builds an in-memory traceability graph. This means memory usage and build time grow linearly with the total number of items and links.
+
+In practice, projects with hundreds to low thousands of requirements work well. If your project is very large, you can use the `exclude_patterns` configuration option in `[tool.jamb]` to limit which documents are loaded:
+
+```toml
+[tool.jamb]
+exclude_patterns = ["ARCHIVE/*", "LEGACY/*"]
+```
+
+You can also scope validation and coverage checks to specific documents using `--documents` or `--skip` flags:
+
+```bash
+jamb validate --skip LEGACY
+jamb check --documents SRS,SYS
+```

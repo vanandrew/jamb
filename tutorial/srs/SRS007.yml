@@ -2,8 +2,8 @@ active: true
 header: Data Polling
 type: requirement
 links:
-- RC001: C_8bU_QFuNDQNh873QJvgHvbnGuWZR-0vfEcDQSquMc
-- SYS003: ghGw49wrPqbI3jb31ZOiU2QYivbesL5VZyPW35-0oEw
+- RC001: TUd9JBnZefOAi02jqu4Y3WFiLJAfBI_srcbJREqorGw
+- SYS003: w09LYCJsEzfNmeLb1rLmrw5F9gPrp9mkcAy5pOfdO6Y
 text: |
   Software shall poll device API every 5 seconds.
 reviewed: Pbb8m0U4tlGx3WJA_VSY9RzAo7_tjGEUDOo9pF5y7ZU

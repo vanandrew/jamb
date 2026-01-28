@@ -133,7 +133,7 @@ def init() -> None:
 
 
 def _create_initial_prj_item(prj_path: Path) -> None:
-    """Create a PRJ001 heading item using the project name from pyproject.toml.
+    """Create a PRJ001 requirement item using the project name from pyproject.toml.
 
     Reads the project name from ``[project].name`` in pyproject.toml.
     If pyproject.toml is missing or has no project name, falls back to
@@ -169,7 +169,7 @@ def _create_initial_prj_item(prj_path: Path) -> None:
     item_data = {
         "active": True,
         "header": project_name,
-        "type": "heading",
+        "type": "requirement",
         "text": project_name,
     }
     with open(item_path, "w") as f:

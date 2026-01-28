@@ -2,6 +2,16 @@
 
 Complete reference for all `jamb` CLI commands.
 
+## Quick Reference
+
+| Group | Commands | Description |
+|-------|----------|-------------|
+| Top-level | `init`, `info`, `check`, `validate`, `publish`, `export`, `import`, `reorder` | Project setup, validation, publishing, and data exchange |
+| Document | `doc create`, `doc delete`, `doc list` | Create, remove, and list requirement documents |
+| Item | `item add`, `item remove`, `item edit`, `item show`, `item list` | Add, remove, edit, inspect, and list requirement items |
+| Link | `link add`, `link remove` | Create and remove traceability links between items |
+| Review | `review mark`, `review clear`, `review reset` | Mark items as reviewed, clear suspect links, and reset review status |
+
 ## Table of Contents
 
 - [Top-Level Commands](#top-level-commands)

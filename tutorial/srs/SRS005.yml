@@ -2,7 +2,7 @@ active: true
 header: Session Refresh
 type: requirement
 links:
-- SYS002: 7-Tt5w8AeZbmg7S_OJRndIVAuUpG-6_IC2oV1NSShIs
+- SYS002: am-pBFVcPYF2ruXcASif26hxeS8ykY4_JHd6blwFFZE
 text: |
   Software shall refresh tokens on activity within 15 minutes of expiry.
 reviewed: _hvQESSI5zMwdswqxiq6QOHPvz9pwpYVc5y-NrcNIcU
