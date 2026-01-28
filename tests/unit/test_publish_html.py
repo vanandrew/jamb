@@ -211,8 +211,8 @@ class TestRenderHtml:
         assert 'class="item item-heading"' in result
         assert "<h2" in result
         assert "Safety Requirements" in result
-        # Heading should show header text without UID prefix
-        assert ">Safety Requirements</h2>" in result
+        # Heading should show header text (badge is appended)
+        assert "Safety Requirements<span" in result
 
     def test_render_html_info_item_class(self):
         """Test that info items get item-info class."""
@@ -257,8 +257,9 @@ class TestRenderHtml:
         result = render_html(items, "SRS")
 
         # Should NOT have "SRS001: Section Header" in the h2
-        assert "SRS001: Section Header</h2>" not in result
-        assert "Section Header</h2>" in result
+        assert "SRS001: Section Header<span" not in result
+        # Header text should appear before the badge span
+        assert "Section Header<span" in result
 
     def test_render_html_child_links_no_graph(self):
         """Child links section not rendered when graph is None."""
@@ -312,8 +313,8 @@ class TestRenderHtml:
             ),
         ]
         result = render_html(items, "SRS")
-        # Heading display should fall back to UID
-        assert ">SRS001</h2>" in result
+        # Heading display should fall back to UID (followed by badge)
+        assert ">SRS001<span" in result
 
     def test_render_html_text_with_newlines(self):
         """6b: Item text with newline characters appears in output."""
@@ -357,9 +358,9 @@ class TestRenderHtml:
         ]
         result = render_html(items, "SRS")
 
-        # Both should render UID-only headings without ": " before </h3>
-        assert ">SRS001</h3>" in result
-        assert ">SRS002</h3>" in result
+        # Both should render UID-only headings without ": " (followed by badge)
+        assert ">SRS001<span" in result
+        assert ">SRS002<span" in result
 
     def test_empty_links_list(self):
         """Item with links=[] should not render a Links section."""
@@ -378,6 +379,53 @@ class TestRenderHtml:
         result = render_html(items, "SRS")
 
         assert "Links:" not in result
+
+
+class TestRenderHtmlStyling:
+    """Tests for improved HTML styling features."""
+
+    def test_render_html_has_css_variables(self):
+        """Test that CSS includes custom property (variable) definitions."""
+        items = [Item(uid="SRS001", text="Test", document_prefix="SRS")]
+        result = render_html(items, "SRS")
+
+        assert ":root {" in result
+        assert "--color-primary" in result
+        assert "--color-text" in result
+
+    def test_render_html_has_print_styles(self):
+        """Test that CSS includes print media query."""
+        items = [Item(uid="SRS001", text="Test", document_prefix="SRS")]
+        result = render_html(items, "SRS")
+
+        assert "@media print" in result
+
+    def test_render_html_item_type_badges(self):
+        """Test that items have type badges."""
+        items = [
+            Item(uid="SRS001", text="Req", document_prefix="SRS", type="requirement"),
+            Item(
+                uid="SRS002",
+                text="",
+                header="Section",
+                document_prefix="SRS",
+                type="heading",
+            ),
+            Item(uid="SRS003", text="Info", document_prefix="SRS", type="info"),
+        ]
+        result = render_html(items, "SRS")
+
+        assert "badge-requirement" in result
+        assert "badge-heading" in result
+        assert "badge-info" in result
+
+    def test_render_html_card_styling(self):
+        """Test that items have card-like styling classes."""
+        items = [Item(uid="SRS001", text="Test", document_prefix="SRS")]
+        result = render_html(items, "SRS")
+
+        # Check for border-radius in CSS (indicates card styling)
+        assert "border-radius" in result
 
 
 class TestRenderHtmlEdgeCases:
@@ -421,10 +469,10 @@ class TestRenderHtmlEdgeCases:
         assert 'class="item item-requirement"' in result
 
         # Heading renders as <h2>, others as <h3>
-        # Count h2 tags with item content (excluding doc section headers)
-        assert ">Safety Section</h2>" in result
-        assert ">SRS002</h3>" in result
-        assert ">SRS003</h3>" in result
+        # Each item has a type badge appended
+        assert ">Safety Section<span" in result
+        assert ">SRS002<span" in result
+        assert ">SRS003<span" in result
 
     def test_heading_item_with_links_still_renders_links(self):
         """A heading-type item that has links should still show Links section."""
