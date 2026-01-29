@@ -102,6 +102,20 @@ class TestReadItem:
         data = read_item(item_path, "SRS")
         assert data["links"] == []
 
+    def test_warns_on_scalar_links(self, tmp_path):
+        """Scalar links value produces warning."""
+        import warnings
+
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\nlinks: SYS001\n")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            data = read_item(item_path, "SRS")
+            assert data["links"] == []  # Still returns empty list
+            assert len(w) == 1
+            assert "not a list" in str(w[0].message)
+            assert "SRS001" in str(w[0].message)
+
     def test_non_string_text_coerced(self, tmp_path):
         """1c: YAML `text: 42` (int) is coerced to string '42'."""
         item_path = tmp_path / "SRS001.yml"

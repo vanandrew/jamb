@@ -3,6 +3,18 @@
 from jamb.core.models import ItemCoverage, MatrixMetadata, TraceabilityGraph
 
 
+def _truncate_for_table(text: str, max_len: int = 200) -> str:
+    """Truncate text for markdown table with ellipsis indicator.
+
+    Escapes pipe characters and newlines, then truncates with '...'
+    if the result exceeds max_len.
+    """
+    escaped = text.replace("|", "\\|").replace("\n", " ")
+    if len(escaped) > max_len:
+        return escaped[: max_len - 3] + "..."
+    return escaped
+
+
 def render_markdown(
     coverage: dict[str, ItemCoverage],
     graph: TraceabilityGraph | None,
@@ -116,32 +128,22 @@ def render_markdown(
         tests_str = ", ".join(tests) if tests else "-"
         # Escape pipe characters and truncate long content for markdown table
         test_actions_str = (
-            "; ".join(
-                a.replace("|", "\\|").replace("\n", " ")[:100] for a in all_test_actions
-            )
+            "; ".join(_truncate_for_table(a) for a in all_test_actions)
             if all_test_actions
             else "-"
         )
         expected_results_str = (
-            "; ".join(
-                r.replace("|", "\\|").replace("\n", " ")[:100]
-                for r in all_expected_results
-            )
+            "; ".join(_truncate_for_table(r) for r in all_expected_results)
             if all_expected_results
             else "-"
         )
         actual_results_str = (
-            "; ".join(
-                r.replace("|", "\\|").replace("\n", " ")[:100]
-                for r in all_actual_results
-            )
+            "; ".join(_truncate_for_table(r) for r in all_actual_results)
             if all_actual_results
             else "-"
         )
         notes_str = (
-            "; ".join(
-                msg.replace("|", "\\|").replace("\n", " ")[:100] for msg in all_notes
-            )
+            "; ".join(_truncate_for_table(msg) for msg in all_notes)
             if all_notes
             else "-"
         )

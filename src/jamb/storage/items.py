@@ -70,6 +70,16 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
     links: list[str] = []
     link_hashes: dict[str, str] = {}
 
+    if raw_links and not isinstance(raw_links, list):
+        import warnings
+
+        warnings.warn(
+            f"Item '{path.stem}' has 'links' field that is not a list. "
+            f"Links should be formatted as a YAML list. "
+            f"Got: {type(raw_links).__name__}",
+            stacklevel=2,
+        )
+
     if isinstance(raw_links, list):
         for entry in raw_links:
             if isinstance(entry, dict):
