@@ -7,6 +7,7 @@ import pytest
 if TYPE_CHECKING:
     from _pytest.terminal import TerminalReporter
 
+from jamb.matrix.utils import infer_format
 from jamb.pytest_plugin.collector import RequirementCollector
 from jamb.pytest_plugin.log import JAMB_LOG_KEY, JambLog
 
@@ -32,7 +33,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     """Register jamb command-line options with pytest.
 
     Registers the following options: ``--jamb``, ``--jamb-fail-uncovered``,
-    ``--jamb-matrix``, ``--jamb-matrix-format``, and ``--jamb-documents``.
+    ``--jamb-test-matrix``, ``--jamb-trace-matrix``, and ``--jamb-documents``.
 
     Args:
         parser: The pytest argument parser to add options to.
@@ -52,15 +53,20 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="Fail if any test spec items lack pytest test coverage",
     )
     group.addoption(
-        "--jamb-matrix",
+        "--jamb-test-matrix",
         metavar="PATH",
-        help="Generate traceability matrix at PATH",
+        help=(
+            "Generate test records matrix at PATH "
+            "(format inferred from extension: .html, .json, .csv, .md, .xlsx)"
+        ),
     )
     group.addoption(
-        "--jamb-matrix-format",
-        choices=["html", "markdown", "json", "csv", "xlsx"],
-        default=None,
-        help="Format for traceability matrix (default: html)",
+        "--jamb-trace-matrix",
+        metavar="PATH",
+        help=(
+            "Generate traceability matrix at PATH "
+            "(format inferred from extension: .html, .json, .csv, .md, .xlsx)"
+        ),
     )
     group.addoption(
         "--jamb-documents",
@@ -71,13 +77,24 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--jamb-tester-id",
         default="Unknown",
         metavar="ID",
-        help="Tester identification for traceability matrix (default: Unknown)",
+        help="Tester identification for test records matrix (default: Unknown)",
     )
     group.addoption(
         "--jamb-software-version",
         default=None,
         metavar="VERSION",
-        help="Software version for traceability matrix (overrides pyproject.toml)",
+        help="Software version for test records matrix (overrides pyproject.toml)",
+    )
+    group.addoption(
+        "--trace-from",
+        metavar="PREFIX",
+        help="Starting document prefix for full chain trace matrix (e.g., UN, SYS)",
+    )
+    group.addoption(
+        "--include-ancestors",
+        action="store_true",
+        default=False,
+        help="Include 'Traces To' column showing ancestors of starting items",
     )
 
 
@@ -107,10 +124,12 @@ def pytest_configure(config: pytest.Config) -> None:
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """Generate reports and check coverage after the test session completes.
 
-    Generates the traceability matrix when ``--jamb-matrix`` or the
-    ``matrix_output`` config option is set, and sets the exit status to
-    failure when ``--jamb-fail-uncovered`` or ``fail_uncovered`` in the
-    config is enabled and any test spec items lack coverage.
+    Generates test records matrix when ``--jamb-test-matrix`` or the
+    ``test_matrix_output`` config option is set. Generates traceability matrix
+    when ``--jamb-trace-matrix`` or the ``trace_matrix_output`` config option
+    is set. Sets the exit status to failure when ``--jamb-fail-uncovered`` or
+    ``fail_uncovered`` in the config is enabled and any test spec items lack
+    coverage.
 
     For all options, CLI flags take precedence over ``[tool.jamb]`` config
     values, which take precedence over hardcoded defaults.
@@ -119,6 +138,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         session: The pytest session object.
         exitstatus: The exit status of the test run.
     """
+    _ = exitstatus  # Preserve for hook signature
     if not session.config.option.jamb:
         return
 
@@ -126,24 +146,51 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     if not collector:
         return
 
-    # Generate traceability matrix if requested
-    matrix_path = (
-        session.config.option.jamb_matrix or collector.jamb_config.matrix_output
+    tester_id = session.config.option.jamb_tester_id
+    software_version = session.config.option.jamb_software_version
+
+    # Generate test records matrix if requested
+    test_matrix_path = (
+        session.config.option.jamb_test_matrix
+        or collector.jamb_config.test_matrix_output
     )
-    if matrix_path:
-        matrix_format = (
-            session.config.option.jamb_matrix_format
-            or collector.jamb_config.matrix_format
-            or "html"
-        )
-        tester_id = session.config.option.jamb_tester_id
-        software_version = session.config.option.jamb_software_version
-        collector.generate_matrix(
-            matrix_path,
-            output_format=matrix_format,
+    if test_matrix_path:
+        test_format = infer_format(test_matrix_path)
+        collector.generate_test_records_matrix(
+            test_matrix_path,
+            output_format=test_format,
             tester_id=tester_id,
             software_version=software_version,
         )
+
+    # Generate traceability matrix if requested
+    trace_matrix_path = (
+        session.config.option.jamb_trace_matrix
+        or collector.jamb_config.trace_matrix_output
+    )
+    trace_from = (
+        getattr(session.config.option, "trace_from", None)
+        or collector.jamb_config.trace_from
+    )
+    include_ancestors = (
+        getattr(session.config.option, "include_ancestors", False)
+        or collector.jamb_config.include_ancestors
+    )
+
+    if trace_matrix_path:
+        trace_format = infer_format(trace_matrix_path)
+        collector.generate_trace_matrix(
+            trace_matrix_path,
+            output_format=trace_format,
+            trace_from=trace_from,
+            include_ancestors=include_ancestors,
+        )
+
+    # Always save .jamb file for later matrix generation
+    collector.save_coverage_file(
+        tester_id=tester_id,
+        software_version=software_version,
+    )
 
     # Check coverage and potentially modify exit status
     fail_uncovered = (

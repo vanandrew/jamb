@@ -569,14 +569,55 @@ class TestAllTestItemsCoveredRequireAllPass:
         assert collector.all_test_items_covered() is False
 
 
-class TestGenerateMatrix:
-    """Tests for generate_matrix method."""
+class TestGenerateTestRecordsMatrix:
+    """Tests for generate_test_records_matrix method."""
 
     @patch("jamb.storage.discover_documents")
     @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
-    @patch("jamb.matrix.generator.generate_matrix")
-    def test_generate_matrix_calls_generator(
+    @patch("jamb.matrix.generator.generate_test_records_matrix")
+    @patch("jamb.matrix.generator.build_test_records")
+    def test_generate_test_records_matrix_calls_generator(
+        self,
+        mock_build_records,
+        mock_generate,
+        mock_load_config,
+        mock_build_graph,
+        mock_discover,
+        mock_graph,
+    ):
+        """Test generate_test_records_matrix calls the matrix generator."""
+        mock_discover.return_value = MagicMock()
+        mock_build_graph.return_value = mock_graph
+        mock_build_records.return_value = []
+
+        mock_config = MagicMock()
+        mock_config.test_documents = ["SRS"]
+        mock_load_config.return_value = mock_config
+
+        config = MagicMock()
+        config.option.jamb = True
+        config.option.jamb_documents = None
+        config.option.jamb_fail_uncovered = False
+
+        collector = RequirementCollector(config)
+        collector.generate_test_records_matrix("output.html", "html")
+
+        mock_build_records.assert_called_once()
+        mock_generate.assert_called_once()
+        call_args = mock_generate.call_args
+        assert call_args[0][1] == "output.html"
+        assert call_args[0][2] == "html"
+
+
+class TestGenerateTraceMatrix:
+    """Tests for generate_trace_matrix method."""
+
+    @patch("jamb.storage.discover_documents")
+    @patch("jamb.storage.build_traceability_graph")
+    @patch("jamb.pytest_plugin.collector.load_config")
+    @patch("jamb.matrix.generator.generate_full_chain_matrix")
+    def test_generate_trace_matrix_calls_generator(
         self,
         mock_generate,
         mock_load_config,
@@ -584,7 +625,7 @@ class TestGenerateMatrix:
         mock_discover,
         mock_graph,
     ):
-        """Test generate_matrix calls the matrix generator."""
+        """Test generate_trace_matrix calls the matrix generator."""
         mock_discover.return_value = MagicMock()
         mock_build_graph.return_value = mock_graph
 
@@ -598,33 +639,37 @@ class TestGenerateMatrix:
         config.option.jamb_fail_uncovered = False
 
         collector = RequirementCollector(config)
-        collector.generate_matrix("output.html", "html")
+        collector.generate_trace_matrix("output.html", "html", trace_from="SRS")
 
         mock_generate.assert_called_once()
         call_args = mock_generate.call_args
         assert call_args[0][2] == "output.html"
         assert call_args[0][3] == "html"
-        assert "trace_to_ignore" in call_args[1]
+        assert call_args[1]["trace_from"] == "SRS"
 
     @patch("jamb.storage.discover_documents")
     @patch("jamb.storage.build_traceability_graph")
     @patch("jamb.pytest_plugin.collector.load_config")
-    @patch("jamb.matrix.generator.generate_matrix")
-    def test_generate_matrix_passes_trace_to_ignore(
+    @patch("jamb.matrix.generator.generate_full_chain_matrix")
+    def test_generate_trace_matrix_auto_detects_root(
         self,
         mock_generate,
         mock_load_config,
         mock_build_graph,
         mock_discover,
-        mock_graph,
     ):
-        """Test generate_matrix passes trace_to_ignore from config."""
+        """Test generate_trace_matrix auto-detects root document."""
+        # Create a graph with a root document
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="req", document_prefix="SRS")
+        graph.add_item(item)
+
         mock_discover.return_value = MagicMock()
-        mock_build_graph.return_value = mock_graph
+        mock_build_graph.return_value = graph
 
         mock_config = MagicMock()
         mock_config.test_documents = ["SRS"]
-        mock_config.trace_to_ignore = ["PRJ", "UN"]
         mock_load_config.return_value = mock_config
 
         config = MagicMock()
@@ -633,11 +678,11 @@ class TestGenerateMatrix:
         config.option.jamb_fail_uncovered = False
 
         collector = RequirementCollector(config)
-        collector.generate_matrix("output.html", "html")
+        collector.generate_trace_matrix("output.html", "html")
 
         mock_generate.assert_called_once()
         call_args = mock_generate.call_args
-        assert call_args[1]["trace_to_ignore"] == {"PRJ", "UN"}
+        assert call_args[1]["trace_from"] == "SRS"
 
 
 class TestPytestCollectionModifyItems:

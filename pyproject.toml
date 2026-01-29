@@ -60,7 +60,7 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["src/jamb"]
-omit = ["src/jamb/__init__.py", "src/jamb/*/__init__.py"]
+omit = ["src/jamb/__init__.py", "src/jamb/*/__init__.py", "src/jamb/_version.py"]
 
 [tool.coverage.report]
 exclude_lines = [

@@ -2,6 +2,41 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+# ============================================================================
+# Fixtures for common mock configurations
+# ============================================================================
+
+
+@pytest.fixture
+def mock_session():
+    """Create a mock pytest session with jamb enabled and common defaults."""
+    session = MagicMock()
+    session.config.option.jamb = True
+    session.config.option.jamb_test_matrix = None
+    session.config.option.jamb_trace_matrix = None
+    session.config.option.jamb_fail_uncovered = False
+    session.config.option.jamb_tester_id = "tester"
+    session.config.option.jamb_software_version = None
+    session.config.option.trace_from = None
+    session.config.option.include_ancestors = False
+    session.exitstatus = 0
+    return session
+
+
+@pytest.fixture
+def mock_collector():
+    """Create a mock RequirementCollector with common defaults."""
+    collector = MagicMock()
+    collector.jamb_config.test_matrix_output = None
+    collector.jamb_config.trace_matrix_output = None
+    collector.jamb_config.fail_uncovered = False
+    collector.jamb_config.trace_from = None
+    collector.jamb_config.include_ancestors = False
+    collector.all_test_items_covered.return_value = True
+    return collector
+
 
 class TestPytestAddoption:
     """Tests for pytest_addoption hook."""
@@ -27,12 +62,12 @@ class TestPytestAddoption:
 
         assert "--jamb" in option_names
         assert "--jamb-fail-uncovered" in option_names
-        assert "--jamb-matrix" in option_names
-        assert "--jamb-matrix-format" in option_names
+        assert "--jamb-test-matrix" in option_names
+        assert "--jamb-trace-matrix" in option_names
         assert "--jamb-documents" in option_names
 
-    def test_matrix_format_default_is_none(self):
-        """Test that --jamb-matrix-format default is None (config takes over)."""
+    def test_matrix_options_have_metavar_path(self):
+        """Test that matrix options have PATH metavar."""
         from jamb.pytest_plugin.plugin import pytest_addoption
 
         mock_parser = MagicMock()
@@ -43,10 +78,10 @@ class TestPytestAddoption:
 
         calls = mock_group.addoption.call_args_list
         for call in calls:
-            if call[0][0] == "--jamb-matrix-format":
-                assert call[1]["default"] is None
+            if call[0][0] in ("--jamb-test-matrix", "--jamb-trace-matrix"):
+                assert call[1]["metavar"] == "PATH"
                 return
-        raise AssertionError("--jamb-matrix-format option not found")
+        raise AssertionError("Matrix options not found")
 
 
 class TestPytestConfigure:
@@ -117,43 +152,30 @@ class TestPytestSessionfinish:
 
         # Should not raise any errors
 
-    def test_generates_matrix_when_requested(self):
-        """Test that matrix is generated when --jamb-matrix is provided."""
+    def test_generates_test_matrix_when_requested(self, mock_session, mock_collector):
+        """Test that test matrix is generated when --jamb-test-matrix is provided."""
         from jamb.pytest_plugin.plugin import pytest_sessionfinish
 
-        mock_session = MagicMock()
-        mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = "output.html"
-        mock_session.config.option.jamb_matrix_format = "html"
-        mock_session.config.option.jamb_fail_uncovered = False
+        mock_session.config.option.jamb_test_matrix = "output.html"
         mock_session.config.option.jamb_tester_id = "CI Pipeline"
         mock_session.config.option.jamb_software_version = "1.2.3"
-
-        mock_collector = MagicMock()
-        mock_collector.jamb_config.fail_uncovered = False
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
         pytest_sessionfinish(mock_session, 0)
 
-        mock_collector.generate_matrix.assert_called_once_with(
+        mock_collector.generate_test_records_matrix.assert_called_once_with(
             "output.html",
             output_format="html",
             tester_id="CI Pipeline",
             software_version="1.2.3",
         )
+        mock_collector.generate_trace_matrix.assert_not_called()
 
-    def test_fails_when_uncovered_and_flag_set(self):
+    def test_fails_when_uncovered_and_flag_set(self, mock_session, mock_collector):
         """Test that exit status is 1 when uncovered items and flag is set."""
         from jamb.pytest_plugin.plugin import pytest_sessionfinish
 
-        mock_session = MagicMock()
-        mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = None
         mock_session.config.option.jamb_fail_uncovered = True
-        mock_session.exitstatus = 0
-
-        mock_collector = MagicMock()
-        mock_collector.jamb_config.matrix_output = None
         mock_collector.all_test_items_covered.return_value = False
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
@@ -161,19 +183,12 @@ class TestPytestSessionfinish:
 
         assert mock_session.exitstatus == 1
 
-    def test_no_fail_when_all_covered(self):
+    def test_no_fail_when_all_covered(self, mock_session, mock_collector):
         """Test that exit status is unchanged when all items covered."""
         from jamb.pytest_plugin.plugin import pytest_sessionfinish
 
-        mock_session = MagicMock()
-        mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = None
         mock_session.config.option.jamb_fail_uncovered = True
-        mock_session.exitstatus = 0
-
-        mock_collector = MagicMock()
         mock_collector.all_test_items_covered.return_value = True
-        mock_collector.jamb_config.matrix_output = None
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
         pytest_sessionfinish(mock_session, 0)
@@ -186,13 +201,17 @@ class TestPytestSessionfinish:
 
         mock_session = MagicMock()
         mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = None
+        mock_session.config.option.jamb_test_matrix = None
+        mock_session.config.option.jamb_trace_matrix = None
         mock_session.config.option.jamb_fail_uncovered = False
+        mock_session.config.option.jamb_tester_id = "tester"
+        mock_session.config.option.jamb_software_version = None
         mock_session.exitstatus = 0
 
         mock_collector = MagicMock()
         mock_collector.jamb_config.fail_uncovered = True
-        mock_collector.jamb_config.matrix_output = None
+        mock_collector.jamb_config.test_matrix_output = None
+        mock_collector.jamb_config.trace_matrix_output = None
         mock_collector.all_test_items_covered.return_value = False
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
@@ -206,13 +225,17 @@ class TestPytestSessionfinish:
 
         mock_session = MagicMock()
         mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = None
+        mock_session.config.option.jamb_test_matrix = None
+        mock_session.config.option.jamb_trace_matrix = None
         mock_session.config.option.jamb_fail_uncovered = True
+        mock_session.config.option.jamb_tester_id = "tester"
+        mock_session.config.option.jamb_software_version = None
         mock_session.exitstatus = 0
 
         mock_collector = MagicMock()
         mock_collector.jamb_config.fail_uncovered = False
-        mock_collector.jamb_config.matrix_output = None
+        mock_collector.jamb_config.test_matrix_output = None
+        mock_collector.jamb_config.trace_matrix_output = None
         mock_collector.all_test_items_covered.return_value = False
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
@@ -220,109 +243,122 @@ class TestPytestSessionfinish:
 
         assert mock_session.exitstatus == 1
 
-    def test_matrix_output_from_config(self):
-        """Test matrix_output falls back to config when CLI is None."""
+    def test_test_matrix_output_from_config(self):
+        """Test test_matrix_output falls back to config when CLI is None."""
         from jamb.pytest_plugin.plugin import pytest_sessionfinish
 
         mock_session = MagicMock()
         mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = None
-        mock_session.config.option.jamb_matrix_format = None
+        mock_session.config.option.jamb_test_matrix = None
+        mock_session.config.option.jamb_trace_matrix = None
         mock_session.config.option.jamb_fail_uncovered = False
         mock_session.config.option.jamb_tester_id = "tester"
         mock_session.config.option.jamb_software_version = None
 
         mock_collector = MagicMock()
-        mock_collector.jamb_config.matrix_output = "out.html"
-        mock_collector.jamb_config.matrix_format = "html"
+        mock_collector.jamb_config.test_matrix_output = "out.html"
+        mock_collector.jamb_config.trace_matrix_output = None
         mock_collector.jamb_config.fail_uncovered = False
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
         pytest_sessionfinish(mock_session, 0)
 
-        mock_collector.generate_matrix.assert_called_once_with(
+        mock_collector.generate_test_records_matrix.assert_called_once_with(
             "out.html",
             output_format="html",
             tester_id="tester",
             software_version=None,
         )
 
-    def test_cli_matrix_overrides_config(self):
-        """Test CLI --jamb-matrix takes precedence over config matrix_output."""
+    def test_cli_test_matrix_overrides_config(self):
+        """Test CLI --jamb-test-matrix takes precedence over config."""
         from jamb.pytest_plugin.plugin import pytest_sessionfinish
 
         mock_session = MagicMock()
         mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = "cli.html"
-        mock_session.config.option.jamb_matrix_format = "html"
+        mock_session.config.option.jamb_test_matrix = "cli.html"
+        mock_session.config.option.jamb_trace_matrix = None
         mock_session.config.option.jamb_fail_uncovered = False
         mock_session.config.option.jamb_tester_id = "tester"
         mock_session.config.option.jamb_software_version = None
 
         mock_collector = MagicMock()
-        mock_collector.jamb_config.matrix_output = "cfg.html"
+        mock_collector.jamb_config.test_matrix_output = "cfg.html"
+        mock_collector.jamb_config.trace_matrix_output = None
         mock_collector.jamb_config.fail_uncovered = False
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
         pytest_sessionfinish(mock_session, 0)
 
-        mock_collector.generate_matrix.assert_called_once_with(
+        mock_collector.generate_test_records_matrix.assert_called_once_with(
             "cli.html",
             output_format="html",
             tester_id="tester",
             software_version=None,
         )
 
-    def test_matrix_format_from_config(self):
-        """Test matrix_format falls back to config when CLI is None."""
+    def test_trace_matrix_generated_when_requested(self, mock_session, mock_collector):
+        """Test trace matrix is generated when --jamb-trace-matrix is provided."""
         from jamb.pytest_plugin.plugin import pytest_sessionfinish
 
-        mock_session = MagicMock()
-        mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = "out.json"
-        mock_session.config.option.jamb_matrix_format = None
-        mock_session.config.option.jamb_fail_uncovered = False
-        mock_session.config.option.jamb_tester_id = "tester"
-        mock_session.config.option.jamb_software_version = None
-
-        mock_collector = MagicMock()
-        mock_collector.jamb_config.matrix_format = "json"
-        mock_collector.jamb_config.fail_uncovered = False
+        mock_session.config.option.jamb_trace_matrix = "trace.html"
         mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
 
         pytest_sessionfinish(mock_session, 0)
 
-        mock_collector.generate_matrix.assert_called_once_with(
-            "out.json",
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.html",
+            output_format="html",
+            trace_from=None,
+            include_ancestors=False,
+        )
+        mock_collector.generate_test_records_matrix.assert_not_called()
+
+    def test_both_matrices_generated_when_requested(self, mock_session, mock_collector):
+        """Test both matrices are generated when both flags are provided."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.option.jamb_test_matrix = "test.json"
+        mock_session.config.option.jamb_trace_matrix = "trace.csv"
+        mock_session.config.option.jamb_software_version = "1.0.0"
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_test_records_matrix.assert_called_once_with(
+            "test.json",
             output_format="json",
+            tester_id="tester",
+            software_version="1.0.0",
+        )
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.csv",
+            output_format="csv",
+            trace_from=None,
+            include_ancestors=False,
+        )
+
+    def test_format_inferred_from_extension(self, mock_session, mock_collector):
+        """Test that format is correctly inferred from file extension."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.option.jamb_test_matrix = "output.xlsx"
+        mock_session.config.option.jamb_trace_matrix = "trace.md"
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_test_records_matrix.assert_called_once_with(
+            "output.xlsx",
+            output_format="xlsx",
             tester_id="tester",
             software_version=None,
         )
-
-    def test_cli_matrix_format_overrides_config(self):
-        """Test CLI --jamb-matrix-format takes precedence over config."""
-        from jamb.pytest_plugin.plugin import pytest_sessionfinish
-
-        mock_session = MagicMock()
-        mock_session.config.option.jamb = True
-        mock_session.config.option.jamb_matrix = "out.csv"
-        mock_session.config.option.jamb_matrix_format = "csv"
-        mock_session.config.option.jamb_fail_uncovered = False
-        mock_session.config.option.jamb_tester_id = "tester"
-        mock_session.config.option.jamb_software_version = None
-
-        mock_collector = MagicMock()
-        mock_collector.jamb_config.matrix_format = "json"
-        mock_collector.jamb_config.fail_uncovered = False
-        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
-
-        pytest_sessionfinish(mock_session, 0)
-
-        mock_collector.generate_matrix.assert_called_once_with(
-            "out.csv",
-            output_format="csv",
-            tester_id="tester",
-            software_version=None,
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.md",
+            output_format="markdown",
+            trace_from=None,
+            include_ancestors=False,
         )
 
 

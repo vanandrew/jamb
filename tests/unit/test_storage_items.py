@@ -97,9 +97,13 @@ class TestReadItem:
 
     def test_scalar_links_ignored(self, tmp_path):
         """1b: links as scalar string (not list) produces empty links."""
+        import warnings
+
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("active: true\ntext: Test\nlinks: SYS001\n")
-        data = read_item(item_path, "SRS")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            data = read_item(item_path, "SRS")
         assert data["links"] == []
 
     def test_warns_on_scalar_links(self, tmp_path):

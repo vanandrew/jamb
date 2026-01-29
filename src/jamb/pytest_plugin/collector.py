@@ -314,14 +314,50 @@ class RequirementCollector:
             test_tools=test_tools,
         )
 
-    def generate_matrix(
+    def _build_matrix_metadata(
+        self,
+        tester_id: str = "Unknown",
+        software_version: str | None = None,
+    ) -> MatrixMetadata:
+        """Build matrix metadata for IEC 62304 5.7.5 compliance.
+
+        Args:
+            tester_id: Identification of the tester or CI system.
+            software_version: Software version override (takes precedence over config).
+
+        Returns:
+            MatrixMetadata populated with version, tester, timestamp, and environment.
+        """
+        version = software_version or self.jamb_config.software_version
+        return MatrixMetadata(
+            software_version=version,
+            tester_id=tester_id,
+            execution_timestamp=self.execution_timestamp,
+            environment=self._build_test_environment(),
+        )
+
+    def _build_links_by_uid(self) -> dict[str, list[LinkedTest]]:
+        """Build mapping of test links by item UID.
+
+        This allows chain_builder to find tests linked to any item,
+        including higher-order items not in coverage.
+
+        Returns:
+            Dict mapping item UIDs to lists of LinkedTest objects.
+        """
+        links_by_uid: dict[str, list[LinkedTest]] = {}
+        for link in self.test_links:
+            links_by_uid.setdefault(link.item_uid, []).append(link)
+        return links_by_uid
+
+    def generate_test_records_matrix(
         self,
         path: str,
         output_format: str,
         tester_id: str = "Unknown",
         software_version: str | None = None,
     ) -> None:
-        """Generate traceability matrix.
+        """Generate test records matrix.
 
         Args:
             path: The output file path for the generated matrix.
@@ -329,25 +365,90 @@ class RequirementCollector:
             tester_id: Identification of the tester or CI system.
             software_version: Software version override (takes precedence over config).
         """
-        from jamb.matrix.generator import generate_matrix
+        from jamb.matrix.generator import (
+            build_test_records,
+            generate_test_records_matrix,
+        )
+
+        coverage = self.get_coverage()
+        records = build_test_records(coverage)
+        metadata = self._build_matrix_metadata(tester_id, software_version)
+
+        generate_test_records_matrix(
+            records,
+            path,
+            output_format,
+            metadata=metadata,
+        )
+
+    def generate_trace_matrix(
+        self,
+        path: str,
+        output_format: str,
+        trace_from: str | None = None,
+        include_ancestors: bool = False,
+    ) -> None:
+        """Generate traceability matrix.
+
+        Args:
+            path: The output file path for the generated matrix.
+            output_format: The output format (html, markdown, json, csv, or xlsx).
+            trace_from: Starting document prefix for trace matrix.
+                If not provided, auto-detects the root document.
+            include_ancestors: Whether to include "Traces To" column.
+        """
+        from jamb.matrix.generator import generate_full_chain_matrix
 
         coverage = self.get_coverage()
 
-        # Build metadata for IEC 62304 5.7.5 compliance
-        # CLI flag takes precedence over config file / pyproject.toml
-        version = software_version or self.jamb_config.software_version
-        metadata = MatrixMetadata(
-            software_version=version,
-            tester_id=tester_id,
-            execution_timestamp=self.execution_timestamp,
-            environment=self._build_test_environment(),
-        )
+        if not self.graph:
+            raise ValueError("No traceability graph available")
 
-        generate_matrix(
+        # Auto-detect root document if not specified
+        if trace_from is None:
+            root_docs = self.graph.get_root_documents()
+            if not root_docs:
+                raise ValueError("No root documents found. Use trace_from to specify.")
+            trace_from = root_docs[0]
+
+        # Get trace_to_ignore from config
+        trace_to_ignore: set[str] | None = None
+        if self.jamb_config.trace_to_ignore:
+            trace_to_ignore = set(self.jamb_config.trace_to_ignore)
+
+        generate_full_chain_matrix(
             coverage,
             self.graph,
             path,
             output_format,
-            trace_to_ignore=set(self.jamb_config.trace_to_ignore),
-            metadata=metadata,
+            trace_from=trace_from,
+            include_ancestors=include_ancestors,
+            trace_to_ignore=trace_to_ignore,
+            all_test_links=self._build_links_by_uid(),
         )
+
+    def save_coverage_file(
+        self,
+        output_path: str = ".jamb",
+        tester_id: str = "Unknown",
+        software_version: str | None = None,
+    ) -> None:
+        """Save coverage data to .jamb file for later matrix generation.
+
+        This allows running tests once and generating multiple matrix views
+        without re-running the tests.
+
+        Args:
+            output_path: Path to write the coverage file (default: .jamb).
+            tester_id: Identification of the tester or CI system.
+            software_version: Software version override.
+        """
+        from jamb.coverage.serializer import save_coverage
+
+        if self.graph is None:
+            return
+
+        coverage = self.get_coverage()
+        metadata = self._build_matrix_metadata(tester_id, software_version)
+
+        save_coverage(coverage, self.graph, output_path, metadata)

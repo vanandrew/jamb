@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import click
 import yaml
 
+from jamb.matrix.utils import infer_format
 from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.items import dump_yaml
 
@@ -1941,8 +1942,131 @@ def import_yaml_cmd(
 
 
 # =============================================================================
-# Migration Command
+# Matrix Command
 # =============================================================================
+
+
+@cli.command()
+@click.argument("output", type=click.Path(path_type=Path))
+@click.option(
+    "--input",
+    "-i",
+    "input_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=".jamb",
+    help="Coverage file (default: .jamb)",
+)
+@click.option(
+    "--trace-from",
+    "trace_from",
+    metavar="PREFIX",
+    help="Starting document prefix for trace (default: auto-detect root)",
+)
+@click.option(
+    "--test-records",
+    is_flag=True,
+    default=False,
+    help="Generate test records matrix instead of trace matrix",
+)
+@click.option(
+    "--include-ancestors",
+    is_flag=True,
+    default=False,
+    help="Include 'Traces To' column showing ancestors of starting items",
+)
+@click.option(
+    "--trace-to-ignore",
+    "trace_to_ignore",
+    multiple=True,
+    help="Document prefix(es) to exclude from the matrix (repeatable)",
+)
+@_cli_error_handler
+def matrix(
+    output: Path,
+    input_path: Path,
+    trace_from: str | None,
+    test_records: bool,
+    include_ancestors: bool,
+    trace_to_ignore: tuple[str, ...],
+) -> None:
+    """Generate matrix from saved coverage data.
+
+    OUTPUT is the path for the output matrix file. Format is inferred from
+    the file extension (.html, .json, .csv, .md, .xlsx).
+
+    \b
+    Examples:
+        jamb matrix trace.html --trace-from=UN
+        jamb matrix trace.html --trace-from=SYS
+        jamb matrix test-records.html --test-records
+        jamb matrix trace.html --trace-from=UN --include-ancestors
+
+    The .jamb file is automatically created when running pytest with --jamb.
+    """
+    from jamb.coverage.serializer import load_coverage
+    from jamb.matrix.generator import (
+        build_test_id_mapping,
+        build_test_records,
+        generate_full_chain_matrix,
+        generate_test_records_matrix,
+    )
+
+    # Load coverage data
+    try:
+        coverage, graph, metadata = load_coverage(str(input_path))
+    except FileNotFoundError:
+        click.echo(
+            f"Error: Coverage file '{input_path}' not found. "
+            "Run 'pytest --jamb' first to generate it.",
+            err=True,
+        )
+        sys.exit(1)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    output_format = infer_format(str(output))
+
+    if test_records:
+        # Generate test records matrix
+        records = build_test_records(coverage)
+        generate_test_records_matrix(
+            records,
+            str(output),
+            output_format,
+            metadata=metadata,
+        )
+        click.echo(f"Generated test records matrix: {output}")
+    else:
+        # Auto-detect root document if not specified
+        if trace_from is None:
+            root_docs = graph.get_root_documents()
+            if not root_docs:
+                click.echo(
+                    "Error: No root documents found. Use --trace-from to specify.",
+                    err=True,
+                )
+                sys.exit(1)
+            trace_from = root_docs[0]
+
+        # Build trace_to_ignore set from CLI option
+        ignore_set: set[str] | None = None
+        if trace_to_ignore:
+            ignore_set = set(trace_to_ignore)
+
+        # Generate trace matrix
+        tc_mapping = build_test_id_mapping(coverage)
+        generate_full_chain_matrix(
+            coverage,
+            graph,
+            str(output),
+            output_format,
+            trace_from=trace_from,
+            include_ancestors=include_ancestors,
+            tc_mapping=tc_mapping,
+            trace_to_ignore=ignore_set,
+        )
+        click.echo(f"Generated trace matrix: {output}")
 
 
 if __name__ == "__main__":

@@ -32,11 +32,23 @@ jamb link add SRS001 SYS001
 pytest --jamb --jamb-matrix matrix.html
 ```
 
-```{image} _static/matrix-example.png
-:alt: Example traceability and test record matrix
+### Trace Matrix
+
+Full traceability chains from user needs through system and software requirements to tests:
+
+```{image} _static/trace-matrix-screenshot.png
+:alt: Example traceability matrix showing requirement chains
 ```
 
-## Publishing Requirements Documents
+### Test Records Matrix
+
+Test-centric view with actions, expected/actual results for IEC 62304 compliance:
+
+```{image} _static/test-records-screenshot.png
+:alt: Example test records matrix with test actions and results
+```
+
+### Requirements Documents
 
 You can also publish requirements documents as standalone HTML, Markdown, or Word files:
 

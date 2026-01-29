@@ -1,5 +1,7 @@
 """Domain models for requirements traceability."""
 
+from __future__ import annotations
+
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -69,6 +71,16 @@ class Item:
         if self.header:
             return self.header
         return self.text[:80] + "..." if len(self.text) > 80 else self.text
+
+    @property
+    def full_display_text(self) -> str:
+        """Return 'header - text' if header present, otherwise just text.
+
+        Used for full chain matrices where both header and text are desired.
+        """
+        if self.header:
+            return f"{self.header} - {self.text}"
+        return self.text
 
 
 @dataclass
@@ -141,6 +153,38 @@ class MatrixMetadata:
     tester_id: str = "Unknown"
     execution_timestamp: str | None = None
     environment: TestEnvironment | None = None
+
+
+@dataclass
+class TestRecord:
+    """A test case record for the test records matrix.
+
+    Attributes:
+        test_id (str): Sequential test case ID (e.g., ``TC001``, ``TC002``).
+        test_name (str): Function name extracted from the pytest nodeid.
+        test_nodeid (str): Full pytest node ID.
+        outcome (str): Test result — ``"passed"``, ``"failed"``, ``"skipped"``,
+            ``"error"``, or ``"unknown"``.
+        requirements (list[str]): UIDs of requirements this test covers.
+        test_actions (list[str]): Steps performed by the test.
+        expected_results (list[str]): Expected outcomes for each test action.
+        actual_results (list[str]): Actual outcomes observed during test execution.
+        notes (list[str]): Free-form notes captured during test execution.
+        execution_timestamp (str | None): ISO 8601 UTC timestamp of test execution.
+    """
+
+    __test__ = False  # Prevent pytest from collecting this as a test class
+
+    test_id: str
+    test_name: str
+    test_nodeid: str
+    outcome: str
+    requirements: list[str] = field(default_factory=list)
+    test_actions: list[str] = field(default_factory=list)
+    expected_results: list[str] = field(default_factory=list)
+    actual_results: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    execution_timestamp: str | None = None
 
 
 @dataclass
@@ -218,7 +262,16 @@ class TraceabilityGraph:
         Args:
             item: The Item to add. Its links are used to populate the
                 parent and child reverse-index maps.
+
+        Raises:
+            ValueError: If the item links to itself (self-loop).
         """
+        # Check for self-loop
+        if item.uid in item.links:
+            raise ValueError(
+                f"Item '{item.uid}' cannot link to itself (self-loop detected)"
+            )
+
         if item.uid in self.items:
             for old_parent in self.item_parents.get(item.uid, []):
                 if old_parent in self.item_children:
@@ -417,3 +470,79 @@ class TraceabilityGraph:
             for prefix in self.document_parents.keys()
             if prefix not in all_parents
         ]
+
+    def get_document_children(self, prefix: str) -> list[str]:
+        """Get child document prefixes for a document.
+
+        Args:
+            prefix: The document prefix to find children for.
+
+        Returns:
+            List of document prefix strings that have this document as a parent.
+        """
+        return [
+            child_prefix
+            for child_prefix, parents in self.document_parents.items()
+            if prefix in parents
+        ]
+
+
+@dataclass
+class ChainRow:
+    """A row in the full chain trace matrix.
+
+    Represents a single trace chain from a starting document through
+    the hierarchy to leaf items and their tests.
+
+    Attributes:
+        chain (dict[str, Item | None]): Mapping of document prefix to
+            the Item at each level in the chain. None if no item exists
+            at that level in this particular trace path.
+        leaf_coverage (ItemCoverage | None): Coverage information for the
+            leaf item in this chain, if any.
+        rollup_status (str): Aggregated status for this row based on
+            descendant test results. One of "Passed", "Failed", "Partial",
+            "Not Covered", or "N/A".
+        descendant_tests (list[LinkedTest]): All tests linked to descendants
+            of items in this chain.
+        ancestor_uids (list[str]): UIDs of items that the starting item
+            traces to (its ancestors). Only populated when --include-ancestors
+            is used.
+    """
+
+    chain: dict[str, Item | None] = field(default_factory=dict)
+    leaf_coverage: ItemCoverage | None = None
+    rollup_status: str = "Not Covered"
+    descendant_tests: list[LinkedTest] = field(default_factory=list)
+    ancestor_uids: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FullChainMatrix:
+    """A single full chain trace matrix for one document path.
+
+    When a starting document has multiple child paths (e.g., PRJ -> UN and
+    PRJ -> HAZ), a separate FullChainMatrix is generated for each path.
+
+    Attributes:
+        path_name (str): Human-readable name for this path, e.g.,
+            "PRJ -> UN -> SYS -> SRS".
+        document_hierarchy (list[str]): Ordered list of document prefixes
+            from start to leaf, e.g., ["PRJ", "UN", "SYS", "SRS"].
+        rows (list[ChainRow]): The data rows for this matrix.
+        summary (dict[str, int]): Summary statistics including:
+            - total: Total number of leaf items
+            - passed: Items with all tests passing
+            - failed: Items with any failing tests
+            - partial: Items with mixed results
+            - not_covered: Items with no tests
+            - na: Items that are not testable
+        include_ancestors (bool): Whether this matrix includes the
+            "Traces To" column showing ancestors.
+    """
+
+    path_name: str
+    document_hierarchy: list[str]
+    rows: list[ChainRow] = field(default_factory=list)
+    summary: dict[str, int] = field(default_factory=dict)
+    include_ancestors: bool = False

@@ -2304,3 +2304,247 @@ class TestPublishDocx:
 
         assert result.exit_code == 1
         assert "No items found" in result.output or "Error" in result.output
+
+
+class TestMatrixCommand:
+    """Tests for the matrix command."""
+
+    @pytest.fixture
+    def jamb_file(self, tmp_path):
+        """Create a .jamb coverage file for testing."""
+        import json
+
+        coverage_data = {
+            "version": 1,
+            "coverage": {
+                "SRS001": {
+                    "item": {
+                        "uid": "SRS001",
+                        "text": "Software requirement",
+                        "document_prefix": "SRS",
+                        "active": True,
+                        "type": "requirement",
+                        "header": None,
+                        "links": ["SYS001"],
+                        "reviewed": None,
+                        "derived": False,
+                        "testable": True,
+                        "custom_attributes": {},
+                    },
+                    "linked_tests": [
+                        {
+                            "test_nodeid": "test_srs.py::test_srs001",
+                            "item_uid": "SRS001",
+                            "test_outcome": "passed",
+                            "notes": [],
+                            "test_actions": [],
+                            "expected_results": [],
+                            "actual_results": [],
+                            "execution_timestamp": None,
+                        }
+                    ],
+                }
+            },
+            "graph": {
+                "items": {
+                    "SYS001": {
+                        "uid": "SYS001",
+                        "text": "System requirement",
+                        "document_prefix": "SYS",
+                        "active": True,
+                        "type": "requirement",
+                        "header": None,
+                        "links": [],
+                        "reviewed": None,
+                        "derived": False,
+                        "testable": True,
+                        "custom_attributes": {},
+                    },
+                    "SRS001": {
+                        "uid": "SRS001",
+                        "text": "Software requirement",
+                        "document_prefix": "SRS",
+                        "active": True,
+                        "type": "requirement",
+                        "header": None,
+                        "links": ["SYS001"],
+                        "reviewed": None,
+                        "derived": False,
+                        "testable": True,
+                        "custom_attributes": {},
+                    },
+                },
+                "item_parents": {"SRS001": ["SYS001"]},
+                "item_children": {"SYS001": ["SRS001"]},
+                "document_parents": {"SRS": ["SYS"], "SYS": []},
+            },
+        }
+
+        jamb_path = tmp_path / ".jamb"
+        jamb_path.write_text(json.dumps(coverage_data))
+        return jamb_path
+
+    def test_matrix_help(self, runner):
+        """Test that matrix --help works."""
+        result = runner.invoke(cli, ["matrix", "--help"])
+
+        assert result.exit_code == 0
+        assert "OUTPUT" in result.output
+        assert "--trace-from" in result.output
+        assert "--include-ancestors" in result.output
+        assert "--test-records" in result.output
+
+    def test_matrix_missing_jamb_file(self, runner, tmp_path):
+        """Test matrix command errors on missing .jamb file."""
+        output = tmp_path / "matrix.html"
+
+        result = runner.invoke(
+            cli,
+            ["matrix", str(output), "--input", str(tmp_path / ".jamb")],
+        )
+
+        # Exit code 1 for custom error, 2 for click error (file not found)
+        assert result.exit_code in (1, 2)
+        assert (
+            "not found" in result.output.lower()
+            or "error" in result.output.lower()
+            or "does not exist" in result.output.lower()
+        )
+
+    def test_matrix_with_trace_from(self, runner, tmp_path, jamb_file):
+        """Test matrix command with --trace-from option."""
+        output = tmp_path / "matrix.html"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--trace-from",
+                "SYS",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        assert output.exists()
+        assert "Generated trace matrix" in result.output
+
+    def test_matrix_with_include_ancestors(self, runner, tmp_path, jamb_file):
+        """Test matrix command with --include-ancestors option."""
+        output = tmp_path / "matrix.html"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--trace-from",
+                "SYS",
+                "--include-ancestors",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        assert output.exists()
+
+    def test_matrix_with_test_records(self, runner, tmp_path, jamb_file):
+        """Test matrix command with --test-records option."""
+        output = tmp_path / "test-records.html"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--test-records",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        assert output.exists()
+        assert "test records matrix" in result.output.lower()
+
+    @pytest.mark.parametrize(
+        "extension,content_check",
+        [
+            ("html", lambda c: "<html" in c.lower()),
+            ("json", lambda c: '"matrices"' in c or '"items"' in c),
+            ("csv", lambda c: "SYS" in c or "Path" in c),
+            ("md", lambda c: "# " in c or "|" in c),
+        ],
+        ids=["html", "json", "csv", "markdown"],
+    )
+    def test_matrix_format_inference_text(
+        self, runner, tmp_path, jamb_file, extension, content_check
+    ):
+        """Test that file extension correctly infers text-based output format."""
+        output = tmp_path / f"matrix.{extension}"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--trace-from",
+                "SYS",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        content = output.read_text()
+        assert content_check(content)
+
+    def test_matrix_format_inference_xlsx(self, runner, tmp_path, jamb_file):
+        """Test that .xlsx extension infers XLSX format (binary check)."""
+        output = tmp_path / "matrix.xlsx"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--trace-from",
+                "SYS",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        assert output.exists()
+        # XLSX files start with PK (ZIP header)
+        content = output.read_bytes()
+        assert content[:2] == b"PK"
+
+    def test_matrix_creates_parent_directories(self, runner, tmp_path, jamb_file):
+        """Test that matrix command creates parent directories."""
+        output = tmp_path / "subdir" / "nested" / "matrix.html"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--trace-from",
+                "SYS",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        assert output.exists()

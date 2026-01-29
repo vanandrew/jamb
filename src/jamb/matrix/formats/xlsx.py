@@ -1,17 +1,32 @@
 """Excel (XLSX) traceability matrix output."""
 
 import io
+import warnings
 
 from openpyxl import Workbook
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from jamb.core.models import ItemCoverage, MatrixMetadata, TraceabilityGraph
+from jamb.core.models import FullChainMatrix, MatrixMetadata, TestRecord
 
-# Color definitions
+# Threshold for warning about large datasets
+LARGE_DATASET_WARNING_THRESHOLD = 5000
+
+# =============================================================================
+# Color and Style Constants
+# =============================================================================
+
+# Header styling
 HEADER_FILL = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
+
+# Inline font for rich text (bold)
+BOLD_INLINE = InlineFont(b=True)
+
+# Coverage status fills
 PASSED_FILL = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
 FAILED_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 UNCOVERED_FILL = PatternFill(
@@ -19,41 +34,77 @@ UNCOVERED_FILL = PatternFill(
 )
 NA_FILL = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 
+# Test outcome fills
+SKIPPED_FILL = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+ERROR_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+UNKNOWN_FILL = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 
-def render_xlsx(
-    coverage: dict[str, ItemCoverage],
-    graph: TraceabilityGraph | None,
-    trace_to_ignore: frozenset[str] | set[str] = frozenset(),
-    metadata: MatrixMetadata | None = None,
-) -> bytes:
-    """Render coverage as Excel traceability matrix.
+# Full chain matrix fills
+PARTIAL_FILL = PatternFill(start_color="FFE4B5", end_color="FFE4B5", fill_type="solid")
+
+
+def _make_item_rich_text(uid: str, header: str | None, text: str) -> CellRichText:
+    """Create rich text with bold UID/header and regular text.
 
     Args:
-        coverage: Dict mapping UIDs to ItemCoverage objects representing
-            each traceable item and its test linkage.
-        graph: Optional TraceabilityGraph used to resolve ancestor chains
-            for each item. When None, ancestor columns are left empty.
-        trace_to_ignore: Set of document prefixes to exclude from the
-            ancestor display.
+        uid: The item UID.
+        header: Optional header text.
+        text: The item body text.
+
+    Returns:
+        CellRichText with bold UID/header portion and regular text.
+    """
+    if header:
+        # Format: **UID: header** - text
+        bold_part = f"{uid}: {header}"
+        return CellRichText(
+            TextBlock(BOLD_INLINE, bold_part),
+            f" - {text}",
+        )
+    else:
+        # Format: **UID:** text
+        bold_part = f"{uid}:"
+        return CellRichText(
+            TextBlock(BOLD_INLINE, bold_part),
+            f" {text}",
+        )
+
+
+def render_test_records_xlsx(
+    records: list[TestRecord],
+    metadata: MatrixMetadata | None = None,
+) -> bytes:
+    """Render test records as Excel test records matrix.
+
+    Args:
+        records: List of TestRecord objects to render.
         metadata: Optional matrix metadata for IEC 62304 5.7.5 compliance.
 
     Returns:
         Bytes containing an XLSX workbook with a styled header, metadata
-        section, summary section, and color-coded status cells (green for
-        passed, red for failed, yellow for uncovered, gray for N/A).
+        section, summary section, and color-coded outcome cells.
     """
+    if len(records) > LARGE_DATASET_WARNING_THRESHOLD:
+        warnings.warn(
+            f"Large matrix ({len(records)} rows) may use significant memory. "
+            "Consider using CSV format for large datasets.",
+            stacklevel=2,
+        )
+
     wb = Workbook()
     ws: Worksheet = wb.active  # type: ignore[assignment]
-    ws.title = "Traceability Matrix"
+    ws.title = "Test Records"
 
     # Calculate stats
-    total = len(coverage)
-    covered = sum(1 for c in coverage.values() if c.is_covered)
-    passed = sum(1 for c in coverage.values() if c.all_tests_passed)
-    coverage_pct = (100 * covered / total) if total else 0
+    total = len(records)
+    passed = sum(1 for r in records if r.outcome == "passed")
+    failed = sum(1 for r in records if r.outcome == "failed")
+    skipped = sum(1 for r in records if r.outcome == "skipped")
+    error = sum(1 for r in records if r.outcome == "error")
+    pass_rate = (100 * passed / total) if total else 0
 
     # Title
-    ws["A1"] = "Traceability and Test Record Matrix"
+    ws["A1"] = "Test Records"
     ws["A1"].font = Font(bold=True, size=14)
     ws.merge_cells("A1:I1")
 
@@ -96,27 +147,36 @@ def render_xlsx(
         current_row += 1  # Empty row separator
 
     # Summary section
-    ws.cell(row=current_row, column=1, value="Total Items:")
+    ws.cell(row=current_row, column=1, value="Total Tests:")
     ws.cell(row=current_row, column=2, value=total)
     current_row += 1
-    ws.cell(row=current_row, column=1, value="Covered:")
-    ws.cell(row=current_row, column=2, value=f"{covered} ({coverage_pct:.1f}%)")
-    current_row += 1
-    ws.cell(row=current_row, column=1, value="All Tests Passing:")
+    ws.cell(row=current_row, column=1, value="Passed:")
     ws.cell(row=current_row, column=2, value=passed)
+    current_row += 1
+    ws.cell(row=current_row, column=1, value="Failed:")
+    ws.cell(row=current_row, column=2, value=failed)
+    current_row += 1
+    ws.cell(row=current_row, column=1, value="Skipped:")
+    ws.cell(row=current_row, column=2, value=skipped)
+    current_row += 1
+    ws.cell(row=current_row, column=1, value="Error:")
+    ws.cell(row=current_row, column=2, value=error)
+    current_row += 1
+    ws.cell(row=current_row, column=1, value="Pass Rate:")
+    ws.cell(row=current_row, column=2, value=f"{pass_rate:.1f}%")
     current_row += 2  # Extra row before header
 
     # Header row
     header_widths = [
-        ("UID", 12),
-        ("Description", 50),
-        ("Traces To", 20),
-        ("Tests", 40),
+        ("Test Case", 12),
+        ("Test Name", 40),
+        ("Outcome", 12),
+        ("Requirements", 25),
         ("Test Actions", 40),
         ("Expected Results", 40),
         ("Actual Results", 40),
         ("Notes", 50),
-        ("Status", 15),
+        ("Timestamp", 22),
     ]
     headers = [h for h, _ in header_widths]
     header_row = current_row
@@ -128,75 +188,34 @@ def render_xlsx(
 
     # Data rows
     row = header_row + 1
-    for uid, cov in sorted(coverage.items()):
-        description = cov.item.display_text
-
-        # Get ancestors
-        ancestors = []
-        if graph:
-            for ancestor in graph.get_ancestors(uid):
-                if ancestor.document_prefix in trace_to_ignore:
-                    continue
-                ancestors.append(ancestor.uid)
-        traces_to = ", ".join(ancestors) if ancestors else ""
-
-        # Get tests, test actions, expected results, actual results, and notes
-        # Group entries by test name for clarity
-        tests = []
-        all_test_actions = []
-        all_expected_results = []
-        all_actual_results = []
-        all_notes = []
-        for test in cov.linked_tests:
-            test_name = test.test_nodeid.split("::")[-1]
-            outcome = test.test_outcome or "?"
-            tests.append(f"{test_name} [{outcome}]")
-            # Add test name header if there are multiple tests
-            multi_test = len(cov.linked_tests) > 1
-            if multi_test and test.test_actions:
-                all_test_actions.append(f"[{test_name}]")
-            for action in test.test_actions:
-                all_test_actions.append(action)
-            if multi_test and test.expected_results:
-                all_expected_results.append(f"[{test_name}]")
-            for result in test.expected_results:
-                all_expected_results.append(result)
-            if multi_test and test.actual_results:
-                all_actual_results.append(f"[{test_name}]")
-            for result in test.actual_results:
-                all_actual_results.append(result)
-            if multi_test and test.notes:
-                all_notes.append(f"[{test_name}]")
-            for note in test.notes:
-                all_notes.append(note)
-        tests_str = ", ".join(tests) if tests else ""
-        test_actions_str = "\n".join(all_test_actions) if all_test_actions else ""
+    for rec in records:
+        requirements_str = ", ".join(rec.requirements) if rec.requirements else ""
+        test_actions_str = "\n".join(rec.test_actions) if rec.test_actions else ""
         expected_results_str = (
-            "\n".join(all_expected_results) if all_expected_results else ""
+            "\n".join(rec.expected_results) if rec.expected_results else ""
         )
-        actual_results_str = "\n".join(all_actual_results) if all_actual_results else ""
-        notes_str = "\n".join(all_notes) if all_notes else ""
+        actual_results_str = "\n".join(rec.actual_results) if rec.actual_results else ""
+        notes_str = "\n".join(rec.notes) if rec.notes else ""
 
-        # Status and fill color (with N/A support for non-testable items)
-        if not cov.is_covered:
-            if not cov.item.testable:
-                status = "N/A"
-                fill = NA_FILL
-            else:
-                status = "Not Covered"
-                fill = UNCOVERED_FILL
-        elif cov.all_tests_passed:
-            status = "Passed"
+        # Determine fill color based on outcome
+        outcome_lower = rec.outcome.lower() if rec.outcome else "unknown"
+        if outcome_lower == "passed":
             fill = PASSED_FILL
-        else:
-            status = "Failed"
+        elif outcome_lower == "failed":
             fill = FAILED_FILL
+        elif outcome_lower == "skipped":
+            fill = SKIPPED_FILL
+        elif outcome_lower == "error":
+            fill = ERROR_FILL
+        else:
+            fill = UNKNOWN_FILL
 
         # Write row
-        ws.cell(row=row, column=1, value=uid)
-        ws.cell(row=row, column=2, value=description)
-        ws.cell(row=row, column=3, value=traces_to)
-        ws.cell(row=row, column=4, value=tests_str)
+        ws.cell(row=row, column=1, value=rec.test_id)
+        ws.cell(row=row, column=2, value=rec.test_name)
+        outcome_cell = ws.cell(row=row, column=3, value=rec.outcome)
+        outcome_cell.fill = fill
+        ws.cell(row=row, column=4, value=requirements_str)
         actions_cell = ws.cell(row=row, column=5, value=test_actions_str)
         actions_cell.alignment = Alignment(wrap_text=True, vertical="top")
         expected_cell = ws.cell(row=row, column=6, value=expected_results_str)
@@ -205,14 +224,151 @@ def render_xlsx(
         actual_cell.alignment = Alignment(wrap_text=True, vertical="top")
         notes_cell = ws.cell(row=row, column=8, value=notes_str)
         notes_cell.alignment = Alignment(wrap_text=True, vertical="top")
-        status_cell = ws.cell(row=row, column=9, value=status)
-        status_cell.fill = fill
+        ws.cell(row=row, column=9, value=rec.execution_timestamp or "")
 
         row += 1
 
     # Auto-adjust column widths
     for col, (_, width) in enumerate(header_widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
+
+    # Save to bytes
+    output = io.BytesIO()
+    wb.save(output)
+    return output.getvalue()
+
+
+def render_full_chain_xlsx(
+    matrices: list[FullChainMatrix],
+    tc_mapping: dict[str, str] | None = None,
+) -> bytes:
+    """Render full chain trace matrices as Excel workbook.
+
+    Args:
+        matrices: List of FullChainMatrix objects to render.
+        tc_mapping: Optional mapping from test nodeid to TC ID for display.
+
+    Returns:
+        Bytes containing an XLSX workbook with all matrices.
+    """
+    total_rows = sum(len(m.rows) for m in matrices)
+    if total_rows > LARGE_DATASET_WARNING_THRESHOLD:
+        warnings.warn(
+            f"Large matrix ({total_rows} rows) may use significant memory. "
+            "Consider using CSV format for large datasets.",
+            stacklevel=2,
+        )
+
+    tc_mapping = tc_mapping or {}
+    wb = Workbook()
+
+    # Overall summary
+    total = sum(m.summary.get("total", 0) for m in matrices)
+    passed = sum(m.summary.get("passed", 0) for m in matrices)
+    failed = sum(m.summary.get("failed", 0) for m in matrices)
+    not_covered = sum(m.summary.get("not_covered", 0) for m in matrices)
+
+    # Create a sheet for each matrix path
+    for i, matrix in enumerate(matrices):
+        if i == 0:
+            ws: Worksheet = wb.active  # type: ignore[assignment]
+        else:
+            ws = wb.create_sheet()
+
+        # Sheet title (limited to 31 chars for Excel)
+        ws.title = "Traceability Matrix" if i == 0 else f"Traceability Matrix {i + 1}"
+
+        # Title
+        ws["A1"] = "Traceability Matrix"
+        ws["A1"].font = Font(bold=True, size=14)
+
+        # Summary section (only on first sheet)
+        current_row = 3
+        if i == 0:
+            ws.cell(row=current_row, column=1, value="Total Items:")
+            ws.cell(row=current_row, column=2, value=total)
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Passed:")
+            ws.cell(row=current_row, column=2, value=passed)
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Failed:")
+            ws.cell(row=current_row, column=2, value=failed)
+            current_row += 1
+            ws.cell(row=current_row, column=1, value="Not Covered:")
+            ws.cell(row=current_row, column=2, value=not_covered)
+            current_row += 2
+
+        # Build header row
+        headers = []
+        if matrix.include_ancestors:
+            headers.append("Traces To")
+        headers.extend(matrix.document_hierarchy)
+        headers.extend(["Tests", "Status"])
+
+        header_row = current_row
+        for col, header in enumerate(headers, start=1):
+            cell = ws.cell(row=header_row, column=col, value=header)
+            cell.fill = HEADER_FILL
+            cell.font = HEADER_FONT
+            cell.alignment = Alignment(horizontal="center")
+
+        # Data rows
+        row = header_row + 1
+        for chain_row in matrix.rows:
+            col = 1
+
+            # Traces To column
+            if matrix.include_ancestors:
+                ws.cell(row=row, column=col, value=", ".join(chain_row.ancestor_uids))
+                col += 1
+
+            # Document columns
+            for prefix in matrix.document_hierarchy:
+                item = chain_row.chain.get(prefix)
+                if item:
+                    # Use rich text with bold UID/header
+                    rich_text = _make_item_rich_text(item.uid, item.header, item.text)
+                    ws.cell(row=row, column=col, value=rich_text)
+                else:
+                    ws.cell(row=row, column=col, value="")
+                col += 1
+
+            # Tests column
+            tests = []
+            for test in chain_row.descendant_tests:
+                test_name = test.test_nodeid.split("::")[-1]
+                outcome = test.test_outcome or "unknown"
+                tc_id = tc_mapping.get(test.test_nodeid, "")
+                tc_prefix = f"{tc_id}: " if tc_id else ""
+                tests.append(f"{tc_prefix}{test_name} [{outcome}]")
+            ws.cell(row=row, column=col, value="\n".join(tests))
+            ws.cell(row=row, column=col).alignment = Alignment(
+                wrap_text=True, vertical="top"
+            )
+            col += 1
+
+            # Status column with color
+            status = chain_row.rollup_status
+            status_lower = status.lower().replace(" ", "_")
+            if status_lower == "passed":
+                fill = PASSED_FILL
+            elif status_lower == "failed":
+                fill = FAILED_FILL
+            elif status_lower == "partial":
+                fill = PARTIAL_FILL
+            elif status_lower == "not_covered":
+                fill = UNCOVERED_FILL
+            else:
+                fill = NA_FILL
+
+            status_cell = ws.cell(row=row, column=col, value=status)
+            status_cell.fill = fill
+
+            row += 1
+
+        # Auto-adjust column widths
+        for col_idx in range(1, len(headers) + 1):
+            ws.column_dimensions[get_column_letter(col_idx)].width = 30
 
     # Save to bytes
     output = io.BytesIO()
