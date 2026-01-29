@@ -327,9 +327,7 @@ def _build_chain_rows(
                 tests = _collect_tests(graph, item, coverage, all_test_links)
                 status = _calculate_status_from_tests(tests, item, graph)
 
-                ancestor_uids = _get_ancestor_uids(
-                    chain, doc_path, graph, trace_to_ignore, include_ancestors
-                )
+                ancestor_uids = _get_ancestor_uids(chain, doc_path, graph, trace_to_ignore, include_ancestors)
 
                 yield ChainRow(
                     chain=chain,
@@ -344,11 +342,7 @@ def _build_chain_rows(
                 children = graph.get_children_from_document(item.uid, next_prefix)
 
                 # Check if this item has direct test links (tests that skip children)
-                has_direct_tests = (
-                    all_test_links
-                    and item.uid in all_test_links
-                    and len(all_test_links[item.uid]) > 0
-                )
+                has_direct_tests = all_test_links and item.uid in all_test_links and len(all_test_links[item.uid]) > 0
 
                 if children:
                     # If item has direct tests, create a gap row for them first
@@ -358,9 +352,7 @@ def _build_chain_rows(
                         direct_tests = list(all_test_links[item.uid])
                         status = _calculate_status_from_tests(direct_tests, item, graph)
 
-                        ancestor_uids = _get_ancestor_uids(
-                            chain, doc_path, graph, trace_to_ignore, include_ancestors
-                        )
+                        ancestor_uids = _get_ancestor_uids(chain, doc_path, graph, trace_to_ignore, include_ancestors)
 
                         yield ChainRow(
                             chain=chain,
@@ -378,9 +370,7 @@ def _build_chain_rows(
                     tests = _collect_tests(graph, item, coverage, all_test_links)
                     status = _calculate_status_from_tests(tests, item, graph)
 
-                    ancestor_uids = _get_ancestor_uids(
-                        chain, doc_path, graph, trace_to_ignore, include_ancestors
-                    )
+                    ancestor_uids = _get_ancestor_uids(chain, doc_path, graph, trace_to_ignore, include_ancestors)
 
                     yield ChainRow(
                         chain=chain,
@@ -479,8 +469,7 @@ def build_full_chain_matrix(
         # Skip paths where all documents are filtered out
         if not filtered_path:
             warnings.warn(
-                f"All documents filtered from path: {' -> '.join(doc_path)}. "
-                f"Skipping this path.",
+                f"All documents filtered from path: {' -> '.join(doc_path)}. Skipping this path.",
                 stacklevel=2,
             )
             continue
@@ -517,8 +506,7 @@ def build_full_chain_matrix(
 
     if not matrices:
         warnings.warn(
-            "No traceability matrices generated. All document paths were "
-            "filtered by trace_to_ignore or had no items.",
+            "No traceability matrices generated. All document paths were filtered by trace_to_ignore or had no items.",
             stacklevel=2,
         )
 

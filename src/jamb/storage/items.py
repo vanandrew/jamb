@@ -112,15 +112,12 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
                         if hash_str and hash_str.strip():
                             # SHA-256 base64 is ~43 chars; require >= 20 chars
                             # and URL-safe base64 characters
-                            is_valid = len(hash_str) >= 20 and re.match(
-                                r"^[A-Za-z0-9_-]+$", hash_str
-                            )
+                            is_valid = len(hash_str) >= 20 and re.match(r"^[A-Za-z0-9_-]+$", hash_str)
                             if is_valid:
                                 link_hashes[link_str] = hash_str
                             else:
                                 warnings.warn(
-                                    f"Invalid hash format for link '{link_str}' "
-                                    f"in item '{uid}'",
+                                    f"Invalid hash format for link '{link_str}' in item '{uid}'",
                                     stacklevel=2,
                                 )
             elif isinstance(entry, str):
@@ -161,8 +158,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
     reviewed = data.get("reviewed")
     if reviewed is not None and not isinstance(reviewed, str):
         warnings.warn(
-            f"Item '{uid}' has non-string 'reviewed' field: {reviewed!r}. "
-            f"Expected hash string or null.",
+            f"Item '{uid}' has non-string 'reviewed' field: {reviewed!r}. Expected hash string or null.",
             stacklevel=2,
         )
         reviewed = None  # Treat as not reviewed
@@ -183,9 +179,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
     }
 
 
-def write_item(
-    item_data: dict[str, Any], path: Path, extra_fields: dict[str, Any] | None = None
-) -> None:
+def write_item(item_data: dict[str, Any], path: Path, extra_fields: dict[str, Any] | None = None) -> None:
     """Write an item as a YAML file.
 
     Args:
@@ -257,9 +251,7 @@ def read_document_items(
     """
     items = []
     try:
-        pattern = re.compile(
-            rf"^{re.escape(prefix)}{re.escape(sep)}\d+\.yml$", re.IGNORECASE
-        )
+        pattern = re.compile(rf"^{re.escape(prefix)}{re.escape(sep)}\d+\.yml$", re.IGNORECASE)
     except re.error as e:
         raise ValueError(f"Invalid prefix pattern '{prefix}': {e}") from e
 
@@ -291,9 +283,7 @@ def next_uid(prefix: str, digits: int, existing_uids: list[str], sep: str = "") 
         raise ValueError(f"digits must be >= 1, got {digits}")
 
     try:
-        pattern = re.compile(
-            rf"^{re.escape(prefix)}{re.escape(sep)}(\d+)$", re.IGNORECASE
-        )
+        pattern = re.compile(rf"^{re.escape(prefix)}{re.escape(sep)}(\d+)$", re.IGNORECASE)
     except re.error as e:
         raise ValueError(f"Invalid prefix pattern '{prefix}': {e}") from e
 

@@ -235,9 +235,7 @@ class TestBuildFullChainMatrix:
         """Test building a basic chain matrix."""
         # Add items with links
         sys_item = Item(uid="SYS001", text="System item", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="SRS item", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="SRS item", document_prefix="SRS", links=["SYS001"])
 
         sys_srs_graph.add_item(sys_item)
         sys_srs_graph.add_item(srs_item)
@@ -260,12 +258,8 @@ class TestBuildFullChainMatrix:
     def test_include_ancestors(self, un_sys_srs_graph):
         """Test that ancestors are included when requested."""
         un_item = Item(uid="UN001", text="UN item", document_prefix="UN")
-        sys_item = Item(
-            uid="SYS001", text="System item", document_prefix="SYS", links=["UN001"]
-        )
-        srs_item = Item(
-            uid="SRS001", text="SRS item", document_prefix="SRS", links=["SYS001"]
-        )
+        sys_item = Item(uid="SYS001", text="System item", document_prefix="SYS", links=["UN001"])
+        srs_item = Item(uid="SRS001", text="SRS item", document_prefix="SRS", links=["SYS001"])
 
         un_sys_srs_graph.add_item(un_item)
         un_sys_srs_graph.add_item(sys_item)
@@ -275,9 +269,7 @@ class TestBuildFullChainMatrix:
             "SRS001": ItemCoverage(item=srs_item, linked_tests=[]),
         }
 
-        matrices = build_full_chain_matrix(
-            un_sys_srs_graph, coverage, "SYS", include_ancestors=True
-        )
+        matrices = build_full_chain_matrix(un_sys_srs_graph, coverage, "SYS", include_ancestors=True)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -383,9 +375,7 @@ class TestBuildFullChainMatrix:
         graph.set_document_parents("SRS", ["SYS"])
         graph.set_document_parents("SYS", [])
 
-        sys_item = Item(
-            uid="SYS001", text="System item", document_prefix="SYS", testable=False
-        )
+        sys_item = Item(uid="SYS001", text="System item", document_prefix="SYS", testable=False)
         srs_item = Item(
             uid="SRS001",
             text="SRS item",
@@ -464,15 +454,9 @@ class TestTraceToIgnore:
     def test_trace_to_ignore_filters_document_hierarchy(self, prj_un_sys_srs_graph):
         """Test that trace_to_ignore removes documents from hierarchy."""
         prj_item = Item(uid="PRJ001", text="Project", document_prefix="PRJ")
-        un_item = Item(
-            uid="UN001", text="User need", document_prefix="UN", links=["PRJ001"]
-        )
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", links=["UN001"]
-        )
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        un_item = Item(uid="UN001", text="User need", document_prefix="UN", links=["PRJ001"])
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         prj_un_sys_srs_graph.add_item(prj_item)
         prj_un_sys_srs_graph.add_item(un_item)
@@ -482,9 +466,7 @@ class TestTraceToIgnore:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
         # Ignore PRJ document
-        matrices = build_full_chain_matrix(
-            prj_un_sys_srs_graph, coverage, "PRJ", trace_to_ignore={"PRJ"}
-        )
+        matrices = build_full_chain_matrix(prj_un_sys_srs_graph, coverage, "PRJ", trace_to_ignore={"PRJ"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -495,15 +477,9 @@ class TestTraceToIgnore:
     def test_trace_to_ignore_filters_ancestor_uids(self, prj_un_sys_srs_graph):
         """Test that trace_to_ignore removes ancestors from ancestor_uids."""
         prj_item = Item(uid="PRJ001", text="Project", document_prefix="PRJ")
-        un_item = Item(
-            uid="UN001", text="User need", document_prefix="UN", links=["PRJ001"]
-        )
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", links=["UN001"]
-        )
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        un_item = Item(uid="UN001", text="User need", document_prefix="UN", links=["PRJ001"])
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         prj_un_sys_srs_graph.add_item(prj_item)
         prj_un_sys_srs_graph.add_item(un_item)
@@ -535,12 +511,8 @@ class TestTraceToIgnore:
         graph.set_document_parents("UN", [])
 
         un_item = Item(uid="UN001", text="User need", document_prefix="UN")
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", links=["UN001"]
-        )
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(un_item)
         graph.add_item(sys_item)
@@ -549,9 +521,7 @@ class TestTraceToIgnore:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
         # Ignore UN document
-        matrices = build_full_chain_matrix(
-            graph, coverage, "UN", trace_to_ignore={"UN"}
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "UN", trace_to_ignore={"UN"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -566,18 +536,14 @@ class TestTraceToIgnore:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", trace_to_ignore=set()
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", trace_to_ignore=set())
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -594,9 +560,7 @@ class TestHigherOrderDocumentTests:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -611,9 +575,7 @@ class TestHigherOrderDocumentTests:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
         all_test_links = {"SYS001": [direct_test]}
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -637,9 +599,7 @@ class TestHigherOrderDocumentTests:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -661,9 +621,7 @@ class TestHigherOrderDocumentTests:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[srs_test])}
         all_test_links = {"SYS001": [direct_test], "SRS001": [srs_test]}
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -686,27 +644,17 @@ class TestHigherOrderDocumentTests:
         graph.set_document_parents("UN", [])
 
         un_item = Item(uid="UN001", text="User need", document_prefix="UN")
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", links=["UN001"]
-        )
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(un_item)
         graph.add_item(sys_item)
         graph.add_item(srs_item)
 
         # Tests at each level
-        un_test = LinkedTest(
-            test_nodeid="test::un_test", item_uid="UN001", test_outcome="passed"
-        )
-        sys_test = LinkedTest(
-            test_nodeid="test::sys_test", item_uid="SYS001", test_outcome="passed"
-        )
-        srs_test = LinkedTest(
-            test_nodeid="test::srs_test", item_uid="SRS001", test_outcome="passed"
-        )
+        un_test = LinkedTest(test_nodeid="test::un_test", item_uid="UN001", test_outcome="passed")
+        sys_test = LinkedTest(test_nodeid="test::sys_test", item_uid="SYS001", test_outcome="passed")
+        srs_test = LinkedTest(test_nodeid="test::srs_test", item_uid="SRS001", test_outcome="passed")
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[srs_test])}
         all_test_links = {
@@ -715,9 +663,7 @@ class TestHigherOrderDocumentTests:
             "SRS001": [srs_test],
         }
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "UN", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "UN", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -726,20 +672,12 @@ class TestHigherOrderDocumentTests:
         assert len(matrix.rows) == 3
 
         # UN gap row (SYS and SRS are None)
-        un_gap_rows = [
-            r
-            for r in matrix.rows
-            if r.chain.get("SYS") is None and r.chain.get("SRS") is None
-        ]
+        un_gap_rows = [r for r in matrix.rows if r.chain.get("SYS") is None and r.chain.get("SRS") is None]
         assert len(un_gap_rows) == 1
         assert un_gap_rows[0].descendant_tests[0].test_nodeid == "test::un_test"
 
         # SYS gap row (SRS is None but SYS is not)
-        sys_gap_rows = [
-            r
-            for r in matrix.rows
-            if r.chain.get("SYS") is not None and r.chain.get("SRS") is None
-        ]
+        sys_gap_rows = [r for r in matrix.rows if r.chain.get("SYS") is not None and r.chain.get("SRS") is None]
         assert len(sys_gap_rows) == 1
         assert sys_gap_rows[0].descendant_tests[0].test_nodeid == "test::sys_test"
 
@@ -755,9 +693,7 @@ class TestHigherOrderDocumentTests:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -772,9 +708,7 @@ class TestHigherOrderDocumentTests:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[srs_test])}
         all_test_links = {"SRS001": [srs_test]}  # No SYS001 entry
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -790,9 +724,7 @@ class TestHigherOrderDocumentTests:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -814,9 +746,7 @@ class TestHigherOrderDocumentTests:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[srs_test])}
         all_test_links = {"SYS001": [direct_test], "SRS001": [srs_test]}
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -888,9 +818,7 @@ class TestCalculateRollupStatusEdgeCases:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="SRS", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="SRS", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -920,12 +848,8 @@ class TestCalculateRollupStatusEdgeCases:
         graph.set_document_parents("SRS", ["SYS"])
         graph.set_document_parents("SYS", [])
 
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", testable=False
-        )
-        srs_item = Item(
-            uid="SRS001", text="SRS", document_prefix="SRS", links=["SYS001"]
-        )
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", testable=False)
+        srs_item = Item(uid="SRS001", text="SRS", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -1017,17 +941,13 @@ class TestEmptyHierarchyAfterFiltering:
         # Filter all documents
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            matrices = build_full_chain_matrix(
-                graph, coverage, "SRS", trace_to_ignore={"SRS"}
-            )
+            matrices = build_full_chain_matrix(graph, coverage, "SRS", trace_to_ignore={"SRS"})
 
             # Should emit warning about filtered path and empty result
             assert len(w) == 2
             warning_messages = [str(warning.message) for warning in w]
             assert any("All documents filtered" in msg for msg in warning_messages)
-            assert any(
-                "No traceability matrices generated" in msg for msg in warning_messages
-            )
+            assert any("No traceability matrices generated" in msg for msg in warning_messages)
 
         # Should return empty list since all paths are filtered
         assert len(matrices) == 0
@@ -1039,9 +959,7 @@ class TestEmptyHierarchyAfterFiltering:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
@@ -1049,15 +967,110 @@ class TestEmptyHierarchyAfterFiltering:
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
         # Filter only SYS (keep SRS)
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", trace_to_ignore={"SYS"}
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", trace_to_ignore={"SYS"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
         # SYS should not be in hierarchy
         assert "SYS" not in matrix.document_hierarchy
         assert matrix.document_hierarchy == ["SRS"]
+
+
+class TestDeepHierarchyTraversal:
+    """Tests for deep hierarchy traversal."""
+
+    def test_deep_hierarchy_completes_without_error(self):
+        """Test that reasonable depth hierarchies complete without error."""
+        graph = TraceabilityGraph()
+
+        # Create a chain that's less than MAX_RECURSION_DEPTH
+        # A -> B -> C (3 levels, well under 100)
+        graph.set_document_parents("C", ["B"])
+        graph.set_document_parents("B", ["A"])
+        graph.set_document_parents("A", [])
+
+        # Should complete without error
+        paths = get_document_paths(graph, "A")
+        assert len(paths) == 1
+        assert paths[0] == ["A", "B", "C"]
+
+    def test_get_document_paths_max_depth_warning(self):
+        """Test that MAX_RECURSION_DEPTH warning is emitted on deep cycles."""
+        from unittest.mock import patch
+
+        graph = TraceabilityGraph()
+
+        # Create a simple document hierarchy first
+        graph.set_document_parents("B", ["A"])
+        graph.set_document_parents("A", [])
+
+        # Mock get_document_children to create a cycle: A -> A (indefinitely)
+        # This simulates a graph corruption or invalid state
+        def mock_get_children(prefix: str) -> list[str]:
+            # Always return a child that points back to itself
+            return ["A"] if prefix == "A" else []
+
+        def mock_get_leaf_documents() -> list[str]:
+            # Return empty so traverse never terminates early
+            return []
+
+        with patch.object(graph, "get_document_children", side_effect=mock_get_children):
+            with patch.object(graph, "get_leaf_documents", side_effect=mock_get_leaf_documents):
+                # This should trigger the max recursion depth warning
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    paths = get_document_paths(graph, "A")
+
+                    # Due to the cycle, should emit warning when MAX_RECURSION_DEPTH is hit
+                    assert paths is not None  # Should not crash
+
+                    # Check that warning was emitted about max recursion depth
+                    depth_warnings = [x for x in w if "Maximum recursion depth" in str(x.message)]
+                    assert len(depth_warnings) > 0
+
+
+class TestStatusUnknownOutcome:
+    """Tests for handling unknown test outcomes in status calculation."""
+
+    def test_unknown_outcome_returns_partial(self):
+        """Test that tests with unknown outcome return 'Partial' status."""
+        from jamb.matrix.chain_builder import _calculate_status_from_tests
+
+        # Create tests with unknown outcomes (not passed, failed, error, or skipped)
+        tests = [
+            LinkedTest(
+                test_nodeid="test::unknown",
+                item_uid="SRS001",
+                test_outcome=None,  # No outcome set
+            ),
+        ]
+
+        status = _calculate_status_from_tests(tests)
+
+        # Unknown outcomes should result in "Partial"
+        assert status == "Partial"
+
+    def test_mixed_unknown_and_passed_returns_passed(self):
+        """Test that passed takes precedence over unknown."""
+        from jamb.matrix.chain_builder import _calculate_status_from_tests
+
+        tests = [
+            LinkedTest(
+                test_nodeid="test::unknown",
+                item_uid="SRS001",
+                test_outcome=None,
+            ),
+            LinkedTest(
+                test_nodeid="test::passed",
+                item_uid="SRS001",
+                test_outcome="passed",
+            ),
+        ]
+
+        status = _calculate_status_from_tests(tests)
+
+        # Passed should take precedence
+        assert status == "Passed"
 
 
 class TestGapRowCreationWithAllTestLinks:
@@ -1070,28 +1083,20 @@ class TestGapRowCreationWithAllTestLinks:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
 
         # Direct test on SYS001
-        sys_test = LinkedTest(
-            test_nodeid="test::sys_test", item_uid="SYS001", test_outcome="passed"
-        )
+        sys_test = LinkedTest(test_nodeid="test::sys_test", item_uid="SYS001", test_outcome="passed")
         # Test on SRS001
-        srs_test = LinkedTest(
-            test_nodeid="test::srs_test", item_uid="SRS001", test_outcome="passed"
-        )
+        srs_test = LinkedTest(test_nodeid="test::srs_test", item_uid="SRS001", test_outcome="passed")
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[srs_test])}
         all_test_links = {"SYS001": [sys_test], "SRS001": [srs_test]}
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -1112,24 +1117,18 @@ class TestGapRowCreationWithAllTestLinks:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(sys_item)
         graph.add_item(srs_item)
 
         # Only test on SRS001, none on SYS001
-        srs_test = LinkedTest(
-            test_nodeid="test::srs_test", item_uid="SRS001", test_outcome="passed"
-        )
+        srs_test = LinkedTest(test_nodeid="test::srs_test", item_uid="SRS001", test_outcome="passed")
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[srs_test])}
         all_test_links = {"SRS001": [srs_test]}  # No SYS001 entry
 
-        matrices = build_full_chain_matrix(
-            graph, coverage, "SYS", all_test_links=all_test_links
-        )
+        matrices = build_full_chain_matrix(graph, coverage, "SYS", all_test_links=all_test_links)
 
         assert len(matrices) == 1
         matrix = matrices[0]

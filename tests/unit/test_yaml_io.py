@@ -138,13 +138,7 @@ class TestLoadImportFile:
     def test_duplicate_uids_raises(self, tmp_path):
         """Test error when import file contains duplicate UIDs."""
         yaml_file = tmp_path / "test.yml"
-        yaml_file.write_text(
-            "items:\n"
-            "  - uid: SRS001\n"
-            "    text: First\n"
-            "  - uid: SRS001\n"
-            "    text: Second\n"
-        )
+        yaml_file.write_text("items:\n  - uid: SRS001\n    text: First\n  - uid: SRS001\n    text: Second\n")
 
         with pytest.raises(ValueError, match="Duplicate UIDs.*SRS001"):
             load_import_file(yaml_file)
@@ -175,6 +169,60 @@ class TestLoadImportFile:
         with pytest.raises(ValueError, match="Expected dict"):
             load_import_file(yaml_file)
 
+    def test_load_import_file_os_error(self, tmp_path):
+        """Test load_import_file handles OSError gracefully."""
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text("documents: []")
+
+        # Mock open to raise OSError
+        with patch("builtins.open", side_effect=OSError("Permission denied")):
+            with pytest.raises(OSError, match="Failed to read file"):
+                load_import_file(yaml_file)
+
+    def test_load_import_file_yaml_error(self, tmp_path):
+        """Test load_import_file handles YAML syntax errors."""
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text("invalid: yaml: [unclosed")
+
+        with pytest.raises(ValueError, match="Invalid YAML"):
+            load_import_file(yaml_file)
+
+    def test_empty_yaml_warns(self, tmp_path):
+        """Test that empty/null YAML produces warning."""
+        import warnings
+
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text("")  # Empty file results in null
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = load_import_file(yaml_file)
+            assert any("empty or contains only null" in str(warning.message) for warning in w)
+            # Should return empty structure
+            assert result == {"documents": [], "items": []}
+
+    def test_both_sections_empty_warns(self, tmp_path):
+        """Test that empty documents and items warns."""
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text("documents: []\nitems: []")
+
+        messages = []
+        result = load_import_file(yaml_file, echo=messages.append)
+        assert any("no documents and no items" in msg for msg in messages)
+        assert result == {"documents": [], "items": []}
+
+    def test_unrecognized_keys_warns(self, tmp_path):
+        """Test that unrecognized top-level keys produce warning."""
+        yaml_file = tmp_path / "test.yml"
+        yaml_file.write_text("documents: []\nitems: []\nextra_key: value\nanother_extra: 123\n")
+
+        messages = []
+        result = load_import_file(yaml_file, echo=messages.append)
+        assert any("unrecognized top-level keys" in msg for msg in messages)
+        # Should still process valid sections
+        assert "documents" in result
+        assert "items" in result
+
 
 class TestUpdateItem:
     """Tests for _update_item function."""
@@ -184,9 +232,7 @@ class TestUpdateItem:
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("active: true\ntext: Old text\n")
 
-        result = _update_item(
-            item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print
-        )
+        result = _update_item(item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print)
 
         assert result == "updated"
         updated = yaml.safe_load(item_path.read_text())
@@ -198,9 +244,7 @@ class TestUpdateItem:
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("active: true\ncustom_field: true\ntext: Test\n")
 
-        _update_item(
-            item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print
-        )
+        _update_item(item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print)
 
         updated = yaml.safe_load(item_path.read_text())
         assert updated["custom_field"] is True  # Preserved
@@ -210,9 +254,7 @@ class TestUpdateItem:
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("active: true\nreviewed: abc123\ntext: Test\n")
 
-        _update_item(
-            item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print
-        )
+        _update_item(item_path, {"uid": "SRS001", "text": "New text"}, verbose=False, echo=print)
 
         updated = yaml.safe_load(item_path.read_text())
         assert "reviewed" not in updated
@@ -465,6 +507,46 @@ items:
 
 class TestCreateDocument:
     """Tests for _create_document function."""
+
+    def test_create_document_rejects_absolute_path(self):
+        """Test _create_document rejects absolute path in document config."""
+        with patch("jamb.yaml_io._document_exists") as mock_exists:
+            mock_exists.return_value = False
+
+            messages = []
+            result = _create_document(
+                {"prefix": "ABS", "path": "/absolute/path/to/doc"},
+                dry_run=False,
+                verbose=True,
+                echo=messages.append,
+            )
+
+            assert result == "error"
+            assert any("absolute" in msg.lower() for msg in messages)
+
+    def test_create_document_rejects_path_traversal(self, tmp_path):
+        """Test _create_document rejects path traversal attempt."""
+        import os
+
+        # Change to tmp_path so relative path resolution works predictably
+        old_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            with patch("jamb.yaml_io._document_exists") as mock_exists:
+                mock_exists.return_value = False
+
+                messages = []
+                result = _create_document(
+                    {"prefix": "TRAV", "path": "../outside/doc"},
+                    dry_run=False,
+                    verbose=True,
+                    echo=messages.append,
+                )
+
+                assert result == "error"
+                assert any("outside" in msg.lower() for msg in messages)
+        finally:
+            os.chdir(old_cwd)
 
     def test_create_document_skips_existing(self):
         """Test _create_document skips existing documents."""
@@ -864,12 +946,8 @@ def _make_export_fixtures():
 
     graph = TraceabilityGraph()
     sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS")
-    srs_item = Item(
-        uid="SRS001", text="Software req", document_prefix="SRS", links=["SYS001"]
-    )
-    inactive_item = Item(
-        uid="SRS002", text="Inactive", document_prefix="SRS", active=False
-    )
+    srs_item = Item(uid="SRS001", text="Software req", document_prefix="SRS", links=["SYS001"])
+    inactive_item = Item(uid="SRS002", text="Inactive", document_prefix="SRS", active=False)
     graph.add_item(sys_item)
     graph.add_item(srs_item)
     graph.add_item(inactive_item)
@@ -892,9 +970,7 @@ class TestGraphItemToDict:
 
     def test_with_header(self):
         """Test item conversion with header."""
-        item = Item(
-            uid="SRS001", text="Hello", document_prefix="SRS", header="My Header"
-        )
+        item = Item(uid="SRS001", text="Hello", document_prefix="SRS", header="My Header")
         result = _graph_item_to_dict(item)
 
         assert result.get("header") == "My Header"
@@ -1039,9 +1115,7 @@ class TestExportItemsToYaml:
         mock_build.return_value = graph
 
         out = tmp_path / "out.yml"
-        export_items_to_yaml(
-            out, ["SRS001"], include_neighbors=True, root=Path("/fake")
-        )
+        export_items_to_yaml(out, ["SRS001"], include_neighbors=True, root=Path("/fake"))
 
         data = yaml.safe_load(out.read_text())
         item_uids = {i["uid"] for i in data["items"]}

@@ -26,10 +26,7 @@ def get_requirement_markers(item: pytest.Item) -> list[str]:
     for marker in item.iter_markers("requirement"):
         for arg in marker.args:
             if not isinstance(arg, str):
-                raise TypeError(
-                    f"Requirement marker arguments must be strings, "
-                    f"got {type(arg).__name__}: {arg!r}"
-                )
+                raise TypeError(f"Requirement marker arguments must be strings, got {type(arg).__name__}: {arg!r}")
             uid = arg.strip()
             if not uid:
                 raise ValueError(f"Empty requirement UID in test {item.nodeid}")

@@ -43,8 +43,7 @@ def discover_documents(root: Path | None = None) -> DocumentDAG:
         if config.prefix in dag.documents:
             existing_path = dag.document_paths[config.prefix]
             raise ValueError(
-                f"Duplicate document prefix '{config.prefix}' found at "
-                f"{existing_path} and {config_path.parent}"
+                f"Duplicate document prefix '{config.prefix}' found at {existing_path} and {config_path.parent}"
             )
         dag.documents[config.prefix] = config
         dag.document_paths[config.prefix] = config_path.parent

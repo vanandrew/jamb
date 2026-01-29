@@ -76,9 +76,7 @@ def export_items_to_yaml(
     # Filter by document prefixes if specified
     if prefixes:
         uids_to_export = {
-            uid
-            for uid in uids_to_export
-            if uid in graph.items and graph.items[uid].document_prefix in prefixes
+            uid for uid in uids_to_export if uid in graph.items and graph.items[uid].document_prefix in prefixes
         }
 
     # Determine which documents contain these items
@@ -196,9 +194,7 @@ def _graph_item_to_dict(item: Item) -> ItemDict:
     return d
 
 
-def load_import_file(
-    path: Path, echo: Callable[[str], object] | None = None
-) -> dict[str, Any]:
+def load_import_file(path: Path, echo: Callable[[str], object] | None = None) -> dict[str, Any]:
     """Load and validate YAML import file.
 
     Args:
@@ -268,9 +264,7 @@ def load_import_file(
             duplicates.add(uid)
         seen.add(uid)
     if duplicates:
-        raise ValueError(
-            f"Duplicate UIDs in import file: {', '.join(sorted(duplicates))}"
-        )
+        raise ValueError(f"Duplicate UIDs in import file: {', '.join(sorted(duplicates))}")
 
     return data
 
@@ -386,16 +380,10 @@ def _create_document(
         resolved = doc_path.resolve()
         cwd = Path.cwd().resolve()
         if doc_path.is_absolute():
-            echo(
-                f"  Error creating document {prefix}: "
-                f"path '{path}' must be relative, not absolute"
-            )
+            echo(f"  Error creating document {prefix}: path '{path}' must be relative, not absolute")
             return "error"
         if not resolved.is_relative_to(cwd):
-            echo(
-                f"  Error creating document {prefix}: "
-                f"path '{path}' traverses outside project directory"
-            )
+            echo(f"  Error creating document {prefix}: path '{path}' traverses outside project directory")
             return "error"
     except OSError as e:
         echo(f"  Error creating document {prefix}: cannot resolve path '{path}': {e}")
@@ -564,9 +552,7 @@ def _get_document_path(prefix: str, dag: DocumentDAG | None = None) -> Path | No
     return dag.document_paths.get(prefix)
 
 
-def _update_item(
-    item_path: Path, spec: dict[str, Any], verbose: bool, echo: Callable[[str], object]
-) -> str:
+def _update_item(item_path: Path, spec: dict[str, Any], verbose: bool, echo: Callable[[str], object]) -> str:
     """Update an existing item YAML file.
 
     Preserves existing fields not specified in spec.

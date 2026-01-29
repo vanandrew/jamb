@@ -133,9 +133,7 @@ def load_coverage(
     # Validate required fields
     missing = REQUIRED_FIELDS - set(data.keys())
     if missing:
-        raise ValueError(
-            f"Corrupt .jamb file, missing required fields: {sorted(missing)}"
-        )
+        raise ValueError(f"Corrupt .jamb file, missing required fields: {sorted(missing)}")
 
     # Deserialize graph
     graph = TraceabilityGraph()
@@ -167,9 +165,7 @@ def load_coverage(
             continue
 
         item = _deserialize_item(cov_data["item"])
-        linked_tests = [
-            _deserialize_linked_test(lt) for lt in cov_data.get("linked_tests", [])
-        ]
+        linked_tests = [_deserialize_linked_test(lt) for lt in cov_data.get("linked_tests", [])]
         coverage[uid] = ItemCoverage(item=item, linked_tests=linked_tests)
 
     # Warn about orphaned items (in coverage but not in graph)

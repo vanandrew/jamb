@@ -24,9 +24,7 @@ class TestValidateFlagBehavior:
         dag.document_paths["SRS"] = Path("/fake/srs")
 
         graph = TraceabilityGraph()
-        item = Item(
-            uid="SRS001", text="A requirement", document_prefix="SRS", reviewed="abc"
-        )
+        item = Item(uid="SRS001", text="A requirement", document_prefix="SRS", reviewed="abc")
         graph.add_item(item)
         graph.set_document_parents("SRS", [])
 
@@ -92,10 +90,7 @@ class TestScanTestsEdgeCases:
         """requirement('SRS001', 'SRS002') collects both."""
         test_file = tmp_path / "test_example.py"
         test_file.write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001', 'SRS002')\n"
-            "def test_something():\n"
-            "    pass\n"
+            "import pytest\n\n@pytest.mark.requirement('SRS001', 'SRS002')\ndef test_something():\n    pass\n"
         )
 
         result = _scan_tests_for_requirements(tmp_path)
@@ -110,12 +105,7 @@ class TestScanTestsEdgeCases:
     def test_skips_non_test_files(self, tmp_path):
         """Files not matching test_*.py are ignored."""
         helper = tmp_path / "helper.py"
-        helper.write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001')\n"
-            "def test_something():\n"
-            "    pass\n"
-        )
+        helper.write_text("import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_something():\n    pass\n")
 
         result = _scan_tests_for_requirements(tmp_path)
         assert result == set()
@@ -123,12 +113,7 @@ class TestScanTestsEdgeCases:
     def test_finds_markers_in_suffix_test_files(self, tmp_path):
         """Files matching *_test.py are scanned."""
         test_file = tmp_path / "login_test.py"
-        test_file.write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001')\n"
-            "def test_login():\n"
-            "    pass\n"
-        )
+        test_file.write_text("import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_login():\n    pass\n")
 
         result = _scan_tests_for_requirements(tmp_path)
         assert "SRS001" in result
@@ -136,12 +121,7 @@ class TestScanTestsEdgeCases:
     def test_finds_keyword_arguments(self, tmp_path):
         """Keyword string arguments to requirement marker are captured."""
         test_file = tmp_path / "test_kw.py"
-        test_file.write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement(uid='SRS042')\n"
-            "def test_kw():\n"
-            "    pass\n"
-        )
+        test_file.write_text("import pytest\n\n@pytest.mark.requirement(uid='SRS042')\ndef test_kw():\n    pass\n")
 
         result = _scan_tests_for_requirements(tmp_path)
         assert "SRS042" in result
@@ -150,10 +130,7 @@ class TestScanTestsEdgeCases:
         """Both positional and keyword string args are captured."""
         test_file = tmp_path / "test_mixed.py"
         test_file.write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001', uid='SRS002')\n"
-            "def test_mixed():\n"
-            "    pass\n"
+            "import pytest\n\n@pytest.mark.requirement('SRS001', uid='SRS002')\ndef test_mixed():\n    pass\n"
         )
 
         result = _scan_tests_for_requirements(tmp_path)
@@ -320,9 +297,7 @@ class TestDocCrud:
         old = os.getcwd()
         os.chdir(tmp_path)
         try:
-            r = runner.invoke(
-                cli, ["doc", "delete", "RC"], input="y\n", catch_exceptions=False
-            )
+            r = runner.invoke(cli, ["doc", "delete", "RC"], input="y\n", catch_exceptions=False)
         finally:
             os.chdir(old)
         assert r.exit_code == 0
@@ -383,6 +358,106 @@ class TestDocCrud:
         r = _invoke(runner, ["doc", "list", "--root", str(tmp_path)])
         assert r.exit_code == 0
         assert "Found 6 documents" in r.output
+
+
+class TestDocCreateValidation:
+    """Tests for doc create validation."""
+
+    def test_doc_create_prefix_too_short(self, tmp_path):
+        """Prefix less than 2 characters exits with error."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "X", str(tmp_path / "reqs" / "x")],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+        assert "at least 2 characters" in r.output
+
+    def test_doc_create_invalid_prefix_lowercase(self, tmp_path):
+        """Prefix starting with lowercase letter is rejected."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "abc", str(tmp_path / "reqs" / "abc")],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+        assert "Invalid prefix" in r.output
+        assert "uppercase" in r.output.lower()
+
+    def test_doc_create_invalid_prefix_special(self, tmp_path):
+        """Prefix with special characters is rejected."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "AB-CD", str(tmp_path / "reqs" / "abcd")],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+        assert "Invalid prefix" in r.output
+
+    def test_doc_create_digits_zero(self, tmp_path):
+        """Digits set to 0 exits with error."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "UT", str(tmp_path / "reqs" / "ut"), "--digits", "0"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code != 0
+        # Click's IntRange validates this before our code
+
+    def test_doc_create_digits_negative(self, tmp_path):
+        """Negative digits value exits with error."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "UT", str(tmp_path / "reqs" / "ut"), "--digits", "-1"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code != 0
+
+    def test_doc_create_digits_too_large(self, tmp_path):
+        """Digits exceeding 10 exits with error."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "UT", str(tmp_path / "reqs" / "ut"), "--digits", "11"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+        assert "cannot exceed 10" in r.output
+
+    def test_doc_create_sep_starts_alphanumeric(self, tmp_path):
+        """Separator starting with letter is rejected."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "UT", str(tmp_path / "reqs" / "ut"), "--sep", "X"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+        assert "alphanumeric" in r.output.lower()
+
+    def test_doc_create_sep_starts_digit(self, tmp_path):
+        """Separator starting with digit is rejected."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(
+            runner,
+            ["doc", "create", "UT", str(tmp_path / "reqs" / "ut"), "--sep", "1"],
+            cwd=tmp_path,
+        )
+        assert r.exit_code == 1
+        assert "alphanumeric" in r.output.lower()
 
 
 # =========================================================================
@@ -1000,10 +1075,7 @@ class TestCheckCommand:
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
         (tests_dir / "test_x.py").write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001')\n"
-            "def test_a():\n"
-            "    pass\n"
+            "import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_a():\n    pass\n"
         )
 
         r = _invoke(
@@ -1026,10 +1098,7 @@ class TestCheckCommand:
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
         (tests_dir / "test_y.py").write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001')\n"
-            "def test_b():\n"
-            "    pass\n"
+            "import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_b():\n    pass\n"
         )
 
         r = _invoke(
@@ -1054,10 +1123,7 @@ class TestCheckCommand:
 
         # Valid test file covering SRS001
         (tests_dir / "test_valid.py").write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001')\n"
-            "def test_a():\n"
-            "    pass\n"
+            "import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_a():\n    pass\n"
         )
 
         # Invalid test file with syntax error
@@ -1089,9 +1155,7 @@ class TestInitCommandErrorBranches:
         """Init skips writing [tool.jamb] if it already exists."""
         subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
         # Pre-create pyproject.toml WITH [tool.jamb] but no reqs/ dir
-        (tmp_path / "pyproject.toml").write_text(
-            '[project]\nname = "x"\n\n[tool.jamb]\ntest_documents = ["SRS"]\n'
-        )
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n\n[tool.jamb]\ntest_documents = ["SRS"]\n')
         runner = CliRunner()
         r = _invoke(runner, ["init"], cwd=tmp_path)
         assert r.exit_code == 0
@@ -1126,14 +1190,22 @@ class TestScanTestsUnparseable:
         """Bad syntax file is silently skipped; good file is still parsed."""
         (tmp_path / "test_bad.py").write_text("def broken(\n")
         (tmp_path / "test_good.py").write_text(
-            "import pytest\n\n"
-            "@pytest.mark.requirement('SRS001')\n"
-            "def test_ok():\n"
-            "    pass\n"
+            "import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_ok():\n    pass\n"
         )
 
         result = _scan_tests_for_requirements(tmp_path)
         assert "SRS001" in result
+
+    def test_skips_encoding_error_files(self, tmp_path):
+        """File with encoding issues is skipped; good file is still parsed."""
+        # Write invalid UTF-8 bytes
+        (tmp_path / "test_bad_encoding.py").write_bytes(b"\x80\x81\x82")
+        (tmp_path / "test_good.py").write_text(
+            "import pytest\n\n@pytest.mark.requirement('SRS002')\ndef test_ok():\n    pass\n"
+        )
+
+        result = _scan_tests_for_requirements(tmp_path)
+        assert "SRS002" in result
 
 
 # =========================================================================
@@ -1256,9 +1328,7 @@ class TestPrintDagHierarchy:
 
         dag = DocumentDAG()
         for prefix, parents in docs.items():
-            dag.documents[prefix] = DocumentConfig(
-                prefix=prefix, parents=parents, digits=3
-            )
+            dag.documents[prefix] = DocumentConfig(prefix=prefix, parents=parents, digits=3)
             dag.document_paths[prefix] = Path(f"/fake/{prefix.lower()}")
         return dag
 
@@ -1311,3 +1381,117 @@ class TestPrintDagHierarchy:
             _print_dag_hierarchy(dag)
 
         assert len(calls) == 0
+
+
+# =========================================================================
+# CLI Error Handling Tests - Additional Coverage
+# =========================================================================
+
+
+class TestItemAddAnchorValidation:
+    """Tests for item add anchor validation errors."""
+
+    def test_item_add_anchor_uid_not_found_after(self, tmp_path):
+        """item add --after with missing anchor UID exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        # Try to add after a non-existent UID
+        r = _invoke(runner, ["item", "add", "SRS", "--after", "SRS999"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "not found" in r.output.lower()
+
+    def test_item_add_anchor_uid_not_found_before(self, tmp_path):
+        """item add --before with missing anchor UID exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        # Try to add before a non-existent UID
+        r = _invoke(runner, ["item", "add", "SRS", "--before", "SRS999"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "not found" in r.output.lower()
+
+
+class TestItemListErrorCases:
+    """Tests for item list error handling."""
+
+    def test_item_list_nonexistent_prefix(self, tmp_path):
+        """item_list exits with code 1 for nonexistent document prefix."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["item", "list", "NOPE"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "not found" in r.output.lower()
+
+
+class TestLinkAddErrorCases:
+    """Tests for link add error handling."""
+
+    def test_link_add_child_not_found(self, tmp_path):
+        """link_add exits with code 1 when child doesn't exist."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        # Create a parent but not the child
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        # Try to link non-existent child
+        r = _invoke(runner, ["link", "add", "SRS999", "SYS001"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "not found" in r.output.lower()
+
+    def test_link_add_parent_not_found(self, tmp_path):
+        """link_add exits with code 1 when parent doesn't exist."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        # Create a child but not the parent
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        # Try to link to non-existent parent
+        r = _invoke(runner, ["link", "add", "SRS001", "SYS999"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "not found" in r.output.lower()
+
+
+class TestPublishErrorCases:
+    """Tests for publish command error handling."""
+
+    def test_publish_all_requires_path(self, tmp_path):
+        """publish all without PATH exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["publish", "all"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "requires" in r.output.lower()
+
+    def test_publish_empty_document(self, tmp_path):
+        """publish exits with code 1 when document has no items."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        # SRS document has no items (only .jamb.yml)
+        # Remove any items if they exist
+        srs_dir = tmp_path / "reqs" / "srs"
+        for yml in srs_dir.glob("SRS*.yml"):
+            yml.unlink()
+        r = _invoke(runner, ["publish", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "no items found" in r.output.lower()
+
+
+class TestInitDocumentSaveError:
+    """Tests for init command document save errors."""
+
+    def test_init_document_save_fails(self, tmp_path):
+        """init exits with code 1 when document config save fails."""
+        import subprocess
+
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "x"\n')
+
+        from unittest.mock import patch
+
+        runner = CliRunner()
+
+        # Patch save_document_config at the module where it's imported
+        with patch(
+            "jamb.storage.document_config.save_document_config",
+            side_effect=OSError("Permission denied"),
+        ):
+            r = _invoke(runner, ["init"], cwd=tmp_path)
+            assert r.exit_code == 1
+            assert "error" in r.output.lower()

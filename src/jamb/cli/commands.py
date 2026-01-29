@@ -71,9 +71,7 @@ def _find_item_path(
 
     for prefix, doc_path in dag.document_paths.items():
         config = dag.documents[prefix]
-        pattern = re.compile(
-            rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE
-        )
+        pattern = re.compile(rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE)
         if pattern.match(uid):
             item_path = doc_path / f"{uid}.yml"
             if item_path.exists():
@@ -126,9 +124,7 @@ def init() -> None:
                 f"Error: Documents already exist: {', '.join(existing_docs)}",
                 err=True,
             )
-            click.echo(
-                "Remove existing documents or use a different directory.", err=True
-            )
+            click.echo("Remove existing documents or use a different directory.", err=True)
             sys.exit(1)
 
     # Create reqs directory
@@ -149,13 +145,9 @@ def init() -> None:
         doc_path = reqs_dir / config.prefix.lower()
         try:
             save_document_config(config, doc_path)
-            click.echo(
-                f"Created document: {config.prefix} at reqs/{config.prefix.lower()}"
-            )
+            click.echo(f"Created document: {config.prefix} at reqs/{config.prefix.lower()}")
         except (OSError, ValueError) as e:
-            click.echo(
-                f"Error: Failed to create {config.prefix} document: {e}", err=True
-            )
+            click.echo(f"Error: Failed to create {config.prefix} document: {e}", err=True)
             sys.exit(1)
 
     # Create initial PRJ001 item from project name
@@ -231,9 +223,7 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
 
         # Check if [tool.jamb] already exists
         if "tool" in doc and "jamb" in cast(Table, doc["tool"]):
-            click.echo(
-                "pyproject.toml already has [tool.jamb] configuration, skipping."
-            )
+            click.echo("pyproject.toml already has [tool.jamb] configuration, skipping.")
             return
 
         # Add [tool] section if it doesn't exist
@@ -298,9 +288,7 @@ def info(root: Path | None) -> None:
     _print_dag_hierarchy(dag)
 
 
-def _print_dag_hierarchy(
-    dag: DocumentDAG, prefix: str = "", nodes: list[str] | None = None
-) -> None:
+def _print_dag_hierarchy(dag: DocumentDAG, prefix: str = "", nodes: list[str] | None = None) -> None:
     """Print document hierarchy as a tree (DAG-aware).
 
     Args:
@@ -360,9 +348,7 @@ def check(documents: str | None, root: Path | None) -> None:
 
     dag = discover_documents(root)
     config = load_config()
-    graph = build_traceability_graph(
-        dag, exclude_patterns=config.exclude_patterns or None
-    )
+    graph = build_traceability_graph(dag, exclude_patterns=config.exclude_patterns or None)
 
     # Determine test documents to check
     if documents:
@@ -382,12 +368,7 @@ def check(documents: str | None, root: Path | None) -> None:
     uncovered = []
     for prefix in test_docs:
         for item in graph.get_items_by_document(prefix):
-            if (
-                item.type == "requirement"
-                and item.active
-                and item.testable
-                and item.uid not in linked_items
-            ):
+            if item.type == "requirement" and item.active and item.testable and item.uid not in linked_items:
                 uncovered.append(item)
 
     if uncovered:
@@ -434,27 +415,19 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
                         # Look for pytest.mark.requirement(...)
                         if _is_requirement_marker(node):
                             for arg in node.args:
-                                if isinstance(arg, ast.Constant) and isinstance(
-                                    arg.value, str
-                                ):
+                                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                                     linked.add(arg.value)
                             for kw in node.keywords:
-                                if isinstance(kw.value, ast.Constant) and isinstance(
-                                    kw.value.value, str
-                                ):
+                                if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
                                     linked.add(kw.value.value)
             except SyntaxError as e:
-                click.echo(
-                    f"Warning: Skipping {test_file} (syntax error: {e})", err=True
-                )
+                click.echo(f"Warning: Skipping {test_file} (syntax error: {e})", err=True)
                 continue
             except OSError as e:
                 click.echo(f"Warning: Skipping {test_file} (read error: {e})", err=True)
                 continue
             except UnicodeDecodeError as e:
-                click.echo(
-                    f"Warning: Skipping {test_file} (encoding error: {e})", err=True
-                )
+                click.echo(f"Warning: Skipping {test_file} (encoding error: {e})", err=True)
                 continue
 
     return linked
@@ -475,10 +448,7 @@ def _is_requirement_marker(node: ast.Call) -> bool:
     # @pytest.mark.requirement(...)
     if isinstance(func, ast.Attribute) and func.attr == "requirement":
         if isinstance(func.value, ast.Attribute) and func.value.attr == "mark":
-            if (
-                isinstance(func.value.value, ast.Name)
-                and func.value.value.id == "pytest"
-            ):
+            if isinstance(func.value.value, ast.Name) and func.value.value.id == "pytest":
                 return True
 
     return False
@@ -514,10 +484,7 @@ def reorder(prefix: str) -> None:
     all_doc_paths = dict(dag.document_paths)
 
     stats = reorder_document(doc_path, prefix, config.digits, config.sep, all_doc_paths)
-    click.echo(
-        f"Reordered {prefix}: {stats['renamed']} renamed, "
-        f"{stats['unchanged']} unchanged"
-    )
+    click.echo(f"Reordered {prefix}: {stats['renamed']} renamed, {stats['unchanged']} unchanged")
 
 
 # =============================================================================
@@ -537,17 +504,11 @@ def doc() -> None:
 @doc.command("create")
 @click.argument("prefix")
 @click.argument("path")
-@click.option(
-    "--parent", "-p", multiple=True, help="Parent document prefix (repeatable for DAG)"
-)
-@click.option(
-    "--digits", "-d", default=3, type=int, help="Number of digits for item IDs"
-)
+@click.option("--parent", "-p", multiple=True, help="Parent document prefix (repeatable for DAG)")
+@click.option("--digits", "-d", default=3, type=int, help="Number of digits for item IDs")
 @click.option("--sep", "-s", default="", help="Separator between prefix and number")
 @_cli_error_handler
-def doc_create(
-    prefix: str, path: str, parent: tuple[str, ...], digits: int, sep: str
-) -> None:
+def doc_create(prefix: str, path: str, parent: tuple[str, ...], digits: int, sep: str) -> None:
     """Create a new document.
 
     PREFIX is the document identifier (e.g., SRS, UT).
@@ -582,9 +543,7 @@ def doc_create(
 
     # Validate separator doesn't start with alphanumeric (ambiguous UIDs)
     if sep and _re.match(r"^[A-Z0-9]", sep, _re.IGNORECASE):
-        click.echo(
-            "Error: --sep cannot start with alphanumeric (ambiguous UIDs)", err=True
-        )
+        click.echo("Error: --sep cannot start with alphanumeric (ambiguous UIDs)", err=True)
         sys.exit(1)
 
     from jamb.storage.document_config import DocumentConfig, save_document_config
@@ -631,9 +590,7 @@ def doc_delete(prefix: str, root: Path | None, force: bool) -> None:
     # Check for dangling links unless --force is specified
     if not force:
         graph = build_traceability_graph(dag)
-        doc_items = {
-            uid for uid, item in graph.items.items() if item.document_prefix == prefix
-        }
+        doc_items = {uid for uid, item in graph.items.items() if item.document_prefix == prefix}
         dangling: list[tuple[str, str]] = []
         for uid, item in graph.items.items():
             if item.document_prefix == prefix:
@@ -643,8 +600,7 @@ def doc_delete(prefix: str, root: Path | None, force: bool) -> None:
                     dangling.append((uid, link))
         if dangling:
             click.echo(
-                f"Warning: {len(dangling)} link(s) from other documents "
-                f"reference items in '{prefix}':",
+                f"Warning: {len(dangling)} link(s) from other documents reference items in '{prefix}':",
                 err=True,
             )
             for source_uid, target_uid in dangling:
@@ -658,9 +614,7 @@ def doc_delete(prefix: str, root: Path | None, force: bool) -> None:
     doc_path = dag.document_paths[prefix]
 
     # Count items for the confirmation prompt
-    item_count = len(list(doc_path.glob("*.yml"))) - (
-        1 if (doc_path / ".jamb.yml").exists() else 0
-    )
+    item_count = len(list(doc_path.glob("*.yml"))) - (1 if (doc_path / ".jamb.yml").exists() else 0)
 
     if not force:
         click.confirm(
@@ -759,9 +713,7 @@ def item_add(
             sys.exit(1)
 
         # Parse numeric part
-        pattern = re.compile(
-            rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE
-        )
+        pattern = re.compile(rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE)
         m = pattern.match(anchor_uid)
         if not m:
             click.echo(f"Error: Cannot parse UID '{anchor_uid}'", err=True)
@@ -795,9 +747,7 @@ def item_add(
             write_item(item_data, item_path)
             click.echo(f"Added item: {uid}")
     else:
-        existing = read_document_items(
-            doc_path, prefix, include_inactive=True, sep=config.sep
-        )
+        existing = read_document_items(doc_path, prefix, include_inactive=True, sep=config.sep)
         existing_uids = [i["uid"] for i in existing]
 
         for _ in range(count):
@@ -851,11 +801,7 @@ def item_list(prefix: str | None, root: Path | None) -> None:
         if items:
             click.echo(f"\n{p} ({len(items)} items):")
             for item_data in items:
-                text = (
-                    item_data["text"][:60] + "..."
-                    if len(item_data["text"]) > 60
-                    else item_data["text"]
-                )
+                text = item_data["text"][:60] + "..." if len(item_data["text"]) > 60 else item_data["text"]
                 text = text.replace("\n", " ").strip()
                 click.echo(f"  {item_data['uid']}: {text}")
 
@@ -882,8 +828,7 @@ def item_remove(uid: str) -> None:
         children = graph.item_children.get(uid, [])
         if children:
             click.echo(
-                f"Warning: {len(children)} item(s) link to {uid}: "
-                f"{', '.join(children)}",
+                f"Warning: {len(children)} item(s) link to {uid}: {', '.join(children)}",
                 err=True,
             )
     except (ValueError, FileNotFoundError, KeyError, OSError):
@@ -1263,9 +1208,7 @@ def review_reset(label: str, root: Path | None) -> None:
         click.echo(f"reset {count} items to unreviewed")
 
 
-def _resolve_label_to_item_paths(
-    label: str, dag: DocumentDAG
-) -> list[tuple[Path, str]]:
+def _resolve_label_to_item_paths(label: str, dag: DocumentDAG) -> list[tuple[Path, str]]:
     """Resolve a label (UID, prefix, or 'all') to list of (item_path, prefix) tuples.
 
     The label is matched in the following order: the literal string
@@ -1292,9 +1235,7 @@ def _resolve_label_to_item_paths(
         for prefix, doc_path in dag.document_paths.items():
             config = dag.documents.get(prefix)
             sep = config.sep if config else ""
-            items = read_document_items(
-                doc_path, prefix, include_inactive=True, sep=sep
-            )
+            items = read_document_items(doc_path, prefix, include_inactive=True, sep=sep)
             for item_data in items:
                 result.append((doc_path / f"{item_data['uid']}.yml", prefix))
         return result
@@ -1330,9 +1271,7 @@ def _resolve_label_to_item_paths(
 @click.option("--html", "-H", is_flag=True, help="Output HTML")
 @click.option("--markdown", "-m", is_flag=True, help="Output Markdown")
 @click.option("--docx", "-d", is_flag=True, help="Output DOCX (Word document)")
-@click.option(
-    "--no-links", "-L", is_flag=True, help="Do not include link sections in output"
-)
+@click.option("--no-links", "-L", is_flag=True, help="Do not include link sections in output")
 @click.option(
     "--template",
     "-t",
@@ -1411,17 +1350,13 @@ def publish(
     if path:
         if path.endswith(".html") or path.endswith(".htm"):
             if template:
-                click.echo(
-                    "Warning: --template is only used with DOCX output", err=True
-                )
+                click.echo("Warning: --template is only used with DOCX output", err=True)
             _publish_html(prefix, path, include_links)
         elif path.endswith(".docx"):
             _publish_docx(prefix, path, include_links, template)
         else:
             if template:
-                click.echo(
-                    "Warning: --template is only used with DOCX output", err=True
-                )
+                click.echo("Warning: --template is only used with DOCX output", err=True)
             _publish_markdown(prefix, path, include_links)
     else:
         if template:
@@ -1540,9 +1475,7 @@ def _publish_markdown_stdout(prefix: str, include_links: bool = True) -> None:
 
     items.sort(key=lambda i: i.uid)
     click.echo(f"# {prefix}\n")
-    for line in _render_markdown_lines(
-        items, graph, use_anchors=False, include_links=include_links
-    ):
+    for line in _render_markdown_lines(items, graph, use_anchors=False, include_links=include_links):
         click.echo(line)
 
 
@@ -1574,11 +1507,7 @@ def _publish_markdown(prefix: str, path: str, include_links: bool = True) -> Non
             continue
         items.sort(key=lambda i: i.uid)
         lines.append(f"# {p}\n")
-        lines.extend(
-            _render_markdown_lines(
-                items, graph, use_anchors=True, include_links=include_links
-            )
-        )
+        lines.extend(_render_markdown_lines(items, graph, use_anchors=True, include_links=include_links))
 
     if not lines:
         click.echo(f"Error: No items found for '{prefix}'", err=True)
@@ -1590,9 +1519,7 @@ def _publish_markdown(prefix: str, path: str, include_links: bool = True) -> Non
 
 
 @_cli_error_handler
-def _publish_docx(
-    prefix: str, path: str, include_links: bool, template: Path | None = None
-) -> None:
+def _publish_docx(prefix: str, path: str, include_links: bool, template: Path | None = None) -> None:
     """Publish documents as a single DOCX file.
 
     Args:
@@ -1624,9 +1551,7 @@ def _publish_docx(
         sys.exit(1)
 
     template_path = str(template) if template else None
-    docx_bytes = render_docx(
-        items, title, include_links, doc_order, graph, template_path
-    )
+    docx_bytes = render_docx(items, title, include_links, doc_order, graph, template_path)
     output_path.write_bytes(docx_bytes)
     click.echo(f"Published to {output_path}")
 
@@ -1989,9 +1914,7 @@ def import_yaml_cmd(
         else:
             click.echo("No changes made")
     if stats["skipped"] > 0:
-        click.echo(
-            f"Skipped {stats['skipped']} existing items (use --update to modify)"
-        )
+        click.echo(f"Skipped {stats['skipped']} existing items (use --update to modify)")
 
 
 # =============================================================================
@@ -2069,8 +1992,7 @@ def matrix(
         coverage, graph, metadata = load_coverage(str(input_path))
     except FileNotFoundError:
         click.echo(
-            f"Error: Coverage file '{input_path}' not found. "
-            "Run 'pytest --jamb' first to generate it.",
+            f"Error: Coverage file '{input_path}' not found. Run 'pytest --jamb' first to generate it.",
             err=True,
         )
         sys.exit(1)

@@ -55,9 +55,7 @@ class RequirementCollector:
         self.test_links: list[LinkedTest] = []
         self._links_by_nodeid: dict[str, list[LinkedTest]] = {}
         self.unknown_items: set[str] = set()
-        self.execution_timestamp: str = datetime.now(timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        self.execution_timestamp: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self._load_requirements()
 
     def _load_requirements(self) -> None:
@@ -74,9 +72,7 @@ class RequirementCollector:
             from jamb.storage import build_traceability_graph, discover_documents
 
             dag = discover_documents()
-            self.graph = build_traceability_graph(
-                dag, exclude_patterns=self.jamb_config.exclude_patterns or None
-            )
+            self.graph = build_traceability_graph(dag, exclude_patterns=self.jamb_config.exclude_patterns or None)
         except (ValueError, FileNotFoundError, OSError) as e:
             import logging
             import warnings
@@ -88,9 +84,7 @@ class RequirementCollector:
             self._graph_load_failed = True
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_collection_modifyitems(
-        self, items: list[pytest.Item]
-    ) -> Generator[None, None, None]:
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> Generator[None, None, None]:
         """Collect requirement markers from all test items.
 
         Extracts requirement UIDs from markers on each test item and records
@@ -105,18 +99,13 @@ class RequirementCollector:
         # Fail early if graph loading failed
         if self._graph_load_failed:
             raise pytest.UsageError(
-                "Cannot run with --jamb: requirement graph failed to load. "
-                "Check earlier warnings for details."
+                "Cannot run with --jamb: requirement graph failed to load. Check earlier warnings for details."
             )
 
         for item in items:
             req_uids = get_requirement_markers(item)
             for uid in req_uids:
-                is_unknown = (
-                    self.graph
-                    and not self._graph_load_failed
-                    and uid not in self.graph.items
-                )
+                is_unknown = self.graph and not self._graph_load_failed and uid not in self.graph.items
                 if is_unknown:
                     self.unknown_items.add(uid)
 
@@ -149,9 +138,7 @@ class RequirementCollector:
 
         links_for_node = self._links_by_nodeid.get(item.nodeid)
         if links_for_node is None:
-            links_for_node = [
-                lk for lk in self.test_links if lk.test_nodeid == item.nodeid
-            ]
+            links_for_node = [lk for lk in self.test_links if lk.test_nodeid == item.nodeid]
 
         if report.when == "setup":
             if report.failed:
@@ -222,9 +209,7 @@ class RequirementCollector:
                 for link in links_for_node:
                     if link.test_outcome not in ("failed", "error"):
                         link.test_outcome = "error"
-                        link.notes.append(
-                            f"[TEARDOWN FAILURE] {report.longreprtext or ''}"
-                        )
+                        link.notes.append(f"[TEARDOWN FAILURE] {report.longreprtext or ''}")
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
         """Build coverage report for all items in test documents.

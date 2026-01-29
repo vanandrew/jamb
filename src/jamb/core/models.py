@@ -284,9 +284,7 @@ class TraceabilityGraph:
         """
         # Check for self-loop
         if item.uid in item.links:
-            raise ValueError(
-                f"Item '{item.uid}' cannot link to itself (self-loop detected)"
-            )
+            raise ValueError(f"Item '{item.uid}' cannot link to itself (self-loop detected)")
 
         if item.uid in self.items:
             for old_parent in self.item_parents.get(item.uid, []):
@@ -437,8 +435,7 @@ class TraceabilityGraph:
         return [
             self.items[child_uid]
             for child_uid in self.item_children.get(uid, [])
-            if child_uid in self.items
-            and self.items[child_uid].document_prefix == prefix
+            if child_uid in self.items and self.items[child_uid].document_prefix == prefix
         ]
 
     def get_parents_from_document(self, uid: str, prefix: str) -> list[Item]:
@@ -454,8 +451,7 @@ class TraceabilityGraph:
         return [
             self.items[parent_uid]
             for parent_uid in self.item_parents.get(uid, [])
-            if parent_uid in self.items
-            and self.items[parent_uid].document_prefix == prefix
+            if parent_uid in self.items and self.items[parent_uid].document_prefix == prefix
         ]
 
     def get_items_by_document(self, prefix: str) -> list[Item]:
@@ -475,9 +471,7 @@ class TraceabilityGraph:
         Returns:
             List of document prefix strings with no parent documents.
         """
-        return [
-            prefix for prefix, parents in self.document_parents.items() if not parents
-        ]
+        return [prefix for prefix, parents in self.document_parents.items() if not parents]
 
     def get_leaf_documents(self) -> list[str]:
         """Get document prefixes that are not parents of any other document.
@@ -488,11 +482,7 @@ class TraceabilityGraph:
         all_parents: set[str] = set()
         for parents in self.document_parents.values():
             all_parents.update(parents)
-        return [
-            prefix
-            for prefix in self.document_parents.keys()
-            if prefix not in all_parents
-        ]
+        return [prefix for prefix in self.document_parents.keys() if prefix not in all_parents]
 
     def get_document_children(self, prefix: str) -> list[str]:
         """Get child document prefixes for a document.
@@ -503,11 +493,7 @@ class TraceabilityGraph:
         Returns:
             List of document prefix strings that have this document as a parent.
         """
-        return [
-            child_prefix
-            for child_prefix, parents in self.document_parents.items()
-            if prefix in parents
-        ]
+        return [child_prefix for child_prefix, parents in self.document_parents.items() if prefix in parents]
 
 
 @dataclass

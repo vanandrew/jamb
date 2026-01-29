@@ -37,9 +37,7 @@ def render_test_records_csv(
             )
             writer.writerow(["Environment", env_str])
             if env.test_tools:
-                tools = [
-                    f"{name} {ver}" for name, ver in sorted(env.test_tools.items())
-                ]
+                tools = [f"{name} {ver}" for name, ver in sorted(env.test_tools.items())]
                 writer.writerow(["Test Tools", ", ".join(tools)])
         writer.writerow([])  # Empty row separator
 
@@ -77,9 +75,7 @@ def render_test_records_csv(
     for rec in records:
         requirements_str = ", ".join(rec.requirements) if rec.requirements else ""
         test_actions_str = "; ".join(rec.test_actions) if rec.test_actions else ""
-        expected_results_str = (
-            "; ".join(rec.expected_results) if rec.expected_results else ""
-        )
+        expected_results_str = "; ".join(rec.expected_results) if rec.expected_results else ""
         actual_results_str = "; ".join(rec.actual_results) if rec.actual_results else ""
         notes_str = "; ".join(rec.notes) if rec.notes else ""
 

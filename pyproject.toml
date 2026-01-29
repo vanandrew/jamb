@@ -57,6 +57,7 @@ testpaths = ["tests"]
 addopts = "--cov=src/jamb"
 filterwarnings = [
     "ignore:Could not load requirements:UserWarning:jamb.pytest_plugin.collector",
+    "ignore:cannot collect test class 'TestEnvironment':pytest.PytestCollectionWarning",
 ]
 
 [tool.coverage.run]
@@ -86,7 +87,7 @@ strict = true
 
 [tool.ruff]
 target-version = "py310"
-line-length = 88
+line-length = 120
 src = ["src"]
 extend-exclude = ["src/jamb/_version.py"]
 

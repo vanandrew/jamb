@@ -192,9 +192,7 @@ def render_html(
     def get_doc_order(item: Item) -> int:
         return doc_order_index.get(item.document_prefix, fallback_order)
 
-    sorted_items = sorted(
-        items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid)
-    )
+    sorted_items = sorted(items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid))
 
     parts: list[str] = []
     parts.append("<!DOCTYPE html>")
@@ -250,14 +248,10 @@ def render_html(
             link_parts = []
             for link_uid in item.links:
                 if link_uid in all_uids:
-                    link_parts.append(
-                        f'<a href="#{_esc(link_uid)}">{_esc(link_uid)}</a>'
-                    )
+                    link_parts.append(f'<a href="#{_esc(link_uid)}">{_esc(link_uid)}</a>')
                 else:
                     link_parts.append(_esc(link_uid))
-            parts.append(
-                f'<p class="links"><strong>Links:</strong> {", ".join(link_parts)}</p>'
-            )
+            parts.append(f'<p class="links"><strong>Links:</strong> {", ".join(link_parts)}</p>')
 
         if include_links and graph is not None:
             children = graph.item_children.get(item.uid, [])
@@ -266,13 +260,8 @@ def render_html(
             if visible_children:
                 child_parts = []
                 for child_uid in visible_children:
-                    child_parts.append(
-                        f'<a href="#{_esc(child_uid)}">{_esc(child_uid)}</a>'
-                    )
-                parts.append(
-                    f'<p class="child-links"><strong>Linked from:</strong> '
-                    f"{', '.join(child_parts)}</p>"
-                )
+                    child_parts.append(f'<a href="#{_esc(child_uid)}">{_esc(child_uid)}</a>')
+                parts.append(f'<p class="child-links"><strong>Linked from:</strong> {", ".join(child_parts)}</p>')
 
         parts.append("</div>")
 

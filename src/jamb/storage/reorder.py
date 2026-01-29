@@ -85,9 +85,7 @@ def reorder_document(
     if digits < 1:
         raise ValueError(f"digits must be >= 1, got {digits}")
     # 1. Collect all item files for this document
-    item_files = sorted(
-        p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml"
-    )
+    item_files = sorted(p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml")
 
     if not item_files:
         return {"renamed": 0, "unchanged": 0}
@@ -231,16 +229,13 @@ def insert_items(
         raise ValueError(f"Count must be >= 1, got {count}")
 
     # 1. Collect item files
-    item_files = sorted(
-        p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml"
-    )
+    item_files = sorted(p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml")
 
     # Validate insert position
     max_position = len(item_files) + 1
     if position > max_position:
         warnings.warn(
-            f"Insert position {position} exceeds item count ({len(item_files)}). "
-            f"Items will be appended at the end.",
+            f"Insert position {position} exceeds item count ({len(item_files)}). Items will be appended at the end.",
             stacklevel=2,
         )
         position = max_position

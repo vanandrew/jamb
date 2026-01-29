@@ -97,9 +97,7 @@ def render_test_records_markdown(
             )
             lines.append(f"- **Environment:** {env_str}")
             if env.test_tools:
-                tools = [
-                    f"{name} {ver}" for name, ver in sorted(env.test_tools.items())
-                ]
+                tools = [f"{name} {ver}" for name, ver in sorted(env.test_tools.items())]
                 lines.append(f"- **Test Tools:** {', '.join(tools)}")
         lines.append("")
 
@@ -137,24 +135,14 @@ def render_test_records_markdown(
         test_name = _escape_markdown(rec.test_name)
         outcome = _escape_markdown(rec.outcome)
         requirements_str = _escape_markdown(", ".join(rec.requirements)) or "-"
-        test_actions_str = (
-            "; ".join(_truncate_for_table(a) for a in rec.test_actions)
-            if rec.test_actions
-            else "-"
-        )
+        test_actions_str = "; ".join(_truncate_for_table(a) for a in rec.test_actions) if rec.test_actions else "-"
         expected_results_str = (
-            "; ".join(_truncate_for_table(r) for r in rec.expected_results)
-            if rec.expected_results
-            else "-"
+            "; ".join(_truncate_for_table(r) for r in rec.expected_results) if rec.expected_results else "-"
         )
         actual_results_str = (
-            "; ".join(_truncate_for_table(r) for r in rec.actual_results)
-            if rec.actual_results
-            else "-"
+            "; ".join(_truncate_for_table(r) for r in rec.actual_results) if rec.actual_results else "-"
         )
-        notes_str = (
-            "; ".join(_truncate_for_table(n) for n in rec.notes) if rec.notes else "-"
-        )
+        notes_str = "; ".join(_truncate_for_table(n) for n in rec.notes) if rec.notes else "-"
         timestamp = _escape_markdown(rec.execution_timestamp or "-")
 
         lines.append(

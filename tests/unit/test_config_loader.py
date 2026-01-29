@@ -332,13 +332,7 @@ class TestGetDynamicVersion:
         version_file.parent.mkdir(parents=True)
         version_file.write_text('__version__ = "2.0.0"\n')
 
-        pyproject = {
-            "tool": {
-                "hatch": {
-                    "build": {"hooks": {"vcs": {"version-file": "src/pkg/_version.py"}}}
-                }
-            }
-        }
+        pyproject = {"tool": {"hatch": {"build": {"hooks": {"vcs": {"version-file": "src/pkg/_version.py"}}}}}}
         assert _get_dynamic_version(pyproject, tmp_path) == "2.0.0"
 
     def test_hatch_version_path(self, tmp_path):
@@ -366,13 +360,7 @@ class TestGetDynamicVersion:
 
     def test_returns_none_when_version_file_missing(self, tmp_path):
         """Return None if version file doesn't exist."""
-        pyproject = {
-            "tool": {
-                "hatch": {
-                    "build": {"hooks": {"vcs": {"version-file": "nonexistent.py"}}}
-                }
-            }
-        }
+        pyproject = {"tool": {"hatch": {"build": {"hooks": {"vcs": {"version-file": "nonexistent.py"}}}}}}
         assert _get_dynamic_version(pyproject, tmp_path) is None
 
     def test_first_match_wins(self, tmp_path):
@@ -387,9 +375,7 @@ class TestGetDynamicVersion:
         pyproject = {
             "tool": {
                 "hatch": {
-                    "build": {
-                        "hooks": {"vcs": {"version-file": "hatch_vcs_version.py"}}
-                    },
+                    "build": {"hooks": {"vcs": {"version-file": "hatch_vcs_version.py"}}},
                     "version": {"path": "hatch_path_version.py"},
                 }
             }
@@ -474,3 +460,99 @@ version-file = "src/_version.py"
         pyproject.write_text(content)
         config = load_config(pyproject)
         assert config.software_version is None
+
+
+class TestGetDynamicVersionPathEscape:
+    """Tests for _get_dynamic_version path escape handling."""
+
+    def test_get_dynamic_version_path_escape_hatch_vcs(self, tmp_path):
+        """_get_dynamic_version rejects paths outside project root (hatch-vcs)."""
+        # Create a version file outside the project root
+        outside_file = tmp_path.parent / "outside_version.py"
+        outside_file.write_text('__version__ = "9.9.9"\n')
+
+        pyproject = {"tool": {"hatch": {"build": {"hooks": {"vcs": {"version-file": "../outside_version.py"}}}}}}
+
+        # Should return None because path escapes project root
+        result = _get_dynamic_version(pyproject, tmp_path)
+        assert result is None
+
+    def test_get_dynamic_version_path_escape_hatch_version(self, tmp_path):
+        """_get_dynamic_version rejects paths outside project root (hatch version)."""
+        outside_file = tmp_path.parent / "escape_version.py"
+        outside_file.write_text('__version__ = "8.8.8"\n')
+
+        pyproject = {"tool": {"hatch": {"version": {"path": "../escape_version.py"}}}}
+
+        result = _get_dynamic_version(pyproject, tmp_path)
+        assert result is None
+
+    def test_get_dynamic_version_path_escape_setuptools_scm(self, tmp_path):
+        """_get_dynamic_version rejects paths outside project root (setuptools_scm)."""
+        outside_file = tmp_path.parent / "scm_version.py"
+        outside_file.write_text('__version__ = "7.7.7"\n')
+
+        pyproject = {"tool": {"setuptools_scm": {"write_to": "../scm_version.py"}}}
+
+        result = _get_dynamic_version(pyproject, tmp_path)
+        assert result is None
+
+
+class TestExtractVersionFromFileErrors:
+    """Tests for _extract_version_from_file error handling."""
+
+    def test_extract_version_permission_error(self, tmp_path):
+        """Extract version handles file permission error gracefully."""
+        from unittest.mock import patch
+
+        version_file = tmp_path / "_version.py"
+        version_file.write_text('__version__ = "1.0.0"\n')
+
+        # Mock read_text to raise OSError
+        with patch.object(type(version_file), "read_text", side_effect=OSError("Permission denied")):
+            result = _extract_version_from_file(version_file)
+            assert result is None
+
+    def test_extract_version_unicode_error(self, tmp_path):
+        """Extract version handles UnicodeDecodeError gracefully."""
+        version_file = tmp_path / "_version.py"
+        # Write invalid UTF-8 bytes
+        version_file.write_bytes(b"\x80\x81\x82invalid")
+
+        result = _extract_version_from_file(version_file)
+        assert result is None
+
+
+class TestJambConfigValidation:
+    """Tests for JambConfig.validate method."""
+
+    def test_validate_trace_from_not_in_documents(self):
+        """validate returns warning for trace_from not in documents."""
+        config = JambConfig(trace_from="MISSING")
+        warnings = config.validate(["SRS", "SYS", "UN"])
+        assert any("trace_from" in w for w in warnings)
+        assert any("MISSING" in w for w in warnings)
+
+    def test_validate_test_documents_not_in_documents(self):
+        """validate returns warning for test_documents not in documents."""
+        config = JambConfig(test_documents=["SRS", "UNKNOWN"])
+        warnings = config.validate(["SRS", "SYS"])
+        assert any("test_documents" in w for w in warnings)
+        assert any("UNKNOWN" in w for w in warnings)
+
+    def test_validate_trace_to_ignore_not_in_documents(self):
+        """validate returns warning for trace_to_ignore not in documents."""
+        config = JambConfig(trace_to_ignore=["PRJ", "FAKE"])
+        warnings = config.validate(["PRJ", "SRS"])
+        assert any("trace_to_ignore" in w for w in warnings)
+        assert any("FAKE" in w for w in warnings)
+
+    def test_validate_all_valid(self):
+        """validate returns empty list when all config is valid."""
+        config = JambConfig(
+            test_documents=["SRS"],
+            trace_from="UN",
+            trace_to_ignore=["PRJ"],
+        )
+        warnings = config.validate(["UN", "SRS", "PRJ"])
+        assert warnings == []

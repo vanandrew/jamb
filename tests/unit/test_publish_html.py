@@ -106,9 +106,7 @@ class TestRenderHtml:
         """Test that child links are rendered as anchor hyperlinks."""
         graph = TraceabilityGraph()
         un_item = Item(uid="UN001", text="User need", document_prefix="UN")
-        srs_item = Item(
-            uid="SRS001", text="Software req", document_prefix="SRS", links=["UN001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software req", document_prefix="SRS", links=["UN001"])
         graph.add_item(un_item)
         graph.add_item(srs_item)
 
@@ -123,9 +121,7 @@ class TestRenderHtml:
         """Test that include_links=False suppresses both parent and child links."""
         graph = TraceabilityGraph()
         un_item = Item(uid="UN001", text="User need", document_prefix="UN")
-        srs_item = Item(
-            uid="SRS001", text="Software req", document_prefix="SRS", links=["UN001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software req", document_prefix="SRS", links=["UN001"])
         graph.add_item(un_item)
         graph.add_item(srs_item)
 
@@ -289,9 +285,7 @@ class TestRenderHtml:
         """Child links to items not in the rendered set are not shown."""
         graph = TraceabilityGraph()
         un_item = Item(uid="UN001", text="Need", document_prefix="UN")
-        srs_item = Item(
-            uid="SRS001", text="Req", document_prefix="SRS", links=["UN001"]
-        )
+        srs_item = Item(uid="SRS001", text="Req", document_prefix="SRS", links=["UN001"])
         graph.add_item(un_item)
         graph.add_item(srs_item)
 

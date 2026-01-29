@@ -79,21 +79,16 @@ class JambConfig:
 
         if self.trace_from and self.trace_from not in available_documents:
             validation_warnings.append(
-                f"trace_from '{self.trace_from}' not found in documents: "
-                f"{', '.join(sorted(available_documents))}"
+                f"trace_from '{self.trace_from}' not found in documents: {', '.join(sorted(available_documents))}"
             )
 
         for doc in self.test_documents:
             if doc not in available_documents:
-                validation_warnings.append(
-                    f"test_documents contains '{doc}' not in available documents"
-                )
+                validation_warnings.append(f"test_documents contains '{doc}' not in available documents")
 
         for doc in self.trace_to_ignore:
             if doc not in available_documents:
-                validation_warnings.append(
-                    f"trace_to_ignore contains '{doc}' not in available documents"
-                )
+                validation_warnings.append(f"trace_to_ignore contains '{doc}' not in available documents")
 
         return validation_warnings
 
@@ -151,13 +146,7 @@ def _get_dynamic_version(pyproject: dict[str, Any], project_root: Path) -> str |
     tool = pyproject.get("tool", {})
 
     # Check hatch-vcs: [tool.hatch.build.hooks.vcs].version-file
-    version_file = (
-        tool.get("hatch", {})
-        .get("build", {})
-        .get("hooks", {})
-        .get("vcs", {})
-        .get("version-file")
-    )
+    version_file = tool.get("hatch", {}).get("build", {}).get("hooks", {}).get("vcs", {}).get("version-file")
     if version_file:
         resolved = (project_root / version_file).resolve()
         if not resolved.is_relative_to(project_root.resolve()):

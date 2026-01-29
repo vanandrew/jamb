@@ -55,18 +55,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group.addoption(
         "--jamb-test-matrix",
         metavar="PATH",
-        help=(
-            "Generate test records matrix at PATH "
-            "(format inferred from extension: .html, .json, .csv, .md, .xlsx)"
-        ),
+        help=("Generate test records matrix at PATH (format inferred from extension: .html, .json, .csv, .md, .xlsx)"),
     )
     group.addoption(
         "--jamb-trace-matrix",
         metavar="PATH",
-        help=(
-            "Generate traceability matrix at PATH "
-            "(format inferred from extension: .html, .json, .csv, .md, .xlsx)"
-        ),
+        help=("Generate traceability matrix at PATH (format inferred from extension: .html, .json, .csv, .md, .xlsx)"),
     )
     group.addoption(
         "--jamb-documents",
@@ -150,10 +144,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     software_version = session.config.option.jamb_software_version
 
     # Generate test records matrix if requested
-    test_matrix_path = (
-        session.config.option.jamb_test_matrix
-        or collector.jamb_config.test_matrix_output
-    )
+    test_matrix_path = session.config.option.jamb_test_matrix or collector.jamb_config.test_matrix_output
     if test_matrix_path:
         test_format = infer_format(test_matrix_path)
         collector.generate_test_records_matrix(
@@ -164,17 +155,10 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         )
 
     # Generate traceability matrix if requested
-    trace_matrix_path = (
-        session.config.option.jamb_trace_matrix
-        or collector.jamb_config.trace_matrix_output
-    )
-    trace_from = (
-        getattr(session.config.option, "trace_from", None)
-        or collector.jamb_config.trace_from
-    )
+    trace_matrix_path = session.config.option.jamb_trace_matrix or collector.jamb_config.trace_matrix_output
+    trace_from = getattr(session.config.option, "trace_from", None) or collector.jamb_config.trace_from
     include_ancestors = (
-        getattr(session.config.option, "include_ancestors", False)
-        or collector.jamb_config.include_ancestors
+        getattr(session.config.option, "include_ancestors", False) or collector.jamb_config.include_ancestors
     )
 
     if trace_matrix_path:
@@ -193,10 +177,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     )
 
     # Check coverage and potentially modify exit status
-    fail_uncovered = (
-        session.config.option.jamb_fail_uncovered
-        or collector.jamb_config.fail_uncovered
-    )
+    fail_uncovered = session.config.option.jamb_fail_uncovered or collector.jamb_config.fail_uncovered
     if fail_uncovered:
         if not collector.all_test_items_covered():
             if session.exitstatus == 0:
@@ -257,16 +238,12 @@ def pytest_terminal_summary(
 
     terminalreporter.write_line(f"Total test spec items: {total}")
     if total > 0:
-        terminalreporter.write_line(
-            f"Covered by pytest tests: {covered} ({100 * covered / total:.1f}%)"
-        )
+        terminalreporter.write_line(f"Covered by pytest tests: {covered} ({100 * covered / total:.1f}%)")
         terminalreporter.write_line(f"All tests passing: {passed}")
 
     # Report uncovered items
     uncovered = [
-        uid
-        for uid, c in coverage.items()
-        if not c.is_covered and c.item.type == "requirement" and c.item.active
+        uid for uid, c in coverage.items() if not c.is_covered and c.item.type == "requirement" and c.item.active
     ]
     if uncovered:
         terminalreporter.write_line("")
@@ -278,8 +255,6 @@ def pytest_terminal_summary(
     # Report unknown items referenced in tests
     if collector.unknown_items:
         terminalreporter.write_line("")
-        terminalreporter.write_line(
-            "Unknown items referenced in tests:", yellow=True, bold=True
-        )
+        terminalreporter.write_line("Unknown items referenced in tests:", yellow=True, bold=True)
         for uid in sorted(collector.unknown_items):
             terminalreporter.write_line(f"  - {uid}", yellow=True)

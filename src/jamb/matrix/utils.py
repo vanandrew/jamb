@@ -30,10 +30,7 @@ def infer_format(path: str) -> str:
     ext = Path(path).suffix.lower()
     if ext not in EXTENSION_TO_FORMAT:
         supported = ", ".join(sorted(EXTENSION_TO_FORMAT.keys()))
-        raise ValueError(
-            f"Unrecognized file extension '{ext}' for '{path}'. "
-            f"Supported extensions: {supported}"
-        )
+        raise ValueError(f"Unrecognized file extension '{ext}' for '{path}'. Supported extensions: {supported}")
     return EXTENSION_TO_FORMAT[ext]
 
 

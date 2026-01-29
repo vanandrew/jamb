@@ -428,23 +428,11 @@ class TestPhase3Links:
         """3.12-3.15 – Link INT items to API and SPEC parents."""
         # Determine actual API UID format
         api_dir = databridge / "reqs" / "api"
-        api_files = sorted(
-            f.stem
-            for f in api_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        api_files = sorted(f.stem for f in api_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         spec_dir = databridge / "reqs" / "spec"
-        spec_files = sorted(
-            f.stem
-            for f in spec_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        spec_files = sorted(f.stem for f in spec_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         int_dir = databridge / "reqs" / "int"
-        int_files = sorted(
-            f.stem
-            for f in int_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        int_files = sorted(f.stem for f in int_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
 
         if not api_files or not spec_files or not int_files:
             pytest.skip("Item files not found; earlier creation may have failed")
@@ -477,17 +465,9 @@ class TestPhase3Links:
     def test_3_16_link_api_to_feat(self, runner, databridge):
         """3.16 – Link API items to FEAT."""
         api_dir = databridge / "reqs" / "api"
-        api_files = sorted(
-            f.stem
-            for f in api_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        api_files = sorted(f.stem for f in api_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         feat_dir = databridge / "reqs" / "feat"
-        feat_files = sorted(
-            f.stem
-            for f in feat_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        feat_files = sorted(f.stem for f in feat_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
 
         if not api_files or not feat_files:
             pytest.skip("Item files not found")
@@ -500,17 +480,9 @@ class TestPhase3Links:
     def test_3_17_link_ui_to_feat(self, runner, databridge):
         """3.17 – Link UI items to FEAT."""
         ui_dir = databridge / "reqs" / "ui"
-        ui_files = sorted(
-            f.stem
-            for f in ui_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        ui_files = sorted(f.stem for f in ui_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         feat_dir = databridge / "reqs" / "feat"
-        feat_files = sorted(
-            f.stem
-            for f in feat_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        feat_files = sorted(f.stem for f in feat_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
 
         if not ui_files or not feat_files:
             pytest.skip("Item files not found")
@@ -576,24 +548,14 @@ class TestPhase4LinkEdgeCases:
     def test_4_8_wrong_parent_doc(self, runner, databridge):
         """4.8 – INT links to FEAT (INT parents are API, SPEC)."""
         int_dir = databridge / "reqs" / "int"
-        int_files = sorted(
-            f.stem
-            for f in int_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        int_files = sorted(f.stem for f in int_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         feat_dir = databridge / "reqs" / "feat"
-        feat_files = sorted(
-            f.stem
-            for f in feat_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        feat_files = sorted(f.stem for f in feat_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
 
         if not int_files or not feat_files:
             pytest.skip("Item files not found")
 
-        r = _invoke(
-            runner, ["link", "add", int_files[0], feat_files[0]], cwd=databridge
-        )
+        r = _invoke(runner, ["link", "add", int_files[0], feat_files[0]], cwd=databridge)
         assert r.exit_code == 0, r.output
 
     def test_4_9_validate_wrong_parent(self, runner, databridge):
@@ -605,33 +567,19 @@ class TestPhase4LinkEdgeCases:
         """
         r = _invoke(runner, ["validate", "-S", "-W", "-v"], cwd=databridge)
         # Either non-conforming warning or broken link error
-        assert (
-            "not a parent document" in r.output.lower()
-            or "FEAT" in r.output
-            or "non-existent" in r.output.lower()
-        )
+        assert "not a parent document" in r.output.lower() or "FEAT" in r.output or "non-existent" in r.output.lower()
 
     def test_4_10_remove_wrong_parent_link(self, runner, databridge):
         """4.10 – Clean up wrong-parent link."""
         int_dir = databridge / "reqs" / "int"
-        int_files = sorted(
-            f.stem
-            for f in int_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        int_files = sorted(f.stem for f in int_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         feat_dir = databridge / "reqs" / "feat"
-        feat_files = sorted(
-            f.stem
-            for f in feat_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        feat_files = sorted(f.stem for f in feat_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
 
         if not int_files or not feat_files:
             pytest.skip("Item files not found")
 
-        r = _invoke(
-            runner, ["link", "remove", int_files[0], feat_files[0]], cwd=databridge
-        )
+        r = _invoke(runner, ["link", "remove", int_files[0], feat_files[0]], cwd=databridge)
         assert r.exit_code == 0, r.output
 
 
@@ -690,11 +638,7 @@ class TestPhase5Removal:
     def test_5_8_remove_api_item(self, runner, databridge):
         """5.8 – Remove middle API item with dash separator."""
         api_dir = databridge / "reqs" / "api"
-        api_files = sorted(
-            f.stem
-            for f in api_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        api_files = sorted(f.stem for f in api_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         if len(api_files) < 2:
             pytest.skip("Not enough API items")
         middle = api_files[1]
@@ -844,11 +788,7 @@ class TestPhase7Insert:
         """7.5 – Validate should warn about unlinked new items."""
         r = _invoke(runner, ["validate", "-S", "-W", "-v"], cwd=medpump)
         # New items have no links, should produce warnings
-        assert (
-            "no link" in r.output.lower()
-            or "unlinked" in r.output.lower()
-            or "empty" in r.output.lower()
-        )
+        assert "no link" in r.output.lower() or "unlinked" in r.output.lower() or "empty" in r.output.lower()
 
     def test_7_6_insert_before_srs001(self, runner, medpump):
         """7.6 – Insert before first item."""
@@ -875,11 +815,7 @@ class TestPhase7Insert:
     def test_7_9_insert_api_after(self, runner, databridge):
         """7.9 – Insert API item with dash separator."""
         api_dir = databridge / "reqs" / "api"
-        api_files = sorted(
-            f.stem
-            for f in api_dir.iterdir()
-            if f.suffix == ".yml" and f.name != ".jamb.yml"
-        )
+        api_files = sorted(f.stem for f in api_dir.iterdir() if f.suffix == ".yml" and f.name != ".jamb.yml")
         if not api_files:
             pytest.skip("No API items")
         first_api = api_files[0]
@@ -933,11 +869,7 @@ class TestPhase8Review:
         """8.5 – Validate should warn about suspect links to SYS001."""
         r = _invoke(runner, ["validate", "-W", "-v"], cwd=medpump)
         # Should have suspect warnings for items linking to modified SYS001
-        assert (
-            "suspect" in r.output.lower()
-            or "changed" in r.output.lower()
-            or "modified" in r.output.lower()
-        )
+        assert "suspect" in r.output.lower() or "changed" in r.output.lower() or "modified" in r.output.lower()
 
     def test_8_6_clear_single_suspect(self, runner, medpump):
         """8.6 – Clear suspect on SRS002 for SYS001."""
@@ -1088,9 +1020,7 @@ class TestPhase9ImportExport:
         """9.11 – Exported API items should show as API-0001 etc."""
         out = databridge / "export_all.yml"
         data = _read_yaml(out)
-        api_uids = [
-            i["uid"] for i in data.get("items", []) if i["uid"].startswith("API")
-        ]
+        api_uids = [i["uid"] for i in data.get("items", []) if i["uid"].startswith("API")]
         assert len(api_uids) > 0, "No API items found in export"
         assert any("-" in uid for uid in api_uids), "Dash separator not preserved"
 
@@ -1183,9 +1113,7 @@ class TestPhase11Pytest:
             cwd=root,
             capture_output=True,
         )
-        (root / "pyproject.toml").write_text(
-            '[project]\nname = "test"\n\n[tool.jamb]\ntest_documents = ["SRS"]\n'
-        )
+        (root / "pyproject.toml").write_text('[project]\nname = "test"\n\n[tool.jamb]\ntest_documents = ["SRS"]\n')
         runner = CliRunner()
 
         # Init project
@@ -1249,10 +1177,7 @@ class TestPhase11Pytest:
         tests_dir = pytest_project / "tests"
         tests_dir.mkdir(exist_ok=True)
         (tests_dir / "test_pump.py").write_text(
-            "import pytest\n\n"
-            '@pytest.mark.requirement("SRS001")\n'
-            "def test_flow_rate():\n"
-            "    assert True\n"
+            'import pytest\n\n@pytest.mark.requirement("SRS001")\ndef test_flow_rate():\n    assert True\n'
         )
 
         result = subprocess.run(
@@ -1270,10 +1195,7 @@ class TestPhase11Pytest:
         tests_dir = pytest_project / "tests"
         tests_dir.mkdir(exist_ok=True)
         (tests_dir / "test_pump.py").write_text(
-            "import pytest\n\n"
-            '@pytest.mark.requirement("SRS001")\n'
-            "def test_flow_rate():\n"
-            "    assert True\n"
+            'import pytest\n\n@pytest.mark.requirement("SRS001")\ndef test_flow_rate():\n    assert True\n'
         )
 
         result = subprocess.run(
@@ -1297,10 +1219,7 @@ class TestPhase11Pytest:
         tests_dir = pytest_project / "tests"
         tests_dir.mkdir(exist_ok=True)
         (tests_dir / "test_pump.py").write_text(
-            "import pytest\n\n"
-            '@pytest.mark.requirement("SRS001")\n'
-            "def test_flow_rate():\n"
-            "    assert True\n"
+            'import pytest\n\n@pytest.mark.requirement("SRS001")\ndef test_flow_rate():\n    assert True\n'
         )
 
         matrix_path = pytest_project / "matrix.html"
@@ -1319,19 +1238,14 @@ class TestPhase11Pytest:
             text=True,
         )
         # Matrix file should be generated
-        assert matrix_path.exists(), (
-            f"Matrix not generated. stdout={result.stdout}, stderr={result.stderr}"
-        )
+        assert matrix_path.exists(), f"Matrix not generated. stdout={result.stdout}, stderr={result.stderr}"
 
     def test_11_6_pytest_matrix_json(self, pytest_project):
         """11.6 – Generate JSON matrix."""
         tests_dir = pytest_project / "tests"
         tests_dir.mkdir(exist_ok=True)
         (tests_dir / "test_pump.py").write_text(
-            "import pytest\n\n"
-            '@pytest.mark.requirement("SRS001")\n'
-            "def test_flow_rate():\n"
-            "    assert True\n"
+            'import pytest\n\n@pytest.mark.requirement("SRS001")\ndef test_flow_rate():\n    assert True\n'
         )
 
         matrix_path = pytest_project / "matrix.json"
@@ -1349,19 +1263,14 @@ class TestPhase11Pytest:
             capture_output=True,
             text=True,
         )
-        assert matrix_path.exists(), (
-            f"Matrix not generated. stdout={result.stdout}, stderr={result.stderr}"
-        )
+        assert matrix_path.exists(), f"Matrix not generated. stdout={result.stdout}, stderr={result.stderr}"
 
     def test_11_7_and_11_8_nonexistent_requirement(self, pytest_project):
         """11.7-11.8 – Test referencing non-existent requirement SRS999."""
         tests_dir = pytest_project / "tests"
         tests_dir.mkdir(exist_ok=True)
         (tests_dir / "test_pump.py").write_text(
-            "import pytest\n\n"
-            '@pytest.mark.requirement("SRS999")\n'
-            "def test_invalid_ref():\n"
-            "    assert True\n"
+            'import pytest\n\n@pytest.mark.requirement("SRS999")\ndef test_invalid_ref():\n    assert True\n'
         )
 
         result = subprocess.run(
@@ -1534,11 +1443,7 @@ class TestEdgeCases:
         """E1 – Validate warns about empty document."""
         r = _invoke(runner, ["validate", "-S", "-W", "-v"], cwd=edge_project)
         # PRJ, HAZ, RC have no items -> should warn
-        assert (
-            "no items" in r.output.lower()
-            or "empty" in r.output.lower()
-            or "document" in r.output.lower()
-        )
+        assert "no items" in r.output.lower() or "empty" in r.output.lower() or "document" in r.output.lower()
 
     def test_e2_item_with_no_text(self, runner, edge_project):
         """E2 – Item with empty text triggers warning."""
@@ -1584,9 +1489,7 @@ class TestEdgeCases:
 
         r = _invoke(runner, ["validate", "-S", "-W", "-v"], cwd=edge_project)
         assert (
-            "non-normative" in r.output.lower()
-            or "non-requirement" in r.output.lower()
-            or "info" in r.output.lower()
+            "non-normative" in r.output.lower() or "non-requirement" in r.output.lower() or "info" in r.output.lower()
         )
 
         # Restore
@@ -1611,12 +1514,8 @@ class TestEdgeCases:
         r = _invoke(runner, ["validate", "-S", "-W", "-v"], cwd=edge_project)
         # SRS005 should NOT show "has no links" warning since it's derived
         lines = r.output.split("\n")
-        srs005_warnings = [
-            line for line in lines if "SRS005" in line and "no link" in line.lower()
-        ]
-        assert len(srs005_warnings) == 0, (
-            f"Derived item got unlinked warning: {srs005_warnings}"
-        )
+        srs005_warnings = [line for line in lines if "SRS005" in line and "no link" in line.lower()]
+        assert len(srs005_warnings) == 0, f"Derived item got unlinked warning: {srs005_warnings}"
 
         # Clean up
         srs_path.unlink()
@@ -1629,9 +1528,7 @@ class TestEdgeCases:
             doc_dir / ".jamb.yml",
             {"settings": {"prefix": "TST", "digits": 3, "sep": "", "parents": []}},
         )
-        _write_yaml(
-            doc_dir / "TST001.yml", {"active": True, "text": "Only item", "links": []}
-        )
+        _write_yaml(doc_dir / "TST001.yml", {"active": True, "text": "Only item", "links": []})
 
         old = os.getcwd()
         os.chdir(tmp_path)
@@ -1667,9 +1564,7 @@ class TestEdgeCases:
         old = os.getcwd()
         os.chdir(tmp_path)
         try:
-            r = CliRunner().invoke(
-                cli, ["item", "add", "LRG", "--count", "50"], catch_exceptions=False
-            )
+            r = CliRunner().invoke(cli, ["item", "add", "LRG", "--count", "50"], catch_exceptions=False)
             assert r.exit_code == 0
             assert "LRG050" in r.output
             assert (doc_dir / "LRG050.yml").exists()
@@ -1684,28 +1579,18 @@ class TestEdgeCases:
             doc_dir / ".jamb.yml",
             {"settings": {"prefix": "EMP", "digits": 3, "sep": "", "parents": []}},
         )
-        _write_yaml(
-            doc_dir / "EMP001.yml", {"active": True, "text": "Only item", "links": []}
-        )
+        _write_yaml(doc_dir / "EMP001.yml", {"active": True, "text": "Only item", "links": []})
 
         old = os.getcwd()
         os.chdir(tmp_path)
         try:
             cli_runner = CliRunner()
-            r = cli_runner.invoke(
-                cli, ["item", "remove", "EMP001"], catch_exceptions=False
-            )
+            r = cli_runner.invoke(cli, ["item", "remove", "EMP001"], catch_exceptions=False)
             assert r.exit_code == 0
 
-            r = cli_runner.invoke(
-                cli, ["validate", "-S", "-W", "-v"], catch_exceptions=False
-            )
+            r = cli_runner.invoke(cli, ["validate", "-S", "-W", "-v"], catch_exceptions=False)
             # Should warn about empty document
-            assert (
-                "no items" in r.output.lower()
-                or "empty" in r.output.lower()
-                or "document" in r.output.lower()
-            )
+            assert "no items" in r.output.lower() or "empty" in r.output.lower() or "document" in r.output.lower()
         finally:
             os.chdir(old)
 

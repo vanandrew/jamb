@@ -14,9 +14,7 @@ class TestBuildTraceabilityGraph:
         # Create SYS document
         sys_dir = tmp_path / "sys"
         sys_dir.mkdir()
-        (sys_dir / ".jamb.yml").write_text(
-            yaml.dump({"settings": {"prefix": "SYS", "digits": 3}})
-        )
+        (sys_dir / ".jamb.yml").write_text(yaml.dump({"settings": {"prefix": "SYS", "digits": 3}}))
         (sys_dir / "SYS001.yml").write_text("active: true\ntext: System requirement\n")
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.document_paths["SYS"] = sys_dir
@@ -24,12 +22,8 @@ class TestBuildTraceabilityGraph:
         # Create SRS document
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            yaml.dump({"settings": {"prefix": "SRS", "parents": ["SYS"], "digits": 3}})
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: Software requirement\nlinks:\n  - SYS001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text(yaml.dump({"settings": {"prefix": "SRS", "parents": ["SYS"], "digits": 3}}))
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software requirement\nlinks:\n  - SYS001\n")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         dag.document_paths["SRS"] = srs_dir
 
@@ -96,9 +90,7 @@ class TestBuildTraceabilityGraph:
         dag = DocumentDAG()
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: Derived\nderived: true\n"
-        )
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Derived\nderived: true\n")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS")
         dag.document_paths["SRS"] = srs_dir
 
@@ -140,9 +132,7 @@ class TestBuildTraceabilityGraph:
     def test_mixed_valid_invalid_prefix_filter(self, tmp_path):
         """Valid prefix loaded, invalid prefixes silently skipped, no error."""
         dag = self._setup_docs(tmp_path)
-        graph = build_traceability_graph(
-            dag, document_prefixes=["SYS", "INVALID1", "INVALID2"]
-        )
+        graph = build_traceability_graph(dag, document_prefixes=["SYS", "INVALID1", "INVALID2"])
         # Only SYS items should be loaded (INVALID prefixes skipped)
         assert "SYS001" in graph.items
         assert "SRS001" not in graph.items

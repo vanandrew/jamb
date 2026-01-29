@@ -19,9 +19,7 @@ def _make_doc(tmp_path, name="srs"):
     """Create a document directory with .jamb.yml."""
     doc_path = tmp_path / name
     doc_path.mkdir()
-    (doc_path / ".jamb.yml").write_text(
-        "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-    )
+    (doc_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
     return doc_path
 
 
@@ -88,9 +86,7 @@ class TestReorderDocument:
     def test_updates_links_in_other_documents(self, tmp_path):
         srs_path = _make_doc(tmp_path, "srs")
         other_path = _make_doc(tmp_path, "other")
-        (other_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n"
-        )
+        (other_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n")
 
         _write_item(srs_path, "SRS001")
         _write_item(srs_path, "SRS003")
@@ -106,9 +102,7 @@ class TestReorderDocument:
     def test_updates_hash_links(self, tmp_path):
         doc_path = _make_doc(tmp_path)
         # Write item with hash-style link
-        (doc_path / "SRS001.yml").write_text(
-            "active: true\ntext: req\nlinks:\n- SRS003: abc123\n"
-        )
+        (doc_path / "SRS001.yml").write_text("active: true\ntext: req\nlinks:\n- SRS003: abc123\n")
         _write_item(doc_path, "SRS003")
 
         reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
@@ -122,9 +116,7 @@ class TestReorderDocument:
     def test_separator_in_uid(self, tmp_path):
         doc_path = tmp_path / "doc"
         doc_path.mkdir()
-        (doc_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: '-'\n"
-        )
+        (doc_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: '-'\n")
         _write_item(doc_path, "SRS-002")
         _write_item(doc_path, "SRS-005")
 
@@ -166,9 +158,7 @@ class TestReorderDocument:
         """Custom attributes in items are preserved after reorder."""
         doc_path = _make_doc(tmp_path)
         # Write item with custom attribute
-        (doc_path / "SRS002.yml").write_text(
-            "active: true\ntype: requirement\ntext: req\npriority: high\n"
-        )
+        (doc_path / "SRS002.yml").write_text("active: true\ntype: requirement\ntext: req\npriority: high\n")
         _write_item(doc_path, "SRS003")
 
         reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
@@ -219,9 +209,7 @@ class TestInsertItems:
         _write_item(doc_path, "SRS002", text="second")
         _write_item(doc_path, "SRS003", text="third")
 
-        new_uids = insert_items(
-            doc_path, "SRS", 3, "", position=3, count=1, all_doc_paths={"SRS": doc_path}
-        )
+        new_uids = insert_items(doc_path, "SRS", 3, "", position=3, count=1, all_doc_paths={"SRS": doc_path})
 
         assert new_uids == ["SRS003"]
         # Old SRS003 shifted to SRS004
@@ -239,9 +227,7 @@ class TestInsertItems:
         _write_item(doc_path, "SRS002", text="second")
         _write_item(doc_path, "SRS003", text="third")
 
-        new_uids = insert_items(
-            doc_path, "SRS", 3, "", position=2, count=1, all_doc_paths={"SRS": doc_path}
-        )
+        new_uids = insert_items(doc_path, "SRS", 3, "", position=2, count=1, all_doc_paths={"SRS": doc_path})
 
         assert new_uids == ["SRS002"]
         # Old SRS002 -> SRS003, old SRS003 -> SRS004
@@ -254,18 +240,14 @@ class TestInsertItems:
         """Verify cross-document links to shifted UIDs are updated."""
         srs_path = _make_doc(tmp_path, "srs")
         other_path = _make_doc(tmp_path, "other")
-        (other_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n"
-        )
+        (other_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n")
 
         _write_item(srs_path, "SRS001", text="first")
         _write_item(srs_path, "SRS002", text="second")
         _write_item(other_path, "OTH001", links=["SRS002"])
 
         all_docs = {"SRS": srs_path, "OTH": other_path}
-        insert_items(
-            srs_path, "SRS", 3, "", position=2, count=1, all_doc_paths=all_docs
-        )
+        insert_items(srs_path, "SRS", 3, "", position=2, count=1, all_doc_paths=all_docs)
 
         # OTH001's link to SRS002 should now point to SRS003
         data = yaml.safe_load((other_path / "OTH001.yml").read_text())
@@ -278,9 +260,7 @@ class TestInsertItems:
         _write_item(doc_path, "SRS002", text="second")
         _write_item(doc_path, "SRS003", text="third")
 
-        new_uids = insert_items(
-            doc_path, "SRS", 3, "", position=2, count=2, all_doc_paths={"SRS": doc_path}
-        )
+        new_uids = insert_items(doc_path, "SRS", 3, "", position=2, count=2, all_doc_paths={"SRS": doc_path})
 
         assert new_uids == ["SRS002", "SRS003"]
         # Old SRS002 -> SRS004, old SRS003 -> SRS005
@@ -325,9 +305,7 @@ class TestInsertItems:
         _write_item(doc_path, "SRS001", text="first")
         _write_item(doc_path, "SRS002", text="second")
 
-        new_uids = insert_items(
-            doc_path, "SRS", 3, "", position=1, count=1, all_doc_paths={"SRS": doc_path}
-        )
+        new_uids = insert_items(doc_path, "SRS", 3, "", position=1, count=1, all_doc_paths={"SRS": doc_path})
 
         assert new_uids == ["SRS001"]
         # Old SRS001 -> SRS002, old SRS002 -> SRS003
@@ -357,6 +335,82 @@ class TestInsertItems:
         assert (doc_path / "SRS001.yml").exists()
         assert (doc_path / "SRS002.yml").exists()
 
+    def test_insert_items_position_zero_rejected(self, tmp_path):
+        """Position 0 raises ValueError."""
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001")
+
+        with pytest.raises(ValueError, match="Position must be >= 1"):
+            insert_items(
+                doc_path,
+                "SRS",
+                3,
+                "",
+                position=0,
+                count=1,
+                all_doc_paths={"SRS": doc_path},
+            )
+
+    def test_insert_items_count_zero_rejected(self, tmp_path):
+        """Count 0 raises ValueError."""
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001")
+
+        with pytest.raises(ValueError, match="Count must be >= 1"):
+            insert_items(
+                doc_path,
+                "SRS",
+                3,
+                "",
+                position=1,
+                count=0,
+                all_doc_paths={"SRS": doc_path},
+            )
+
+
+class TestReorderDigitsValidation:
+    """Tests for reorder_document digits validation."""
+
+    def test_digits_less_than_one_raises_value_error(self, tmp_path):
+        """Test that digits < 1 raises ValueError."""
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001")
+
+        with pytest.raises(ValueError, match="digits must be >= 1"):
+            reorder_document(doc_path, "SRS", 0, "", {"SRS": doc_path})
+
+    def test_digits_negative_raises_value_error(self, tmp_path):
+        """Test that negative digits raises ValueError."""
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001")
+
+        with pytest.raises(ValueError, match="digits must be >= 1"):
+            reorder_document(doc_path, "SRS", -1, "", {"SRS": doc_path})
+
+
+class TestCheckBrokenLinksEdgeCases:
+    """Edge case tests for _check_broken_links."""
+
+    def test_yaml_parse_error_in_item(self, tmp_path):
+        """Test that YAML parsing error is raised with context."""
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001")
+        # Write invalid YAML to item file
+        (doc_path / "SRS002.yml").write_text("invalid: yaml: [unclosed")
+
+        with pytest.raises(ValueError, match="Failed to parse YAML"):
+            reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
+
 
 class TestReorderEdgeCases:
     """Edge case tests for reorder_document."""
@@ -365,9 +419,7 @@ class TestReorderEdgeCases:
         """Prefix 'A-B' with sep '-' — separator appears within the prefix itself."""
         doc_path = tmp_path / "doc"
         doc_path.mkdir()
-        (doc_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: A-B\n  sep: '-'\n"
-        )
+        (doc_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: A-B\n  sep: '-'\n")
         # Write items using the composite prefix
         _write_item(doc_path, "A-B-003")
         _write_item(doc_path, "A-B-007")
@@ -384,13 +436,9 @@ class TestReorderEdgeCases:
         (dict-form links) — hashes preserved."""
         doc_path = _make_doc(tmp_path)
         other_path = _make_doc(tmp_path, "other")
-        (other_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n"
-        )
+        (other_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: OTH\n  sep: ''\n")
         # OTH001 links to SRS003 with a hash
-        (other_path / "OTH001.yml").write_text(
-            "active: true\ntext: req\nlinks:\n- SRS003: abc123hash\n"
-        )
+        (other_path / "OTH001.yml").write_text("active: true\ntext: req\nlinks:\n- SRS003: abc123hash\n")
         _write_item(doc_path, "SRS001")
         _write_item(doc_path, "SRS003", text="target")
 
@@ -413,3 +461,48 @@ class TestReorderEdgeCases:
     # Cycle detection is handled by the validation module
     # (_check_item_link_cycles). Therefore, a "circular link cycle"
     # test is not applicable to the reorder module.
+
+    def test_cleans_temp_on_rename_failure(self, tmp_path):
+        """Temp files are cleaned up if rename fails."""
+        from unittest.mock import patch
+
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS002", text="first")
+        _write_item(doc_path, "SRS003", text="second")
+
+        # Patch rename to fail during the second stage
+        original_rename = type(doc_path / "x").rename
+        call_count = 0
+
+        def failing_rename(self, target):
+            nonlocal call_count
+            call_count += 1
+            # Fail on the third rename (during temp -> final stage)
+            if call_count >= 3:
+                raise OSError("Simulated rename failure")
+            return original_rename(self, target)
+
+        with patch.object(type(doc_path / "x"), "rename", failing_rename):
+            with pytest.raises(OSError, match="Simulated rename failure"):
+                reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
+
+        # Temp files should be cleaned up
+        temp_files = list(doc_path.glob(".tmp_*.yml"))
+        assert temp_files == []
+
+    def test_multiple_broken_links(self, tmp_path):
+        """Multiple broken links are reported together."""
+        import pytest
+
+        doc_path = _make_doc(tmp_path)
+        _write_item(doc_path, "SRS001", links=["MISSING1", "MISSING2"])
+        _write_item(doc_path, "SRS002")
+
+        with pytest.raises(ValueError) as exc_info:
+            reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
+
+        error_msg = str(exc_info.value)
+        assert "MISSING1" in error_msg
+        assert "MISSING2" in error_msg

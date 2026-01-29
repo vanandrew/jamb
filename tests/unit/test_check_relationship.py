@@ -36,9 +36,7 @@ class TestGetChildrenFromDocument:
             document_prefix="SRS",
             links=["RC001"],
         )
-        sys = Item(
-            uid="SYS001", text="System req", document_prefix="SYS", links=["RC001"]
-        )
+        sys = Item(uid="SYS001", text="System req", document_prefix="SYS", links=["RC001"])
         graph.add_item(rc)
         graph.add_item(srs)
         graph.add_item(sys)
@@ -104,9 +102,7 @@ class TestGetParentsFromDocument:
         graph = TraceabilityGraph()
         rc = Item(uid="RC001", text="Risk control", document_prefix="RC", links=[])
         sys = Item(uid="SYS001", text="System req", document_prefix="SYS", links=[])
-        srs = Item(
-            uid="SRS001", text="Req", document_prefix="SRS", links=["RC001", "SYS001"]
-        )
+        srs = Item(uid="SRS001", text="Req", document_prefix="SRS", links=["RC001", "SYS001"])
         graph.add_item(rc)
         graph.add_item(sys)
         graph.add_item(srs)

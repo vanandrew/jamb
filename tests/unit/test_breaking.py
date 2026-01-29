@@ -156,8 +156,7 @@ class TestMalformedYaml:
         """Every field set to null — item created with safe defaults."""
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text(
-            "text: null\nactive: null\ntype: null\nheader: null\n"
-            "links: null\nreviewed: null\nderived: null\n"
+            "text: null\nactive: null\ntype: null\nheader: null\nlinks: null\nreviewed: null\nderived: null\n"
         )
         result = read_item(item_file, "SRS")
         assert result["uid"] == "SRS001"
@@ -332,9 +331,7 @@ class TestGraphPathologies:
         graph = TraceabilityGraph()
         for i in range(1000):
             links = [f"ITEM{i - 1:04d}"] if i > 0 else []
-            item = Item(
-                uid=f"ITEM{i:04d}", text=f"item {i}", document_prefix="X", links=links
-            )
+            item = Item(uid=f"ITEM{i:04d}", text=f"item {i}", document_prefix="X", links=links)
             graph.add_item(item)
         # Get ancestors of the last item — should be 999 items
         ancestors = graph.get_ancestors("ITEM0999")
@@ -550,12 +547,8 @@ class TestValidationEdgeCases:
         graph = TraceabilityGraph()
         graph.set_document_parents("SRS", ["SYS"])
         graph.set_document_parents("SYS", [])
-        active = Item(
-            uid="SRS001", text="active", document_prefix="SRS", links=["SYS001"]
-        )
-        inactive = Item(
-            uid="SYS001", text="inactive", document_prefix="SYS", active=False
-        )
+        active = Item(uid="SRS001", text="active", document_prefix="SRS", links=["SYS001"])
+        inactive = Item(uid="SYS001", text="inactive", document_prefix="SYS", active=False)
         graph.add_item(active)
         graph.add_item(inactive)
         issues = validate(dag, graph, check_suspect=False, check_review=False)
@@ -644,9 +637,7 @@ class TestValidationEdgeCases:
         sys_item = Item(uid="SYS001", text="system req", document_prefix="SYS")
         graph.add_item(srs)
         graph.add_item(sys_item)
-        issues = validate(
-            dag, graph, check_links=False, check_review=False, check_children=False
-        )
+        issues = validate(dag, graph, check_links=False, check_review=False, check_children=False)
         suspect = [i for i in issues if "suspect" in i.message]
         assert len(suspect) >= 1
 
@@ -677,9 +668,7 @@ class TestValidationEdgeCases:
         sys_item = Item(uid="SYS001", text="system req", document_prefix="SYS")
         graph.add_item(srs)
         graph.add_item(sys_item)
-        issues = validate(
-            dag, graph, check_links=False, check_review=False, check_children=False
-        )
+        issues = validate(dag, graph, check_links=False, check_review=False, check_children=False)
         no_hash = [i for i in issues if "no stored hash" in i.message]
         assert len(no_hash) >= 1
 
@@ -847,9 +836,7 @@ class TestCliAbuse:
         from jamb.cli.commands import cli
 
         # Create a pyproject.toml
-        (self.tmp_path / "pyproject.toml").write_text(
-            '[project]\nname = "test"\nversion = "0.1.0"\n'
-        )
+        (self.tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\nversion = "0.1.0"\n')
         runner = CliRunner()
         runner.invoke(cli, ["init"])
 
@@ -859,9 +846,7 @@ class TestCliAbuse:
 
         from jamb.cli.commands import cli
 
-        (self.tmp_path / "pyproject.toml").write_text(
-            '[project]\nname = "test"\nversion = "0.1.0"\n'
-        )
+        (self.tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\nversion = "0.1.0"\n')
         runner = CliRunner()
         result1 = runner.invoke(cli, ["init"])
         assert result1.exit_code == 0
@@ -971,9 +956,7 @@ class TestCliAbuse:
 
         self._init_project()
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["doc", "create", "SRS", str(self.tmp_path / "reqs" / "srs")]
-        )
+        result = runner.invoke(cli, ["doc", "create", "SRS", str(self.tmp_path / "reqs" / "srs")])
         # SRS already exists from init; doc create overwrites .jamb.yml
         assert isinstance(result.output, str)
 
@@ -995,9 +978,7 @@ class TestCliAbuse:
         from jamb.cli.commands import cli
 
         runner = CliRunner()
-        result = runner.invoke(
-            cli, ["doc", "create", "A/B", str(self.tmp_path / "special")]
-        )
+        result = runner.invoke(cli, ["doc", "create", "A/B", str(self.tmp_path / "special")])
         assert isinstance(result.output, str)
 
     def test_cli_reorder_empty_document(self) -> None:
@@ -1034,11 +1015,7 @@ class TestCliAbuse:
         self._init_project()
         runner = CliRunner()
         result = runner.invoke(cli, ["review", "mark", "NOPE001"])
-        assert (
-            result.exit_code != 0
-            or "not found" in result.output.lower()
-            or "error" in result.output.lower()
-        )
+        assert result.exit_code != 0 or "not found" in result.output.lower() or "error" in result.output.lower()
 
 
 # =============================================================================

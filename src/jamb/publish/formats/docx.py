@@ -229,9 +229,7 @@ def render_docx(
         return doc_order_index.get(item.document_prefix, fallback_order)
 
     # Sort items by document hierarchy, then UID
-    sorted_items = sorted(
-        items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid)
-    )
+    sorted_items = sorted(items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid))
 
     # Track current document for section headers
     current_doc = None
@@ -333,9 +331,7 @@ def generate_template(output_path: str) -> None:
     )
 
     code_para = doc.add_paragraph()
-    code_run = code_para.add_run(
-        "    jamb publish SRS output.docx --template this-file.docx"
-    )
+    code_run = code_para.add_run("    jamb publish SRS output.docx --template this-file.docx")
     code_run.italic = True
     code_run.font.size = Pt(10)
 

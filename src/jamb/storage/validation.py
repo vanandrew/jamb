@@ -161,11 +161,7 @@ def _check_links(
         if not item.active:
             continue
 
-        parents = (
-            dag.get_parents(item.document_prefix)
-            if item.document_prefix in dag.documents
-            else []
-        )
+        parents = dag.get_parents(item.document_prefix) if item.document_prefix in dag.documents else []
 
         # Check non-normative item has links
         if item.type != "requirement" and item.links:
@@ -244,9 +240,7 @@ def _check_links(
     return issues
 
 
-def _check_suspect_links(
-    dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_suspect_links(dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Check for suspect links by comparing stored hashes to current content.
 
     A link is considered *suspect* when the content hash stored at the
@@ -282,9 +276,7 @@ def _check_suspect_links(
         # Read raw item to get link hashes
         doc_path = dag.document_paths.get(item.document_prefix)
         if doc_path is None:
-            logger.warning(
-                "Document path not found for prefix: %s", item.document_prefix
-            )
+            logger.warning("Document path not found for prefix: %s", item.document_prefix)
             continue
 
         item_path = doc_path / f"{uid}.yml"
@@ -318,8 +310,7 @@ def _check_suspect_links(
                         "warning",
                         uid,
                         item.document_prefix,
-                        f"suspect link to {link_uid} (content may have changed;"
-                        " run 'jamb review clear' to re-verify)",
+                        f"suspect link to {link_uid} (content may have changed; run 'jamb review clear' to re-verify)",
                     )
                 )
 
@@ -336,17 +327,14 @@ def _check_suspect_links(
                     "warning",
                     uid,
                     item.document_prefix,
-                    f"link to {link_uid} has no stored hash"
-                    " (run 'jamb review clear' to verify links)",
+                    f"link to {link_uid} has no stored hash (run 'jamb review clear' to verify links)",
                 )
             )
 
     return issues
 
 
-def _check_review_status(
-    graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_review_status(graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Check that items have been reviewed and review hash matches current content.
 
     Ensures every active normative (``requirement``) item has been
@@ -381,8 +369,7 @@ def _check_review_status(
                     "warning",
                     uid,
                     item.document_prefix,
-                    "has not been reviewed"
-                    " (run 'jamb review mark' to mark as reviewed)",
+                    "has not been reviewed (run 'jamb review mark' to mark as reviewed)",
                 )
             )
         else:
@@ -399,17 +386,14 @@ def _check_review_status(
                         "warning",
                         uid,
                         item.document_prefix,
-                        "has been modified since last review"
-                        " (run 'jamb review mark' to re-approve)",
+                        "has been modified since last review (run 'jamb review mark' to re-approve)",
                     )
                 )
 
     return issues
 
 
-def _check_children(
-    dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_children(dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Check that non-leaf document items have children linking to them.
 
     For every active normative item that belongs to a non-leaf document
@@ -463,9 +447,7 @@ def _check_children(
     return issues
 
 
-def _check_empty_documents(
-    dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_empty_documents(dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Check for documents that contain no items.
 
     Iterates over every document registered in the DAG and flags those
@@ -502,9 +484,7 @@ def _check_empty_documents(
     return issues
 
 
-def _check_empty_text(
-    graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_empty_text(graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Check for items with empty or whitespace-only text.
 
     Flags every active item whose ``text`` field is empty or contains
@@ -539,9 +519,7 @@ def _check_empty_text(
     return issues
 
 
-def _check_item_link_cycles(
-    graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_item_link_cycles(graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Detect cycles in the item-to-item link graph using DFS.
 
     Builds a directed graph where each active, non-skipped item is a
@@ -565,11 +543,7 @@ def _check_item_link_cycles(
     reported_cycles: set[frozenset[str]] = set()
 
     # Build adjacency: item -> items it links to (only active, non-skipped)
-    active_uids = {
-        uid
-        for uid, item in graph.items.items()
-        if item.active and item.document_prefix not in skip
-    }
+    active_uids = {uid for uid, item in graph.items.items() if item.active and item.document_prefix not in skip}
 
     adjacency: dict[str, list[str]] = {}
     for uid in active_uids:
@@ -611,9 +585,7 @@ def _check_item_link_cycles(
                                 "error",
                                 link,
                                 graph.items[link].document_prefix,
-                                f"cycle in item links: "
-                                f"{' -> '.join(cycle_uids)} -> {link} "
-                                f"(affects: {affected_uids})",
+                                f"cycle in item links: {' -> '.join(cycle_uids)} -> {link} (affects: {affected_uids})",
                             )
                         )
                 elif color[link] == WHITE:
@@ -629,9 +601,7 @@ def _check_item_link_cycles(
     return issues
 
 
-def _check_unlinked_items(
-    dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]
-) -> list[ValidationIssue]:
+def _check_unlinked_items(dag: DocumentDAG, graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
     """Check for normative non-derived items in child documents with no links.
 
     In a well-formed traceability tree, every normative item in a child
@@ -667,11 +637,7 @@ def _check_unlinked_items(
             continue
 
         # Check if this document has parents (i.e., it's a child document)
-        parents = (
-            dag.get_parents(item.document_prefix)
-            if item.document_prefix in dag.documents
-            else []
-        )
+        parents = dag.get_parents(item.document_prefix) if item.document_prefix in dag.documents else []
         if not parents:
             continue
 
