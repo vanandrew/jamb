@@ -1129,7 +1129,7 @@ class TestPhase10Deletion:
 
     def test_10_4_doc_delete_srs(self, runner, medpump):
         """10.4 – Delete entire SRS document."""
-        r = _invoke(runner, ["doc", "delete", "SRS"], cwd=medpump)
+        r = _invoke(runner, ["doc", "delete", "SRS", "--force"], cwd=medpump)
         assert r.exit_code == 0, r.output
         assert not (medpump / "reqs" / "srs").exists()
 
@@ -1147,7 +1147,7 @@ class TestPhase10Deletion:
 
     def test_10_7_doc_delete_int(self, runner, databridge):
         """10.7 – Delete INT document from DataBridge."""
-        r = _invoke(runner, ["doc", "delete", "INT"], cwd=databridge)
+        r = _invoke(runner, ["doc", "delete", "INT", "--force"], cwd=databridge)
         assert r.exit_code == 0, r.output
 
     def test_10_8_validate_after_int_delete(self, runner, databridge):
