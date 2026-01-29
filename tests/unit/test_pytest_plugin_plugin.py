@@ -52,9 +52,7 @@ class TestPytestAddoption:
         pytest_addoption(mock_parser)
 
         # Verify group was created
-        mock_parser.getgroup.assert_called_once_with(
-            "jamb", "IEC 62304 requirements traceability"
-        )
+        mock_parser.getgroup.assert_called_once_with("jamb", "IEC 62304 requirements traceability")
 
         # Verify all options were added
         calls = mock_group.addoption.call_args_list
@@ -476,3 +474,147 @@ class TestJambLogFixture:
         assert hasattr(plugin, "jamb_log")
         # It should be callable (the underlying function)
         assert callable(plugin.jamb_log)
+
+
+class TestPytestTerminalSummaryCoverage:
+    """Tests for pytest_terminal_summary coverage display."""
+
+    def test_terminal_summary_with_coverage_stats(self):
+        """Test terminal summary displays coverage statistics."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        # Create mock coverage data
+        item1 = MagicMock()
+        item1.type = "requirement"
+        item1.active = True
+        item1.display_text = "Test item"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = True
+        cov1.all_tests_passed = True
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        # Verify write_sep was called for header
+        mock_terminal.write_sep.assert_called_once_with("=", "Requirements Coverage Summary")
+        # Verify write_line was called for stats
+        assert mock_terminal.write_line.call_count > 0
+
+    def test_terminal_summary_uncovered_items_formatting(self):
+        """Test uncovered items are displayed with red/bold formatting."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        item1 = MagicMock()
+        item1.type = "requirement"
+        item1.active = True
+        item1.display_text = "Uncovered requirement"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = False
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        # Check that red/bold was used for uncovered items
+        calls = mock_terminal.write_line.call_args_list
+        red_bold_call = any(call.kwargs.get("red") and call.kwargs.get("bold") for call in calls if call.kwargs)
+        assert red_bold_call, "Expected red/bold formatting for uncovered header"
+
+    def test_terminal_summary_unknown_items_formatting(self):
+        """Test unknown items are displayed with yellow/bold formatting."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        item1 = MagicMock()
+        item1.type = "requirement"
+        item1.active = True
+        item1.display_text = "Item"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = True
+        cov1.all_tests_passed = True
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = {"UNKNOWN001", "UNKNOWN002"}
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        # Check that yellow/bold was used for unknown items header
+        calls = mock_terminal.write_line.call_args_list
+        yellow_bold_call = any(call.kwargs.get("yellow") and call.kwargs.get("bold") for call in calls if call.kwargs)
+        assert yellow_bold_call, "Expected yellow/bold formatting for unknown header"
+
+    def test_terminal_summary_all_covered(self):
+        """Test terminal summary when all items are covered."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        item1 = MagicMock()
+        item1.type = "requirement"
+        item1.active = True
+        item1.display_text = "Covered item"
+        item1.uid = "SRS001"
+
+        item2 = MagicMock()
+        item2.type = "requirement"
+        item2.active = True
+        item2.display_text = "Another covered item"
+        item2.uid = "SRS002"
+
+        cov1 = MagicMock()
+        cov1.is_covered = True
+        cov1.all_tests_passed = True
+        cov1.item = item1
+
+        cov2 = MagicMock()
+        cov2.is_covered = True
+        cov2.all_tests_passed = True
+        cov2.item = item2
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1, "SRS002": cov2}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        # Should display stats but no uncovered items
+        calls = mock_terminal.write_line.call_args_list
+        call_texts = [str(call[0][0]) if call[0] else "" for call in calls]
+
+        # Should show 100% coverage
+        assert any("100" in text for text in call_texts)
+        # Should not show "Uncovered" in bold/red
+        red_bold_calls = [call for call in calls if call.kwargs and call.kwargs.get("red") and call.kwargs.get("bold")]
+        assert len(red_bold_calls) == 0

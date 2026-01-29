@@ -26,9 +26,7 @@ class TestDocumentConfig:
 class TestLoadDocumentConfig:
     def test_loads_jamb_config(self, tmp_path):
         config_path = tmp_path / ".jamb.yml"
-        config_path.write_text(
-            "settings:\n  prefix: SRS\n  parents:\n    - SYS\n  digits: 3\n  sep: ''\n"
-        )
+        config_path.write_text("settings:\n  prefix: SRS\n  parents:\n    - SYS\n  digits: 3\n  sep: ''\n")
         config = load_document_config(config_path)
         assert config.prefix == "SRS"
         assert config.parents == ["SYS"]
@@ -77,9 +75,7 @@ class TestSaveDocumentConfig:
         assert doc_dir.exists()
 
     def test_roundtrip(self, tmp_path):
-        original = DocumentConfig(
-            prefix="SRS", parents=["SYS", "RC"], digits=4, sep="-"
-        )
+        original = DocumentConfig(prefix="SRS", parents=["SYS", "RC"], digits=4, sep="-")
         doc_dir = tmp_path / "srs"
         save_document_config(original, doc_dir)
         loaded = load_document_config(doc_dir / ".jamb.yml")

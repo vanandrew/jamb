@@ -35,11 +35,7 @@ def build_traceability_graph(
 
     # Filter out excluded document prefixes
     if exclude_patterns:
-        prefixes_to_load = [
-            p
-            for p in prefixes_to_load
-            if not any(fnmatch.fnmatch(p, pat) for pat in exclude_patterns)
-        ]
+        prefixes_to_load = [p for p in prefixes_to_load if not any(fnmatch.fnmatch(p, pat) for pat in exclude_patterns)]
 
     for prefix in prefixes_to_load:
         if prefix not in dag.documents:
@@ -55,9 +51,7 @@ def build_traceability_graph(
             continue
 
         # Read items from disk
-        raw_items = read_document_items(
-            doc_path, prefix, include_inactive, sep=config.sep
-        )
+        raw_items = read_document_items(doc_path, prefix, include_inactive, sep=config.sep)
 
         for raw in raw_items:
             item = Item(
@@ -74,9 +68,7 @@ def build_traceability_graph(
                 custom_attributes=raw.get("custom_attributes", {}),
             )
             # Filter out excluded items by UID
-            if exclude_patterns and any(
-                fnmatch.fnmatch(item.uid, pat) for pat in exclude_patterns
-            ):
+            if exclude_patterns and any(fnmatch.fnmatch(item.uid, pat) for pat in exclude_patterns):
                 continue
             graph.add_item(item)
 

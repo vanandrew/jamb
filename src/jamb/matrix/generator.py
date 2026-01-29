@@ -15,9 +15,7 @@ from jamb.matrix.utils import group_tests_by_nodeid
 
 # Type aliases for formatter functions
 TestRecordsFormatter = Callable[[list[TestRecord], MatrixMetadata | None], str | bytes]
-FullChainFormatter = Callable[
-    [list[FullChainMatrix], dict[str, str] | None], str | bytes
-]
+FullChainFormatter = Callable[[list[FullChainMatrix], dict[str, str] | None], str | bytes]
 
 
 def _get_test_records_formatter(output_format: str) -> TestRecordsFormatter:
@@ -106,10 +104,7 @@ def build_test_id_mapping(coverage: dict[str, ItemCoverage]) -> dict[str, str]:
     """
     sorted_nodeids, _, width = group_tests_by_nodeid(coverage)
 
-    return {
-        nodeid: f"TC{str(i + 1).zfill(width)}"
-        for i, nodeid in enumerate(sorted_nodeids)
-    }
+    return {nodeid: f"TC{str(i + 1).zfill(width)}" for i, nodeid in enumerate(sorted_nodeids)}
 
 
 def build_test_records(coverage: dict[str, ItemCoverage]) -> list[TestRecord]:

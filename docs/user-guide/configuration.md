@@ -148,11 +148,13 @@ All fields are nested under a `settings` key.
 `digits`
 : Number of digits in the sequential part of item UIDs.
 : **Default:** `3`
+: **Range:** `1` to `10`
 : **Example:** `digits: 3` → `SRS001`, `digits: 4` → `SRS0001`
 
 `sep`
 : Separator between prefix and number in UIDs.
 : **Default:** `""` (no separator)
+: **Constraint:** Cannot start with an alphanumeric character (would create ambiguous UIDs like `SRSX001`)
 : **Example:** `sep: "-"` → `SRS-001`
 
 ### Creating Documents

@@ -22,9 +22,7 @@ class TestLoadDocumentConfig:
 
     def test_loads_with_parents_list(self, tmp_path):
         config_file = tmp_path / ".jamb.yml"
-        config_file.write_text(
-            "settings:\n  prefix: SRS\n  parents:\n    - SYS\n    - UN\n"
-        )
+        config_file.write_text("settings:\n  prefix: SRS\n  parents:\n    - SYS\n    - UN\n")
         config = load_document_config(config_file)
         assert config.parents == ["SYS", "UN"]
 

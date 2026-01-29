@@ -76,9 +76,7 @@ def export_items_to_yaml(
     # Filter by document prefixes if specified
     if prefixes:
         uids_to_export = {
-            uid
-            for uid in uids_to_export
-            if uid in graph.items and graph.items[uid].document_prefix in prefixes
+            uid for uid in uids_to_export if uid in graph.items and graph.items[uid].document_prefix in prefixes
         }
 
     # Determine which documents contain these items
@@ -196,9 +194,7 @@ def _graph_item_to_dict(item: Item) -> ItemDict:
     return d
 
 
-def load_import_file(
-    path: Path, echo: Callable[[str], object] | None = None
-) -> dict[str, Any]:
+def load_import_file(path: Path, echo: Callable[[str], object] | None = None) -> dict[str, Any]:
     """Load and validate YAML import file.
 
     Args:
@@ -211,14 +207,25 @@ def load_import_file(
     Raises:
         ValueError: If file is invalid.
     """
+    import warnings
+
     if echo is None:
         echo = print
 
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except OSError as e:
+        raise OSError(f"Failed to read file {path}: {e}") from e
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML in file {path}: {e}") from e
 
-    if not isinstance(data, dict):
-        raise ValueError("YAML file must contain a mapping")
+    # Handle null/empty YAML files
+    if data is None:
+        warnings.warn(f"File {path} is empty or contains only null", stacklevel=2)
+        data = {}
+    elif not isinstance(data, dict):
+        raise ValueError(f"Expected dict in {path}, got {type(data).__name__}")
 
     # Warn about unrecognized top-level keys
     recognized_keys = {"documents", "items"}
@@ -257,9 +264,7 @@ def load_import_file(
             duplicates.add(uid)
         seen.add(uid)
     if duplicates:
-        raise ValueError(
-            f"Duplicate UIDs in import file: {', '.join(sorted(duplicates))}"
-        )
+        raise ValueError(f"Duplicate UIDs in import file: {', '.join(sorted(duplicates))}")
 
     return data
 
@@ -374,14 +379,17 @@ def _create_document(
     try:
         resolved = doc_path.resolve()
         cwd = Path.cwd().resolve()
-        if doc_path.is_absolute() or not resolved.is_relative_to(cwd):
-            echo(
-                f"  Error creating document {prefix}: "
-                "path must be relative and within project"
-            )
+        if doc_path.is_absolute():
+            echo(f"  Error creating document {prefix}: path '{path}' must be relative, not absolute")
             return "error"
-    except (OSError, ValueError):
-        echo(f"  Error creating document {prefix}: invalid path '{path}'")
+        if not resolved.is_relative_to(cwd):
+            echo(f"  Error creating document {prefix}: path '{path}' traverses outside project directory")
+            return "error"
+    except OSError as e:
+        echo(f"  Error creating document {prefix}: cannot resolve path '{path}': {e}")
+        return "error"
+    except ValueError as e:
+        echo(f"  Error creating document {prefix}: invalid path '{path}': {e}")
         return "error"
     try:
         save_document_config(config, doc_path)
@@ -544,9 +552,7 @@ def _get_document_path(prefix: str, dag: DocumentDAG | None = None) -> Path | No
     return dag.document_paths.get(prefix)
 
 
-def _update_item(
-    item_path: Path, spec: dict[str, Any], verbose: bool, echo: Callable[[str], object]
-) -> str:
+def _update_item(item_path: Path, spec: dict[str, Any], verbose: bool, echo: Callable[[str], object]) -> str:
     """Update an existing item YAML file.
 
     Preserves existing fields not specified in spec.

@@ -1,6 +1,7 @@
 """Unit tests for coverage serializer."""
 
 import json
+import warnings
 from pathlib import Path
 
 import pytest
@@ -282,14 +283,17 @@ class TestLoadCoverage:
         }
         output_path.write_text(json.dumps(data))
 
-        with pytest.warns(UserWarning, match="Malformed coverage entry"):
+        # Two warnings are emitted: malformed entry and orphaned items
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             coverage, _, _ = load_coverage(str(output_path))
             # The malformed entry should be skipped
             assert "SRS001" not in coverage
+            # Verify the malformed entry warning was emitted
+            warning_messages = [str(warning.message) for warning in w]
+            assert any("Malformed coverage entry" in msg for msg in warning_messages)
 
-    def test_load_with_many_orphaned_items_shows_truncated_warning(
-        self, tmp_path: Path
-    ):
+    def test_load_with_many_orphaned_items_shows_truncated_warning(self, tmp_path: Path):
         """Test that orphaned items warning shows 'and N more' for >5 items."""
         output_path = tmp_path / ".jamb"
 
@@ -316,3 +320,106 @@ class TestLoadCoverage:
 
         with pytest.warns(UserWarning, match=r"and \d+ more"):
             load_coverage(str(output_path))
+
+    def test_load_invalid_item_type_defaults_to_requirement(self, tmp_path: Path):
+        """Test that invalid item type is warned and defaults to 'requirement'."""
+        output_path = tmp_path / ".jamb"
+
+        data = {
+            "version": 1,
+            "coverage": {
+                "SRS001": {
+                    "item": {
+                        "uid": "SRS001",
+                        "text": "Test item",
+                        "document_prefix": "SRS",
+                        "type": "invalid_type",
+                    },
+                    "linked_tests": [],
+                },
+            },
+            "graph": {
+                "items": {
+                    "SRS001": {
+                        "uid": "SRS001",
+                        "text": "Test item",
+                        "document_prefix": "SRS",
+                        "type": "invalid_type",
+                    },
+                },
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+        }
+        output_path.write_text(json.dumps(data))
+
+        with pytest.warns(UserWarning, match="Invalid item type"):
+            coverage, _, _ = load_coverage(str(output_path))
+            # Item should default to 'requirement' type
+            assert coverage["SRS001"].item.type == "requirement"
+
+    def test_load_invalid_timestamp_handled_gracefully(self, tmp_path: Path):
+        """Test that malformed timestamp produces warning and returns None."""
+        output_path = tmp_path / ".jamb"
+
+        data = {
+            "version": 1,
+            "coverage": {
+                "SRS001": {
+                    "item": {
+                        "uid": "SRS001",
+                        "text": "Test item",
+                        "document_prefix": "SRS",
+                    },
+                    "linked_tests": [
+                        {
+                            "test_nodeid": "test_foo.py::test_bar",
+                            "item_uid": "SRS001",
+                            "execution_timestamp": "not-a-valid-timestamp",
+                        },
+                    ],
+                },
+            },
+            "graph": {
+                "items": {
+                    "SRS001": {
+                        "uid": "SRS001",
+                        "text": "Test item",
+                        "document_prefix": "SRS",
+                    },
+                },
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+        }
+        output_path.write_text(json.dumps(data))
+
+        with pytest.warns(UserWarning, match="Invalid timestamp format"):
+            coverage, _, _ = load_coverage(str(output_path))
+            # Timestamp should be None due to invalid format
+            assert coverage["SRS001"].linked_tests[0].execution_timestamp is None
+
+
+class TestSaveCoverageAtomicWrite:
+    """Tests for atomic write behavior in save_coverage."""
+
+    def test_atomic_write_fallback_on_move_failure(self, tmp_path: Path):
+        """Test that save_coverage falls back to direct write if atomic fails."""
+        from unittest.mock import patch
+
+        output_path = tmp_path / ".jamb"
+        graph = TraceabilityGraph()
+        coverage: dict[str, ItemCoverage] = {}
+
+        # Patch shutil.move to fail, forcing fallback
+        with patch("shutil.move") as mock_move:
+            mock_move.side_effect = OSError("Simulated move failure")
+            # Should not raise - falls back to direct write
+            save_coverage(coverage, graph, str(output_path))
+
+        # File should still be created via fallback
+        assert output_path.exists()
+        data = json.loads(output_path.read_text())
+        assert data["version"] == 1

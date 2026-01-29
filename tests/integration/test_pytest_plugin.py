@@ -41,9 +41,7 @@ class TestMarkerCollection:
             """
         )
 
-        pytester.makefile(
-            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-        )
+        pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
         pytester.makefile(
             ".yml",
             SRS001="active: true\ntext: Test requirement\nlinks: []",
@@ -90,11 +88,7 @@ class TestCoverageSummary:
         assert result.ret == 0
         # Output should contain some coverage-related text
         output = result.stdout.str()
-        assert (
-            "passed" in output.lower()
-            or "Coverage" in output
-            or "Total test spec items" in output
-        )
+        assert "passed" in output.lower() or "Coverage" in output or "Total test spec items" in output
 
 
 class TestFailUncovered:
@@ -112,9 +106,7 @@ class TestFailUncovered:
             """
         )
 
-        pytester.makefile(
-            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-        )
+        pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
         pytester.makefile(".yml", SRS001="active: true\ntext: Test\nlinks: []")
 
         result = pytester.runpytest("--jamb", "--jamb-fail-uncovered")
@@ -138,9 +130,7 @@ class TestMatrixGeneration:
             """
         )
 
-        pytester.makefile(
-            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-        )
+        pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
         pytester.makefile(".yml", SRS001="active: true\ntext: Test\nlinks: []")
 
         matrix_path = pytester.path / "matrix.html"
@@ -160,9 +150,7 @@ class TestMatrixGeneration:
             """
         )
 
-        pytester.makefile(
-            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-        )
+        pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
 
         matrix_path = pytester.path / "matrix.md"
         result = pytester.runpytest(
@@ -182,9 +170,7 @@ class TestMatrixGeneration:
             """
         )
 
-        pytester.makefile(
-            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-        )
+        pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
 
         matrix_path = pytester.path / "matrix.csv"
         result = pytester.runpytest(
@@ -208,9 +194,7 @@ class TestMatrixGeneration:
             """
         )
 
-        pytester.makefile(
-            ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-        )
+        pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
 
         matrix_path = pytester.path / "matrix.xlsx"
         result = pytester.runpytest(
@@ -224,7 +208,7 @@ class TestMatrixGeneration:
         # Verify it's a valid Excel file
         wb = load_workbook(matrix_path)
         assert wb.active is not None
-        assert wb.active.title == "Traceability Matrix"
+        assert wb.active.title == "Trace Matrix"
 
 
 class TestUnknownItems:
@@ -251,9 +235,7 @@ class TestUnknownItems:
 
 def _setup_jamb(pytester):
     """Initialize jamb config in pytester directory."""
-    pytester.makefile(
-        ".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"}
-    )
+    pytester.makefile(".yml", **{".jamb": "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''"})
     pytester.makefile(
         ".yml",
         SRS001="active: true\ntext: Test requirement\nlinks: []",

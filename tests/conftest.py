@@ -213,9 +213,7 @@ def uncovered_item_coverage(sample_item) -> ItemCoverage:
 @pytest.fixture
 def mixed_coverage(sample_item, passed_test_link, failed_test_link) -> ItemCoverage:
     """ItemCoverage with mixed test outcomes."""
-    return ItemCoverage(
-        item=sample_item, linked_tests=[passed_test_link, failed_test_link]
-    )
+    return ItemCoverage(item=sample_item, linked_tests=[passed_test_link, failed_test_link])
 
 
 # =============================================================================
@@ -235,9 +233,7 @@ def simple_graph() -> TraceabilityGraph:
     graph = TraceabilityGraph()
 
     un = Item(uid="UN001", text="User need", document_prefix="UN", links=[])
-    sys = Item(
-        uid="SYS001", text="System requirement", document_prefix="SYS", links=["UN001"]
-    )
+    sys = Item(uid="SYS001", text="System requirement", document_prefix="SYS", links=["UN001"])
     srs = Item(
         uid="SRS001",
         text="Software requirement",

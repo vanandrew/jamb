@@ -220,9 +220,7 @@ class TestGenerateTestRecordsMatrix:
 
     def test_creates_parent_directories(self, tmp_path):
         output = tmp_path / "subdir" / "nested" / "matrix.html"
-        with patch(
-            "jamb.matrix.formats.html.render_test_records_html", return_value="<html/>"
-        ):
+        with patch("jamb.matrix.formats.html.render_test_records_html", return_value="<html/>"):
             generate_test_records_matrix([], str(output), output_format="html")
         assert output.exists()
 
@@ -237,9 +235,7 @@ class TestGenerateFullChainMatrix:
         graph.set_document_parents("SYS", [])
 
         sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS")
-        srs_item = Item(
-            uid="SRS001", text="Software req", document_prefix="SRS", links=["SYS001"]
-        )
+        srs_item = Item(uid="SRS001", text="Software req", document_prefix="SRS", links=["SYS001"])
         graph.add_item(sys_item)
         graph.add_item(srs_item)
 
@@ -263,9 +259,7 @@ class TestGenerateFullChainMatrix:
             "jamb.matrix.formats.html.render_full_chain_html",
             return_value="<html>full chain</html>",
         ) as mock:
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="html", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="html", trace_from="SYS")
 
         mock.assert_called_once()
         assert output.read_text() == "<html>full chain</html>"
@@ -280,9 +274,7 @@ class TestGenerateFullChainMatrix:
             "jamb.matrix.formats.markdown.render_full_chain_markdown",
             return_value="# Full Chain",
         ) as mock:
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="markdown", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="markdown", trace_from="SYS")
 
         mock.assert_called_once()
         assert output.read_text() == "# Full Chain"
@@ -297,9 +289,7 @@ class TestGenerateFullChainMatrix:
             "jamb.matrix.formats.json.render_full_chain_json",
             return_value='{"matrices":[]}',
         ) as mock:
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="json", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="json", trace_from="SYS")
 
         mock.assert_called_once()
         assert output.read_text() == '{"matrices":[]}'
@@ -314,9 +304,7 @@ class TestGenerateFullChainMatrix:
             "jamb.matrix.formats.csv.render_full_chain_csv",
             return_value="path,status\n",
         ) as mock:
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="csv", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="csv", trace_from="SYS")
 
         mock.assert_called_once()
         assert output.read_text() == "path,status\n"
@@ -331,9 +319,7 @@ class TestGenerateFullChainMatrix:
             "jamb.matrix.formats.xlsx.render_full_chain_xlsx",
             return_value=b"\x00\x01\x02",
         ) as mock:
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="xlsx", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="xlsx", trace_from="SYS")
 
         mock.assert_called_once()
         assert output.read_bytes() == b"\x00\x01\x02"
@@ -345,9 +331,7 @@ class TestGenerateFullChainMatrix:
         output = tmp_path / "matrix.txt"
 
         with pytest.raises(ValueError, match="Unknown format: txt"):
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="txt", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="txt", trace_from="SYS")
 
     def test_creates_parent_directories(self, tmp_path):
         """Test that parent directories are created."""
@@ -359,9 +343,7 @@ class TestGenerateFullChainMatrix:
             "jamb.matrix.formats.html.render_full_chain_html",
             return_value="<html/>",
         ):
-            generate_full_chain_matrix(
-                coverage, graph, str(output), output_format="html", trace_from="SYS"
-            )
+            generate_full_chain_matrix(coverage, graph, str(output), output_format="html", trace_from="SYS")
 
         assert output.exists()
 

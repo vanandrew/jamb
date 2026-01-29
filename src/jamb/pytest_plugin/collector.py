@@ -20,6 +20,9 @@ from jamb.core.models import (
 from jamb.pytest_plugin.log import JAMB_LOG_KEY
 from jamb.pytest_plugin.markers import get_requirement_markers
 
+# Valid test outcomes for type validation
+VALID_OUTCOMES = {"passed", "failed", "skipped", "error"}
+
 
 class RequirementCollector:
     """Collects test-to-requirement mappings during pytest execution.
@@ -52,35 +55,36 @@ class RequirementCollector:
         self.test_links: list[LinkedTest] = []
         self._links_by_nodeid: dict[str, list[LinkedTest]] = {}
         self.unknown_items: set[str] = set()
-        self.execution_timestamp: str = datetime.now(timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        )
+        self.execution_timestamp: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self._load_requirements()
 
     def _load_requirements(self) -> None:
         """Load requirements from the native storage layer.
 
         Discovers documents and builds the traceability graph. If loading
-        fails for any reason, emits a warning and initializes an empty
+        fails for any reason, logs an error and initializes an empty
         graph so that the plugin can continue without requirements data.
+        The ``_graph_load_failed`` flag is set to indicate that graph
+        loading failed.
         """
+        self._graph_load_failed = False
         try:
             from jamb.storage import build_traceability_graph, discover_documents
 
             dag = discover_documents()
-            self.graph = build_traceability_graph(
-                dag, exclude_patterns=self.jamb_config.exclude_patterns or None
-            )
+            self.graph = build_traceability_graph(dag, exclude_patterns=self.jamb_config.exclude_patterns or None)
         except (ValueError, FileNotFoundError, OSError) as e:
+            import logging
             import warnings
 
+            logger = logging.getLogger("jamb")
+            logger.error("Could not load requirements: %s", e)
             warnings.warn(f"Could not load requirements: {e}", stacklevel=2)
             self.graph = TraceabilityGraph()
+            self._graph_load_failed = True
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_collection_modifyitems(
-        self, items: list[pytest.Item]
-    ) -> Generator[None, None, None]:
+    def pytest_collection_modifyitems(self, items: list[pytest.Item]) -> Generator[None, None, None]:
         """Collect requirement markers from all test items.
 
         Extracts requirement UIDs from markers on each test item and records
@@ -92,10 +96,17 @@ class RequirementCollector:
         """
         yield  # Let collection complete
 
+        # Fail early if graph loading failed
+        if self._graph_load_failed:
+            raise pytest.UsageError(
+                "Cannot run with --jamb: requirement graph failed to load. Check earlier warnings for details."
+            )
+
         for item in items:
             req_uids = get_requirement_markers(item)
             for uid in req_uids:
-                if self.graph and uid not in self.graph.items:
+                is_unknown = self.graph and not self._graph_load_failed and uid not in self.graph.items
+                if is_unknown:
                     self.unknown_items.add(uid)
 
                 link = LinkedTest(
@@ -127,9 +138,7 @@ class RequirementCollector:
 
         links_for_node = self._links_by_nodeid.get(item.nodeid)
         if links_for_node is None:
-            links_for_node = [
-                lk for lk in self.test_links if lk.test_nodeid == item.nodeid
-            ]
+            links_for_node = [lk for lk in self.test_links if lk.test_nodeid == item.nodeid]
 
         if report.when == "setup":
             if report.failed:
@@ -176,9 +185,20 @@ class RequirementCollector:
             # Capture execution timestamp for this test
             test_timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+            # Validate and normalize test outcome
+            outcome = report.outcome
+            if outcome not in VALID_OUTCOMES:
+                import warnings
+
+                warnings.warn(
+                    f"Unknown test outcome '{outcome}', using 'error'",
+                    stacklevel=2,
+                )
+                outcome = "error"
+
             # Update test outcomes and data for all links to this test
             for link in links_for_node:
-                link.test_outcome = report.outcome
+                link.test_outcome = outcome
                 link.notes = list(notes)
                 link.test_actions = list(test_actions)
                 link.expected_results = list(expected_results)
@@ -189,9 +209,7 @@ class RequirementCollector:
                 for link in links_for_node:
                     if link.test_outcome not in ("failed", "error"):
                         link.test_outcome = "error"
-                        link.notes.append(
-                            f"[TEARDOWN FAILURE] {report.longreprtext or ''}"
-                        )
+                        link.notes.append(f"[TEARDOWN FAILURE] {report.longreprtext or ''}")
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
         """Build coverage report for all items in test documents.
@@ -277,13 +295,17 @@ class RequirementCollector:
         # Get test tools from pytest plugin manager
         test_tools: dict[str, str] = {}
 
+        import logging
+
+        logger = logging.getLogger("jamb")
+
         # Always include pytest version first
         try:
             import pytest as pytest_module
 
             test_tools["pytest"] = pytest_module.__version__
-        except (ImportError, AttributeError):
-            pass
+        except AttributeError as e:
+            logger.debug("Could not get pytest version: %s", e)
 
         # Get all loaded pytest plugins with their versions
         try:
@@ -294,14 +316,21 @@ class RequirementCollector:
                 # Skip pytest itself (already added) and internal plugins
                 if name.lower() != "pytest" and not name.startswith("_"):
                     test_tools[name] = version
-        except (AttributeError, ImportError, TypeError, OSError):
+        except (AttributeError, TypeError, OSError) as e:
+            logger.debug("Could not get plugin versions: %s", e)
             # Fallback: at least try to get jamb version
-            try:
-                from importlib.metadata import version
+            from importlib.metadata import PackageNotFoundError
+            from importlib.metadata import version as get_version
 
-                test_tools["jamb"] = version("jamb")
-            except (AttributeError, ImportError, TypeError, OSError):
-                pass
+            try:
+                test_tools["jamb"] = get_version("jamb")
+            except (AttributeError, TypeError, OSError, PackageNotFoundError) as e2:
+                logger.debug("Could not get jamb version: %s", e2)
+
+        try:
+            hostname = socket.gethostname()
+        except OSError:
+            hostname = "unknown"
 
         return TestEnvironment(
             os_name=platform.system(),
@@ -309,7 +338,7 @@ class RequirementCollector:
             python_version=platform.python_version(),
             platform=platform.machine(),
             processor=platform.processor() or "unknown",
-            hostname=socket.gethostname(),
+            hostname=hostname,
             cpu_count=os.cpu_count(),
             test_tools=test_tools,
         )
