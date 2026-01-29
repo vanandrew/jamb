@@ -1105,6 +1105,8 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
         new_links = []
         for entry in links:
             if isinstance(entry, dict):
+                if not entry:
+                    continue
                 link_uid = next(iter(entry))
             elif isinstance(entry, str):
                 link_uid = entry

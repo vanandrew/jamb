@@ -49,29 +49,29 @@ class TestMalformedYaml:
         assert result["active"] is True
 
     def test_read_item_yaml_is_a_list(self, tmp_path: Path) -> None:
-        """File containing a list falls back to empty dict via `or {}`."""
+        """File containing a list returns defaults (graceful handling)."""
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text("[1, 2, 3]\n")
-        # yaml.safe_load returns [1,2,3] which is truthy, but not a dict.
-        # The `or {}` only triggers on falsy values, so this may raise AttributeError.
-        # The code does `data.get(...)` which requires a dict.
-        # This documents the actual behavior:
-        with pytest.raises(AttributeError):
-            read_item(item_file, "SRS")
+        result = read_item(item_file, "SRS")
+        assert result["uid"] == "SRS001"
+        assert result["text"] == ""
+        assert result["active"] is True
 
     def test_read_item_yaml_is_a_string(self, tmp_path: Path) -> None:
-        """File containing just a string raises AttributeError (not a dict)."""
+        """File containing just a string returns defaults."""
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text('"hello"\n')
-        with pytest.raises(AttributeError):
-            read_item(item_file, "SRS")
+        result = read_item(item_file, "SRS")
+        assert result["uid"] == "SRS001"
+        assert result["text"] == ""
 
     def test_read_item_yaml_is_a_number(self, tmp_path: Path) -> None:
-        """File containing just a number raises AttributeError (not a dict)."""
+        """File containing just a number returns defaults."""
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text("42\n")
-        with pytest.raises(AttributeError):
-            read_item(item_file, "SRS")
+        result = read_item(item_file, "SRS")
+        assert result["uid"] == "SRS001"
+        assert result["text"] == ""
 
     def test_read_item_binary_garbage(self, tmp_path: Path) -> None:
         """File with random binary bytes raises yaml.YAMLError."""

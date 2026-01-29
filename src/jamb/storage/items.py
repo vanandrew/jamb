@@ -59,7 +59,9 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         custom_attributes.
     """
     with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        data = {}
 
     uid = path.stem
 
