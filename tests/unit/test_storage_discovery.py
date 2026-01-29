@@ -119,16 +119,12 @@ class TestDiscoverDocuments:
         with pytest.raises(FileNotFoundError):
             discover_documents(f)
 
-    def test_config_load_raises_unexpected_exception_propagates(
-        self, tmp_path, monkeypatch
-    ):
+    def test_config_load_raises_unexpected_exception_propagates(self, tmp_path, monkeypatch):
         """Unexpected exceptions (e.g. RuntimeError) propagate instead of
         being silently swallowed."""
         doc_dir = tmp_path / "bad"
         doc_dir.mkdir()
-        (doc_dir / ".jamb.yml").write_text(
-            yaml.dump({"settings": {"prefix": "BAD", "digits": 3}})
-        )
+        (doc_dir / ".jamb.yml").write_text(yaml.dump({"settings": {"prefix": "BAD", "digits": 3}}))
 
         from jamb.storage import discovery
 
@@ -148,3 +144,25 @@ class TestDiscoverDocuments:
 
         dag = discover_documents(tmp_path)
         assert len(dag.documents) == 0
+
+    def test_unreadable_root_raises_permission_error(self, tmp_path):
+        """Unreadable root directory raises PermissionError."""
+        import os
+
+        from jamb.storage.discovery import _find_config_files
+
+        # Create a directory and make it unreadable
+        unreadable_dir = tmp_path / "unreadable"
+        unreadable_dir.mkdir()
+
+        # Remove read permission
+        original_mode = unreadable_dir.stat().st_mode
+        try:
+            os.chmod(unreadable_dir, 0o000)
+
+            # _find_config_files should raise PermissionError
+            with pytest.raises(PermissionError, match="Cannot read directory"):
+                _find_config_files(unreadable_dir)
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(unreadable_dir, original_mode)

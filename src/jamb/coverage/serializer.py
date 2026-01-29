@@ -1,6 +1,7 @@
 """Save and load coverage data for decoupled matrix generation."""
 
 import json
+import os
 import shutil
 import tempfile
 import warnings
@@ -80,11 +81,20 @@ def save_coverage(
             encoding="utf-8",
         ) as f:
             f.write(json.dumps(data, indent=2))
+            f.flush()
+            os.fsync(f.fileno())
             temp_path = f.name
         shutil.move(temp_path, path)  # Atomic on POSIX
-    except OSError:
+    except OSError as atomic_err:
         # Fallback to direct write if atomic write fails
-        path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        try:
+            path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        except OSError as fallback_err:
+            raise OSError(
+                f"Failed to write coverage file to {path}. "
+                f"Atomic write failed: {atomic_err}. "
+                f"Fallback write also failed: {fallback_err}"
+            ) from fallback_err
 
 
 def load_coverage(
@@ -123,9 +133,7 @@ def load_coverage(
     # Validate required fields
     missing = REQUIRED_FIELDS - set(data.keys())
     if missing:
-        raise ValueError(
-            f"Corrupt .jamb file, missing required fields: {sorted(missing)}"
-        )
+        raise ValueError(f"Corrupt .jamb file, missing required fields: {sorted(missing)}")
 
     # Deserialize graph
     graph = TraceabilityGraph()
@@ -157,9 +165,7 @@ def load_coverage(
             continue
 
         item = _deserialize_item(cov_data["item"])
-        linked_tests = [
-            _deserialize_linked_test(lt) for lt in cov_data.get("linked_tests", [])
-        ]
+        linked_tests = [_deserialize_linked_test(lt) for lt in cov_data.get("linked_tests", [])]
         coverage[uid] = ItemCoverage(item=item, linked_tests=linked_tests)
 
     # Warn about orphaned items (in coverage but not in graph)
@@ -196,14 +202,45 @@ def _serialize_item(item: Item) -> dict[str, Any]:
     }
 
 
+VALID_ITEM_TYPES = {"requirement", "info", "heading"}
+
+
 def _deserialize_item(data: dict[str, Any]) -> Item:
-    """Deserialize a dictionary to an Item."""
+    """Deserialize a dictionary to an Item.
+
+    Args:
+        data: Dictionary with item fields.
+
+    Returns:
+        Deserialized Item object.
+
+    Raises:
+        ValueError: If required fields (uid, text, document_prefix) are missing.
+
+    Note:
+        Invalid item types issue a warning and default to 'requirement'.
+    """
+    # Validate required fields
+    for field in ("uid", "text", "document_prefix"):
+        if field not in data:
+            raise ValueError(f"Missing required field '{field}' in item data")
+
+    # Validate type field
+    item_type = data.get("type", "requirement")
+    if item_type not in VALID_ITEM_TYPES:
+        warnings.warn(
+            f"Invalid item type '{item_type}' for item '{data['uid']}', "
+            f"expected one of {sorted(VALID_ITEM_TYPES)}. Defaulting to 'requirement'.",
+            stacklevel=3,
+        )
+        item_type = "requirement"
+
     return Item(
         uid=data["uid"],
         text=data["text"],
         document_prefix=data["document_prefix"],
         active=data.get("active", True),
-        type=data.get("type", "requirement"),
+        type=item_type,
         header=data.get("header"),
         links=data.get("links", []),
         reviewed=data.get("reviewed"),
@@ -227,6 +264,28 @@ def _serialize_linked_test(lt: LinkedTest) -> dict[str, Any]:
     }
 
 
+def _validate_timestamp(ts: str | None) -> str | None:
+    """Validate timestamp format (ISO 8601).
+
+    Args:
+        ts: Timestamp string to validate, or None.
+
+    Returns:
+        The timestamp if valid, or None if invalid.
+    """
+    if ts is None:
+        return None
+    try:
+        from datetime import datetime
+
+        # Try to parse ISO format (handles both with and without timezone)
+        datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return ts
+    except (ValueError, AttributeError):
+        warnings.warn(f"Invalid timestamp format: {ts}", stacklevel=3)
+        return None
+
+
 def _deserialize_linked_test(data: dict[str, Any]) -> LinkedTest:
     """Deserialize a dictionary to a LinkedTest."""
     return LinkedTest(
@@ -237,7 +296,7 @@ def _deserialize_linked_test(data: dict[str, Any]) -> LinkedTest:
         test_actions=data.get("test_actions", []),
         expected_results=data.get("expected_results", []),
         actual_results=data.get("actual_results", []),
-        execution_timestamp=data.get("execution_timestamp"),
+        execution_timestamp=_validate_timestamp(data.get("execution_timestamp")),
     )
 
 

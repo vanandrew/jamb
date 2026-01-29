@@ -67,15 +67,11 @@ def render_test_records_html(
 
         expected_results_html = ""
         for result in rec.expected_results:
-            expected_results_html += (
-                f'<div class="expected-result">{_escape_html(result)}</div>'
-            )
+            expected_results_html += f'<div class="expected-result">{_escape_html(result)}</div>'
 
         actual_results_html = ""
         for result in rec.actual_results:
-            actual_results_html += (
-                f'<div class="actual-result">{_escape_html(result)}</div>'
-            )
+            actual_results_html += f'<div class="actual-result">{_escape_html(result)}</div>'
 
         notes_html = ""
         for msg in rec.notes:
@@ -337,9 +333,7 @@ def render_full_chain_html(
 
             # Traces To column (ancestors)
             if matrix.include_ancestors:
-                ancestors_html = ", ".join(
-                    _escape_html(uid) for uid in row.ancestor_uids
-                )
+                ancestors_html = ", ".join(_escape_html(uid) for uid in row.ancestor_uids)
                 cells.append(f"<td>{ancestors_html or '-'}</td>")
 
             # Document columns
@@ -349,16 +343,10 @@ def render_full_chain_html(
                     # Bold UID and header, unbold text
                     if item.header:
                         uid_header = f"{item.uid}: {item.header}"
-                        cell_html = (
-                            f"<strong>{_escape_html(uid_header)}</strong>"
-                            f" - {_escape_html(item.text)}"
-                        )
+                        cell_html = f"<strong>{_escape_html(uid_header)}</strong> - {_escape_html(item.text)}"
                     else:
                         uid_part = f"{item.uid}:"
-                        cell_html = (
-                            f"<strong>{_escape_html(uid_part)}</strong>"
-                            f" {_escape_html(item.text)}"
-                        )
+                        cell_html = f"<strong>{_escape_html(uid_part)}</strong> {_escape_html(item.text)}"
                     cells.append(f"<td>{cell_html}</td>")
                 else:
                     cells.append("<td>-</td>")

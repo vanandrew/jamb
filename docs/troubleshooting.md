@@ -115,6 +115,27 @@ These errors are printed by `jamb` commands.
 : The `--neighbors` flag was used with `jamb export` without specifying `--items`.
 : **Fix:** Add `--items` to specify which items to include neighbors for.
 
+## pytest Integration Errors
+
+These errors occur when running `pytest --jamb`.
+
+**"Cannot run with --jamb: requirement graph failed to load. Check earlier warnings for details."**
+: The requirement documents could not be loaded. This typically happens when:
+  - No `reqs/` directory exists (run `jamb init` first)
+  - Document `.jamb.yml` files are malformed or missing
+  - YAML syntax errors in item files
+: **Fix:** Check the warning messages above this error for the specific cause. Common fixes:
+  ```bash
+  # Initialize a new project if not already done
+  jamb init
+
+  # Validate your documents to find issues
+  jamb validate
+
+  # Check document structure
+  jamb info
+  ```
+
 ## Configuration Errors
 
 These errors come from loading `.jamb.yml` document config files.

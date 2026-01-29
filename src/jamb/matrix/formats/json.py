@@ -44,11 +44,9 @@ def render_test_records_json(
     # Add metadata if provided
     if metadata:
         env = metadata.environment
-        data["metadata"] = {
-            "software_version": metadata.software_version,
-            "tester_id": metadata.tester_id,
-            "execution_timestamp": metadata.execution_timestamp,
-            "environment": {
+        env_data = None
+        if env:
+            env_data = {
                 "os_name": env.os_name,
                 "os_version": env.os_version,
                 "python_version": env.python_version,
@@ -57,8 +55,11 @@ def render_test_records_json(
                 "hostname": env.hostname,
                 "cpu_count": env.cpu_count,
             }
-            if env
-            else None,
+        data["metadata"] = {
+            "software_version": metadata.software_version,
+            "tester_id": metadata.tester_id,
+            "execution_timestamp": metadata.execution_timestamp,
+            "environment": env_data,
             "test_tools": env.test_tools if env else None,
         }
 

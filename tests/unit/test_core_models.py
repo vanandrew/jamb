@@ -323,9 +323,7 @@ class TestTraceabilityGraphDescendantsAndNeighbors:
         # UN001 <- SYS001 <- SRS001
         cus = Item(uid="UN001", text="Customer", document_prefix="UN", links=[])
         sys = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
-        srs = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(cus)
         graph.add_item(sys)
@@ -366,12 +364,8 @@ class TestTraceabilityGraphDescendantsAndNeighbors:
 
         # UN001 <- SYS001 and UN001 <- SYS002
         cus = Item(uid="UN001", text="Customer", document_prefix="UN", links=[])
-        sys1 = Item(
-            uid="SYS001", text="System 1", document_prefix="SYS", links=["UN001"]
-        )
-        sys2 = Item(
-            uid="SYS002", text="System 2", document_prefix="SYS", links=["UN001"]
-        )
+        sys1 = Item(uid="SYS001", text="System 1", document_prefix="SYS", links=["UN001"])
+        sys2 = Item(uid="SYS002", text="System 2", document_prefix="SYS", links=["UN001"])
 
         graph.add_item(cus)
         graph.add_item(sys1)
@@ -426,9 +420,7 @@ class TestTraceabilityGraphDescendantsAndNeighbors:
 
         cus = Item(uid="UN001", text="Customer", document_prefix="UN", links=[])
         sys = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
-        srs = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(cus)
         graph.add_item(sys)
@@ -447,9 +439,7 @@ class TestTraceabilityGraphDescendantsAndNeighbors:
 
         cus = Item(uid="UN001", text="Customer", document_prefix="UN", links=[])
         sys = Item(uid="SYS001", text="System", document_prefix="SYS", links=["UN001"])
-        srs = Item(
-            uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"]
-        )
+        srs = Item(uid="SRS001", text="Software", document_prefix="SRS", links=["SYS001"])
 
         graph.add_item(cus)
         graph.add_item(sys)
@@ -542,9 +532,7 @@ class TestTraceabilityGraphDocumentMethods:
         graph = TraceabilityGraph()
         sys1 = Item(uid="SYS001", text="Sys", document_prefix="SYS", links=[])
         un1 = Item(uid="UN001", text="Need", document_prefix="UN", links=[])
-        srs1 = Item(
-            uid="SRS001", text="Srs", document_prefix="SRS", links=["SYS001", "UN001"]
-        )
+        srs1 = Item(uid="SRS001", text="Srs", document_prefix="SRS", links=["SYS001", "UN001"])
         graph.add_item(sys1)
         graph.add_item(un1)
         graph.add_item(srs1)
@@ -579,9 +567,7 @@ class TestTraceabilityGraphDocumentMethods:
 
     def test_display_text_empty_string_header(self):
         """Empty string header should fall through to text."""
-        item = Item(
-            uid="TEST001", text="Fallback text", document_prefix="TEST", header=""
-        )
+        item = Item(uid="TEST001", text="Fallback text", document_prefix="TEST", header="")
         assert item.display_text == "Fallback text"
 
 

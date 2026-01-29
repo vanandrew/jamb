@@ -170,6 +170,8 @@ The trace matrix is requirement-centric, showing the full traceability chain fro
 **Status Values**:
 - **Passed** (green): All linked tests passed
 - **Failed** (red): One or more linked tests failed
+- **Partial** (orange): Mix of passed and failed tests
+- **Skipped** (amber): All linked tests were skipped (none passed, none failed)
 - **Not Covered** (yellow): No tests linked to this requirement
 - **N/A** (gray): Requirement marked as `testable: false` (verified by other means)
 

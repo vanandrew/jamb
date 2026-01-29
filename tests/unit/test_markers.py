@@ -98,18 +98,19 @@ class TestGetRequirementMarkers:
             get_requirement_markers(mock_item)
 
     def test_empty_string_argument(self):
-        """Empty string argument is included."""
+        """Empty string argument raises ValueError."""
+        import pytest
+
         mock_item = MagicMock()
         mock_marker = MagicMock()
         mock_marker.args = ("",)
         mock_item.iter_markers.return_value = [mock_marker]
 
-        uids = get_requirement_markers(mock_item)
+        with pytest.raises(ValueError, match="Empty requirement UID"):
+            get_requirement_markers(mock_item)
 
-        assert uids == [""]
-
-    def test_duplicate_uids_not_deduplicated(self):
-        """Same UID from two markers appears twice."""
+    def test_duplicate_uids_deduplicated(self):
+        """Same UID from two markers is deduplicated to appear once."""
         mock_item = MagicMock()
         mock_marker1 = MagicMock()
         mock_marker1.args = ("SRS001",)
@@ -119,4 +120,4 @@ class TestGetRequirementMarkers:
 
         uids = get_requirement_markers(mock_item)
 
-        assert uids == ["SRS001", "SRS001"]
+        assert uids == ["SRS001"]

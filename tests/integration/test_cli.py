@@ -16,20 +16,14 @@ def runner():
 def jamb_project(tmp_path):
     """Create a jamb project for testing."""
     # Create UN document
-    (tmp_path / ".jamb.yml").write_text(
-        "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-    )
+    (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
     (tmp_path / "UN001.yml").write_text("active: true\ntext: User need\nlinks: []\n")
 
     # Create SRS document
     srs_dir = tmp_path / "srs"
     srs_dir.mkdir()
-    (srs_dir / ".jamb.yml").write_text(
-        "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-    )
-    (srs_dir / "SRS001.yml").write_text(
-        "active: true\ntext: Software req\nlinks:\n- UN001\n"
-    )
+    (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
+    (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software req\nlinks:\n- UN001\n")
 
     return tmp_path
 
@@ -226,9 +220,7 @@ class TestExportCommand:
         """Test exporting to YAML file."""
         output_file = jamb_project / "exported.yml"
 
-        result = runner.invoke(
-            cli, ["export", str(output_file), "--root", str(jamb_project)]
-        )
+        result = runner.invoke(cli, ["export", str(output_file), "--root", str(jamb_project)])
 
         # Print output for debugging if test fails
         if result.exit_code != 0:
@@ -245,9 +237,7 @@ class TestExportCommand:
         """Test that exported paths are relative, not absolute."""
         output_file = jamb_project / "exported.yml"
 
-        result = runner.invoke(
-            cli, ["export", str(output_file), "--root", str(jamb_project)]
-        )
+        result = runner.invoke(cli, ["export", str(output_file), "--root", str(jamb_project)])
 
         assert result.exit_code == 0
         content = output_file.read_text()
@@ -285,9 +275,7 @@ items:
 """
         )
 
-        result = runner.invoke(
-            cli, ["import", str(yaml_file), "--dry-run"], catch_exceptions=False
-        )
+        result = runner.invoke(cli, ["import", str(yaml_file), "--dry-run"], catch_exceptions=False)
 
         # Should show what would be created
         assert "dry run" in result.output.lower() or "would" in result.output.lower()
@@ -316,9 +304,7 @@ items:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["import", str(yaml_file)], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["import", str(yaml_file)], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -345,9 +331,7 @@ items:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["import", str(yaml_file), "--update"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["import", str(yaml_file), "--update"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -397,9 +381,7 @@ items:
 
         # Add reviewed field to existing item
         srs_file = jamb_project / "srs" / "SRS001.yml"
-        srs_file.write_text(
-            "active: true\nreviewed: abc123\ntext: Software req\nlinks:\n- UN001\n"
-        )
+        srs_file.write_text("active: true\nreviewed: abc123\ntext: Software req\nlinks:\n- UN001\n")
 
         yaml_file = jamb_project / "import.yml"
         yaml_file.write_text(
@@ -414,9 +396,7 @@ items:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            runner.invoke(
-                cli, ["import", str(yaml_file), "--update"], catch_exceptions=False
-            )
+            runner.invoke(cli, ["import", str(yaml_file), "--update"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -499,9 +479,7 @@ class TestItemShowCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["item", "show", "SRS001"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["item", "show", "SRS001"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -518,9 +496,7 @@ class TestItemShowCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["item", "show", "SRS001"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["item", "show", "SRS001"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -549,9 +525,7 @@ class TestPublishCommandExtended:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["publish-template", str(template_path)], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["publish-template", str(template_path)], catch_exceptions=False)
             assert result.exit_code == 0
             assert template_path.exists()
 
@@ -654,9 +628,7 @@ class TestPublishTemplateCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            result = runner.invoke(
-                cli, ["publish-template", str(output_path)], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["publish-template", str(output_path)], catch_exceptions=False)
 
             assert result.exit_code == 0
             assert output_path.exists()
@@ -690,9 +662,7 @@ class TestPublishTemplateCommand:
         try:
             os.chdir(tmp_path)
             # Answer 'n' to overwrite prompt
-            result = runner.invoke(
-                cli, ["publish-template", str(output_path)], input="n\n"
-            )
+            result = runner.invoke(cli, ["publish-template", str(output_path)], input="n\n")
 
             assert result.exit_code == 0
             assert "Aborted" in result.output
@@ -747,9 +717,7 @@ items:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["import", str(yaml_file)], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["import", str(yaml_file)], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -776,9 +744,7 @@ items:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["import", str(yaml_file), "--verbose"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["import", str(yaml_file), "--verbose"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -793,9 +759,7 @@ class TestDocCreateWithMock:
     def test_doc_create_with_parent(self, runner, tmp_path):
         """Test doc create with --parent option creates .jamb.yml."""
         doc_path = tmp_path / "srs"
-        result = runner.invoke(
-            cli, ["doc", "create", "SRS", str(doc_path), "--parent", "UN"]
-        )
+        result = runner.invoke(cli, ["doc", "create", "SRS", str(doc_path), "--parent", "UN"])
 
         assert result.exit_code == 0
         jamb_yml = doc_path / ".jamb.yml"
@@ -845,9 +809,7 @@ class TestDocDeleteWithMock:
         # Create a document directory with .jamb.yml
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         monkeypatch.chdir(tmp_path)
@@ -867,9 +829,7 @@ class TestReorderCommand:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
         (srs_dir / "SRS003.yml").write_text("active: true\ntext: req3\n")
 
@@ -891,9 +851,7 @@ class TestReorderCommand:
         """Test reorder with empty document is a no-op."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["reorder", "SRS"])
@@ -905,9 +863,7 @@ class TestReorderCommand:
         """Test reorder with nonexistent prefix."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["reorder", "NOPE"])
@@ -919,12 +875,8 @@ class TestReorderCommand:
         """Test reorder aborts with exit code 1 when broken links exist."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: req1\nlinks:\n- NONEXIST\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\nlinks:\n- NONEXIST\n")
         (srs_dir / "SRS002.yml").write_text("active: true\ntext: req2\n")
 
         monkeypatch.chdir(tmp_path)
@@ -941,9 +893,7 @@ class TestItemAddWithMock:
         """Test item add creates a new YAML file."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["item", "add", "SRS"])
@@ -956,9 +906,7 @@ class TestItemAddWithMock:
         """Test item add with --count option creates multiple items."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["item", "add", "SRS", "--count", "5"])
@@ -974,9 +922,7 @@ class TestItemAddWithMock:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: first\nlinks: []\n")
         (srs_dir / "SRS002.yml").write_text("active: true\ntext: second\nlinks: []\n")
         (srs_dir / "SRS003.yml").write_text("active: true\ntext: third\nlinks: []\n")
@@ -1000,9 +946,7 @@ class TestItemAddWithMock:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: first\nlinks: []\n")
         (srs_dir / "SRS002.yml").write_text("active: true\ntext: second\nlinks: []\n")
         (srs_dir / "SRS003.yml").write_text("active: true\ntext: third\nlinks: []\n")
@@ -1024,15 +968,11 @@ class TestItemAddWithMock:
         """Both --after and --before flags produce an error."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\nlinks: []\n")
 
         monkeypatch.chdir(tmp_path)
-        result = runner.invoke(
-            cli, ["item", "add", "SRS", "--after", "SRS001", "--before", "SRS001"]
-        )
+        result = runner.invoke(cli, ["item", "add", "SRS", "--after", "SRS001", "--before", "SRS001"])
 
         assert result.exit_code == 1
         assert "mutually exclusive" in result.output.lower()
@@ -1041,9 +981,7 @@ class TestItemAddWithMock:
         """--after with a nonexistent UID produces an error."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["item", "add", "SRS", "--after", "SRS999"])
@@ -1059,9 +997,7 @@ class TestItemRemoveWithMock:
         """Test item remove deletes the YAML file."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         item_path = srs_dir / "SRS001.yml"
         item_path.write_text("active: true\ntext: req\n")
 
@@ -1082,9 +1018,7 @@ class TestItemEditWithMock:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         mock_result = MagicMock()
@@ -1115,15 +1049,11 @@ class TestLinkCommandsWithMock:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         # Also need the UN doc for discovery
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
         (tmp_path / "UN001.yml").write_text("active: true\ntext: user need\n")
 
         monkeypatch.chdir(tmp_path)
@@ -1141,16 +1071,10 @@ class TestLinkCommandsWithMock:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\nlinks:\n- UN001\n")
 
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["link", "remove", "SRS001", "UN001"])
@@ -1171,9 +1095,7 @@ class TestReviewCommandsWithMock:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         monkeypatch.chdir(tmp_path)
@@ -1195,17 +1117,11 @@ class TestPublishWithMock:
         """Test publish with --html flag produces real HTML output."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: Software req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software req\nlinks:\n- UN001\n")
 
         # Also create UN doc for link context
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
         (tmp_path / "UN001.yml").write_text("active: true\ntext: User need\n")
 
         output_file = tmp_path / "output.html"
@@ -1223,19 +1139,13 @@ class TestPublishWithMock:
     def test_publish_html_with_links(self, runner, tmp_path, monkeypatch):
         """Test publish HTML includes hyperlinks for parent and child items."""
         # Create UN (root) and SRS (child) docs
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
         (tmp_path / "UN001.yml").write_text("active: true\ntext: User need\n")
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: Software req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software req\nlinks:\n- UN001\n")
 
         output_file = tmp_path / "output.html"
         monkeypatch.chdir(tmp_path)
@@ -1252,18 +1162,12 @@ class TestPublishWithMock:
         """Test publish HTML with --no-links suppresses links."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\nlinks:\n- UN001\n")
 
         output_file = tmp_path / "output.html"
         monkeypatch.chdir(tmp_path)
-        result = runner.invoke(
-            cli, ["publish", "SRS", str(output_file), "--html", "--no-links"]
-        )
+        result = runner.invoke(cli, ["publish", "SRS", str(output_file), "--html", "--no-links"])
 
         assert result.exit_code == 0
         content = output_file.read_text()
@@ -1273,19 +1177,13 @@ class TestPublishWithMock:
 
     def test_publish_html_all_documents(self, runner, tmp_path, monkeypatch):
         """Test publish all produces HTML with multiple document sections."""
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
         (tmp_path / "UN001.yml").write_text("active: true\ntext: User need\n")
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: Software req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software req\nlinks:\n- UN001\n")
 
         output_file = tmp_path / "all.html"
         monkeypatch.chdir(tmp_path)
@@ -1300,9 +1198,7 @@ class TestPublishWithMock:
         """Test publish with --markdown flag writes markdown file."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software req\n")
 
         output_file = tmp_path / "output.md"
@@ -1319,9 +1215,7 @@ class TestPublishWithMock:
         """Test publish with --no-links flag."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         output_file = tmp_path / "output.html"
@@ -1533,9 +1427,7 @@ class TestItemListWithPrefix:
         mock_dag.document_paths = {"SRS": Path("/fake/srs")}
         mock_dag.topological_sort.return_value = ["SRS"]
 
-        mock_items = [
-            {"uid": "SRS001", "text": "Test requirement text", "active": True}
-        ]
+        mock_items = [{"uid": "SRS001", "text": "Test requirement text", "active": True}]
 
         with (
             patch("jamb.storage.discover_documents", return_value=mock_dag),
@@ -1697,9 +1589,7 @@ class TestInitCommand:
         )
 
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text(
-            '[project]\nname = "test"\n\n[tool.jamb]\ntest_documents = ["UT"]\n'
-        )
+        pyproject.write_text('[project]\nname = "test"\n\n[tool.jamb]\ntest_documents = ["UT"]\n')
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["init"], catch_exceptions=False)
@@ -1802,9 +1692,7 @@ class TestReviewResetCommand:
             runner.invoke(cli, ["review", "mark", "SRS001"], catch_exceptions=False)
 
             # Now reset it
-            result = runner.invoke(
-                cli, ["review", "reset", "SRS001"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["review", "reset", "SRS001"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -1819,16 +1707,12 @@ class TestReviewResetCommand:
         # Mark items as reviewed
         srs_file = jamb_project / "srs" / "SRS001.yml"
         content = srs_file.read_text()
-        srs_file.write_text(
-            content.replace("active: true", "active: true\nreviewed: abc123")
-        )
+        srs_file.write_text(content.replace("active: true", "active: true\nreviewed: abc123"))
 
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["review", "reset", "SRS"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["review", "reset", "SRS"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -1841,9 +1725,7 @@ class TestReviewResetCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["review", "reset", "all"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["review", "reset", "all"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -1861,9 +1743,7 @@ class TestReviewResetCommand:
             os.chdir(original_cwd)
 
         assert result.exit_code == 1
-        assert (
-            "not a valid" in result.output.lower() or "error" in result.output.lower()
-        )
+        assert "not a valid" in result.output.lower() or "error" in result.output.lower()
 
     def test_review_reset_strips_link_hashes(self, runner, jamb_project):
         """Test review reset also strips link hashes from items."""
@@ -1873,20 +1753,12 @@ class TestReviewResetCommand:
 
         # Write an item with reviewed hash and link hashes
         srs_file = jamb_project / "srs" / "SRS001.yml"
-        srs_file.write_text(
-            "active: true\n"
-            "text: Some requirement\n"
-            "links:\n"
-            "- SYS001: abc123hash\n"
-            "reviewed: somehash\n"
-        )
+        srs_file.write_text("active: true\ntext: Some requirement\nlinks:\n- SYS001: abc123hash\nreviewed: somehash\n")
 
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["review", "reset", "SRS001"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["review", "reset", "SRS001"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -1904,9 +1776,7 @@ class TestReviewResetCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(
-                cli, ["review", "reset", "SRS001"], catch_exceptions=False
-            )
+            result = runner.invoke(cli, ["review", "reset", "SRS001"], catch_exceptions=False)
         finally:
             os.chdir(original_cwd)
 
@@ -1942,20 +1812,14 @@ class TestReviewClearWithParents:
         import yaml
 
         # Create UN document with an item
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
         (tmp_path / "UN001.yml").write_text("active: true\ntext: user need\n")
 
         # Create SRS document with item linking to UN001
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\nlinks:\n- UN001\n")
 
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(cli, ["review", "clear", "SRS001", "UN001"])
@@ -2045,20 +1909,14 @@ class TestValidateWithFlags:
     def validate_project(self, tmp_path, monkeypatch):
         """Create a simple project for validation tests."""
         # Create UN root document
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
         (tmp_path / "UN001.yml").write_text("active: true\ntext: user need\n")
 
         # Create SRS child document
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n"
-        )
-        (srs_dir / "SRS001.yml").write_text(
-            "active: true\ntext: Software req\nlinks:\n- UN001\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  parents:\n  - UN\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Software req\nlinks:\n- UN001\n")
 
         monkeypatch.chdir(tmp_path)
         return tmp_path
@@ -2116,9 +1974,7 @@ class TestItemEditWithTool:
 
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n"
-        )
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         mock_result = MagicMock()
@@ -2289,9 +2145,7 @@ class TestPublishDocx:
     def test_publish_docx_empty_document(self, runner, tmp_path, monkeypatch):
         """Test publishing DOCX when document has no items."""
         # Create empty UN document (no items)
-        (tmp_path / ".jamb.yml").write_text(
-            "settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n"
-        )
+        (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
 
         output_file = tmp_path / "output.docx"
 
@@ -2483,9 +2337,7 @@ class TestMatrixCommand:
         ],
         ids=["html", "json", "csv", "markdown"],
     )
-    def test_matrix_format_inference_text(
-        self, runner, tmp_path, jamb_file, extension, content_check
-    ):
+    def test_matrix_format_inference_text(self, runner, tmp_path, jamb_file, extension, content_check):
         """Test that file extension correctly infers text-based output format."""
         output = tmp_path / f"matrix.{extension}"
 

@@ -317,9 +317,7 @@ class TestRenderDocx:
         """Child links to items not in rendered set are not shown."""
         graph = TraceabilityGraph()
         un_item = Item(uid="UN001", text="Need", document_prefix="UN")
-        srs_item = Item(
-            uid="SRS001", text="Req", document_prefix="SRS", links=["UN001"]
-        )
+        srs_item = Item(uid="SRS001", text="Req", document_prefix="SRS", links=["UN001"])
         graph.add_item(un_item)
         graph.add_item(srs_item)
 

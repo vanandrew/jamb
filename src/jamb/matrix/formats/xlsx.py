@@ -29,9 +29,7 @@ BOLD_INLINE = InlineFont(b=True)
 # Coverage status fills
 PASSED_FILL = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
 FAILED_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
-UNCOVERED_FILL = PatternFill(
-    start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"
-)
+UNCOVERED_FILL = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
 NA_FILL = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
 
 # Test outcome fills
@@ -120,9 +118,7 @@ def render_test_records_xlsx(
         current_row += 1
 
         ws.cell(row=current_row, column=1, value="Date:")
-        ws.cell(
-            row=current_row, column=2, value=metadata.execution_timestamp or "Unknown"
-        )
+        ws.cell(row=current_row, column=2, value=metadata.execution_timestamp or "Unknown")
         current_row += 1
 
         if metadata.environment:
@@ -137,9 +133,7 @@ def render_test_records_xlsx(
             current_row += 1
 
             if env.test_tools:
-                tools = [
-                    f"{name} {ver}" for name, ver in sorted(env.test_tools.items())
-                ]
+                tools = [f"{name} {ver}" for name, ver in sorted(env.test_tools.items())]
                 ws.cell(row=current_row, column=1, value="Test Tools:")
                 ws.cell(row=current_row, column=2, value=", ".join(tools))
                 current_row += 1
@@ -191,9 +185,7 @@ def render_test_records_xlsx(
     for rec in records:
         requirements_str = ", ".join(rec.requirements) if rec.requirements else ""
         test_actions_str = "\n".join(rec.test_actions) if rec.test_actions else ""
-        expected_results_str = (
-            "\n".join(rec.expected_results) if rec.expected_results else ""
-        )
+        expected_results_str = "\n".join(rec.expected_results) if rec.expected_results else ""
         actual_results_str = "\n".join(rec.actual_results) if rec.actual_results else ""
         notes_str = "\n".join(rec.notes) if rec.notes else ""
 
@@ -276,7 +268,9 @@ def render_full_chain_xlsx(
             ws = wb.create_sheet()
 
         # Sheet title (limited to 31 chars for Excel)
-        ws.title = "Traceability Matrix" if i == 0 else f"Traceability Matrix {i + 1}"
+        # "Trace Matrix" = 12 chars, "Trace Matrix 999" = 16 chars, well under 31
+        base_title = "Trace Matrix"
+        ws.title = base_title if i == 0 else f"{base_title} {i + 1}"
 
         # Title
         ws["A1"] = "Traceability Matrix"
@@ -342,9 +336,7 @@ def render_full_chain_xlsx(
                 tc_prefix = f"{tc_id}: " if tc_id else ""
                 tests.append(f"{tc_prefix}{test_name} [{outcome}]")
             ws.cell(row=row, column=col, value="\n".join(tests))
-            ws.cell(row=row, column=col).alignment = Alignment(
-                wrap_text=True, vertical="top"
-            )
+            ws.cell(row=row, column=col).alignment = Alignment(wrap_text=True, vertical="top")
             col += 1
 
             # Status column with color
@@ -366,9 +358,17 @@ def render_full_chain_xlsx(
 
             row += 1
 
-        # Auto-adjust column widths
-        for col_idx in range(1, len(headers) + 1):
-            ws.column_dimensions[get_column_letter(col_idx)].width = 30
+        # Set variable column widths based on content type
+        col_widths = {
+            "Traces To": 25,
+            "Tests": 50,
+            "Status": 12,
+        }
+        default_width = 35  # For document columns
+
+        for col_idx, header in enumerate(headers, start=1):
+            width = col_widths.get(header, default_width)
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
 
     # Save to bytes
     output = io.BytesIO()

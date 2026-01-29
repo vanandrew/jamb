@@ -31,12 +31,19 @@ def _collect_all_uids(all_doc_paths: dict[str, Path]) -> set[str]:
 
 
 def _check_broken_links(item_files: list[Path], all_doc_paths: dict[str, Path]) -> None:
-    """Raise ValueError if any item links to a non-existent UID."""
+    """Raise ValueError if any item links to a non-existent UID.
+
+    Raises:
+        ValueError: If broken links are found or YAML parsing fails.
+    """
     known_uids = _collect_all_uids(all_doc_paths)
     broken: list[str] = []
     for item_file in item_files:
-        with open(item_file, encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+        try:
+            with open(item_file, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Failed to parse YAML file '{item_file}': {e}") from e
         if not data or "links" not in data or not data["links"]:
             continue
         src_uid = item_file.stem
@@ -71,11 +78,14 @@ def reorder_document(
     reordering.
 
     Returns {"renamed": int, "unchanged": int}.
+
+    Raises:
+        ValueError: If digits < 1.
     """
+    if digits < 1:
+        raise ValueError(f"digits must be >= 1, got {digits}")
     # 1. Collect all item files for this document
-    item_files = sorted(
-        p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml"
-    )
+    item_files = sorted(p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml")
 
     if not item_files:
         return {"renamed": 0, "unchanged": 0}
@@ -100,17 +110,29 @@ def reorder_document(
         return stats
 
     # 3. Rename files using temp names to avoid collisions
-    temp_map: dict[str, Path] = {}  # old_uid -> temp_path
-    for old_uid in rename_map:
-        old_path = doc_path / f"{old_uid}.yml"
-        tmp_path = doc_path / f".tmp_{old_uid}.yml"
-        old_path.rename(tmp_path)
-        temp_map[old_uid] = tmp_path
+    # Note: If an error occurs during this phase, temp files may be left behind.
+    # Clean up any leftover temp files from previous failed runs first.
+    for tmp_file in doc_path.glob(".tmp_*.yml"):
+        tmp_file.unlink(missing_ok=True)
 
-    for old_uid, new_uid in rename_map.items():
-        tmp_path = temp_map[old_uid]
-        new_path = doc_path / f"{new_uid}.yml"
-        tmp_path.rename(new_path)
+    temp_map: dict[str, Path] = {}  # old_uid -> temp_path
+    try:
+        for old_uid in rename_map:
+            old_path = doc_path / f"{old_uid}.yml"
+            tmp_path = doc_path / f".tmp_{old_uid}.yml"
+            old_path.rename(tmp_path)
+            temp_map[old_uid] = tmp_path
+
+        for old_uid, new_uid in rename_map.items():
+            tmp_path = temp_map[old_uid]
+            new_path = doc_path / f"{new_uid}.yml"
+            tmp_path.rename(new_path)
+    except Exception:
+        # Clean up any remaining temp files on error
+        for tmp_path in temp_map.values():
+            if tmp_path.exists():
+                tmp_path.unlink(missing_ok=True)
+        raise
 
     # 4. Update links across ALL documents
     for _doc_prefix, dp in all_doc_paths.items():
@@ -182,15 +204,41 @@ def insert_items(
     Items with number >= *position* are renamed to number + *count*.
     Links across all documents are updated to reflect the new UIDs.
 
-    Returns the list of new UIDs that were freed (e.g. ``["SRS005"]``).
-    The caller is responsible for writing the actual item files at those paths.
+    Args:
+        doc_path: Path to the document directory.
+        prefix: Document prefix (e.g. "SRS").
+        digits: Number of digits in item UIDs.
+        sep: Separator between prefix and number.
+        position: Position to insert at (must be >= 1).
+        count: Number of items to insert.
+        all_doc_paths: Mapping of all document prefixes to their paths.
+
+    Returns:
+        The list of new UIDs that were freed (e.g. ``["SRS005"]``).
+        The caller is responsible for writing the actual item files at those paths.
+
+    Raises:
+        ValueError: If position < 1 or count < 1.
     """
     import re
+    import warnings
+
+    if position < 1:
+        raise ValueError(f"Position must be >= 1, got {position}")
+    if count < 1:
+        raise ValueError(f"Count must be >= 1, got {count}")
 
     # 1. Collect item files
-    item_files = sorted(
-        p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml"
-    )
+    item_files = sorted(p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml")
+
+    # Validate insert position
+    max_position = len(item_files) + 1
+    if position > max_position:
+        warnings.warn(
+            f"Insert position {position} exceeds item count ({len(item_files)}). Items will be appended at the end.",
+            stacklevel=2,
+        )
+        position = max_position
 
     # 2. Broken-link pre-check
     _check_broken_links(item_files, all_doc_paths)
@@ -212,16 +260,23 @@ def insert_items(
     # 4. Two-stage temp-file rename to avoid collisions
     if rename_map:
         temp_map: dict[str, Path] = {}
-        for old_uid in rename_map:
-            old_path = doc_path / f"{old_uid}.yml"
-            tmp_path = doc_path / f".tmp_{old_uid}.yml"
-            old_path.rename(tmp_path)
-            temp_map[old_uid] = tmp_path
+        try:
+            for old_uid in rename_map:
+                old_path = doc_path / f"{old_uid}.yml"
+                tmp_path = doc_path / f".tmp_{old_uid}.yml"
+                old_path.rename(tmp_path)
+                temp_map[old_uid] = tmp_path
 
-        for old_uid, new_uid in rename_map.items():
-            tmp_path = temp_map[old_uid]
-            new_path = doc_path / f"{new_uid}.yml"
-            tmp_path.rename(new_path)
+            for old_uid, new_uid in rename_map.items():
+                tmp_path = temp_map[old_uid]
+                new_path = doc_path / f"{new_uid}.yml"
+                tmp_path.rename(new_path)
+        except Exception:
+            # Clean up any remaining temp files on error
+            for tmp_path in temp_map.values():
+                if tmp_path.exists():
+                    tmp_path.unlink(missing_ok=True)
+            raise
 
     # 5. Update links across ALL documents
     if rename_map:

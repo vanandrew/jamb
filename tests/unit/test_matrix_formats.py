@@ -324,6 +324,22 @@ class TestRenderTestRecordsJson:
         assert "metadata" in data
         assert data["metadata"]["software_version"] == "1.0.0"
 
+    def test_metadata_with_none_environment(self, sample_test_records):
+        """Test that JSON handles metadata with environment=None."""
+        metadata = MatrixMetadata(
+            software_version="1.0.0",
+            tester_id="CI",
+            execution_timestamp="2024-01-01T10:00:00Z",
+            environment=None,  # No environment info
+        )
+        output = render_test_records_json(sample_test_records, metadata=metadata)
+
+        data = json.loads(output)
+        assert "metadata" in data
+        assert data["metadata"]["software_version"] == "1.0.0"
+        assert data["metadata"]["environment"] is None
+        assert data["metadata"]["test_tools"] is None
+
 
 # =============================================================================
 # Full Chain JSON Tests
@@ -420,9 +436,7 @@ class TestRenderTestRecordsXlsx:
         wb = load_workbook(io.BytesIO(output))
         assert wb.active.title == "Test Records"
 
-    def test_includes_metadata_with_environment(
-        self, sample_test_records, sample_metadata
-    ):
+    def test_includes_metadata_with_environment(self, sample_test_records, sample_metadata):
         """Test that metadata with environment is included."""
         output = render_test_records_xlsx(sample_test_records, metadata=sample_metadata)
 
@@ -446,9 +460,7 @@ class TestRenderTestRecordsXlsx:
                 outcome=outcome,
                 requirements=["SRS001"],
             )
-            for i, outcome in enumerate(
-                ["passed", "failed", "skipped", "error", "unknown"], 1
-            )
+            for i, outcome in enumerate(["passed", "failed", "skipped", "error", "unknown"], 1)
         ]
 
         output = render_test_records_xlsx(records)
@@ -476,7 +488,7 @@ class TestRenderFullChainXlsx:
         output = render_full_chain_xlsx(sample_full_chain_matrices)
 
         wb = load_workbook(io.BytesIO(output))
-        assert wb.active.title == "Traceability Matrix"
+        assert wb.active.title == "Trace Matrix"
 
     def test_multiple_matrices_create_sheets(self):
         """Test that multiple matrices create separate sheets."""

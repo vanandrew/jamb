@@ -32,9 +32,7 @@ class TestValidate:
         dag.document_paths["SRS"] = Path("/tmp/srs")
 
         graph = TraceabilityGraph()
-        sys_item = Item(
-            uid="SYS001", text="System req", document_prefix="SYS", reviewed="hash1"
-        )
+        sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS", reviewed="hash1")
         srs_item = Item(
             uid="SRS001",
             text="Software req",
@@ -65,9 +63,7 @@ class TestValidate:
             reviewed="hash",
         )
         graph.add_item(bad_item)
-        issues = validate(
-            dag, graph, check_suspect=False, check_review=False, check_children=False
-        )
+        issues = validate(dag, graph, check_suspect=False, check_review=False, check_children=False)
         errors = [i for i in issues if i.level == "error"]
         assert any("non-existent" in str(i) for i in errors)
 
@@ -89,9 +85,7 @@ class TestValidate:
     def test_skip_prefixes(self):
         dag, graph = self._make_dag_and_graph()
         # Add bad item in SRS
-        bad_item = Item(
-            uid="SRS002", text="Bad", document_prefix="SRS", links=["NONEXIST"]
-        )
+        bad_item = Item(uid="SRS002", text="Bad", document_prefix="SRS", links=["NONEXIST"])
         graph.add_item(bad_item)
         issues = validate(
             dag,
@@ -126,9 +120,7 @@ class TestValidate:
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
         # SYS item with no children linking to it
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", reviewed="hash"
-        )
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", reviewed="hash")
         graph.add_item(sys_item)
         graph.set_document_parents("SYS", [])
         graph.set_document_parents("SRS", ["SYS"])
@@ -196,9 +188,7 @@ class TestValidate:
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
-        sys_item = Item(
-            uid="SYS001", text="System req", document_prefix="SYS", active=False
-        )
+        sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS", active=False)
         srs_item = Item(
             uid="SRS001",
             text="Software req",
@@ -225,9 +215,7 @@ class TestValidate:
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
-        sys_item = Item(
-            uid="SYS001", text="System req", document_prefix="SYS", reviewed="hash"
-        )
+        sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS", reviewed="hash")
         # Inactive child that links to SYS001 — should not count
         srs_item = Item(
             uid="SRS001",
@@ -270,10 +258,7 @@ class TestValidate:
         item_dir = tmp_path / "srs"
         item_dir.mkdir()
         item_file = item_dir / "SRS001.yml"
-        item_file.write_text(
-            "uid: SRS001\ntext: Source\nlinks:\n"
-            "  - SYS001\nlink_hashes:\n  SYS001: stale_hash\n"
-        )
+        item_file.write_text("uid: SRS001\ntext: Source\nlinks:\n  - SYS001\nlink_hashes:\n  SYS001: stale_hash\n")
         issues = validate(
             dag,
             graph,
@@ -291,9 +276,7 @@ class TestValidate:
         dag.document_paths["SYS"] = tmp_path / "sys"
         dag.document_paths["SRS"] = tmp_path / "srs"
         graph = TraceabilityGraph()
-        target = Item(
-            uid="SYS001", text="Target", document_prefix="SYS", reviewed="hash"
-        )
+        target = Item(uid="SYS001", text="Target", document_prefix="SYS", reviewed="hash")
         source = Item(
             uid="SRS001",
             text="Source",
@@ -431,9 +414,7 @@ class TestValidate:
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
-        sys_item = Item(
-            uid="SYS001", text="System req", document_prefix="SYS", reviewed="h"
-        )
+        sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS", reviewed="h")
         info_item = Item(
             uid="SRS001",
             text="Info with links",
@@ -465,9 +446,7 @@ class TestValidate:
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
         # SRS item with no links in a child document
-        srs_item = Item(
-            uid="SRS001", text="No links", document_prefix="SRS", reviewed="h"
-        )
+        srs_item = Item(uid="SRS001", text="No links", document_prefix="SRS", reviewed="h")
         graph.add_item(srs_item)
         graph.set_document_parents("SYS", [])
         graph.set_document_parents("SRS", ["SYS"])
@@ -558,11 +537,7 @@ class TestValidate:
             ("SRS002", "SRS003"),
             ("SRS003", "SRS001"),
         ]:
-            graph.add_item(
-                Item(
-                    uid=uid, text=uid, document_prefix="SRS", links=[link], reviewed="h"
-                )
-            )
+            graph.add_item(Item(uid=uid, text=uid, document_prefix="SRS", links=[link], reviewed="h"))
         graph.set_document_parents("SRS", [])
         issues = validate(
             dag,
@@ -588,11 +563,7 @@ class TestValidate:
             ("SRS003", "SRS004"),
             ("SRS004", "SRS003"),
         ]:
-            graph.add_item(
-                Item(
-                    uid=uid, text=uid, document_prefix="SRS", links=[link], reviewed="h"
-                )
-            )
+            graph.add_item(Item(uid=uid, text=uid, document_prefix="SRS", links=[link], reviewed="h"))
         graph.set_document_parents("SRS", [])
         issues = validate(
             dag,
@@ -635,9 +606,7 @@ class TestValidate:
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
-        srs_item = Item(
-            uid="SRS001", text="No links", document_prefix="SRS", reviewed="h"
-        )
+        srs_item = Item(uid="SRS001", text="No links", document_prefix="SRS", reviewed="h")
         graph.add_item(srs_item)
         graph.set_document_parents("SYS", [])
         graph.set_document_parents("SRS", ["SYS"])
@@ -663,9 +632,7 @@ class TestValidate:
         dag.documents["OTHER"] = DocumentConfig(prefix="OTHER")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
         graph = TraceabilityGraph()
-        other_item = Item(
-            uid="OTHER001", text="Other", document_prefix="OTHER", reviewed="h"
-        )
+        other_item = Item(uid="OTHER001", text="Other", document_prefix="OTHER", reviewed="h")
         srs_item = Item(
             uid="SRS001",
             text="Links to wrong doc",
@@ -697,9 +664,7 @@ class TestValidate:
         # Only SYS in DAG, not "ORPHAN"
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         graph = TraceabilityGraph()
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", reviewed="h"
-        )
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", reviewed="h")
         orphan_item = Item(
             uid="ORPHAN001",
             text="Orphan",
@@ -849,9 +814,7 @@ class TestValidate:
         item_dir = tmp_path / "srs"
         item_dir.mkdir()
         item_file = item_dir / "SRS001.yml"
-        item_file.write_text(
-            f"uid: SRS001\ntext: Source\nlinks:\n  - SYS001: {correct_hash}\n"
-        )
+        item_file.write_text(f"uid: SRS001\ntext: Source\nlinks:\n  - SYS001: {correct_hash}\n")
         issues = validate(
             dag,
             graph,
@@ -936,6 +899,10 @@ class TestValidate:
 
     def test_item_with_reviewed_hash_and_link_hashes(self, tmp_path):
         """Item with both reviewed hash AND link_hashes: both checks fire."""
+        # Hashes must be >= 20 chars and contain only URL-safe base64 chars
+        stale_link_hash = "stale_link_hash_01234567"
+        stale_reviewed_hash = "stale_reviewed_hash_01234567"
+
         dag = DocumentDAG()
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
@@ -947,7 +914,7 @@ class TestValidate:
             uid="SYS001",
             text="Target",
             document_prefix="SYS",
-            reviewed="h",
+            reviewed="valid_target_reviewed_hash",
         )
         # Source has a stale reviewed hash AND link_hashes on disk
         source = Item(
@@ -955,7 +922,7 @@ class TestValidate:
             text="Source text",
             document_prefix="SRS",
             links=["SYS001"],
-            reviewed="stale_reviewed_hash",
+            reviewed=stale_reviewed_hash,
         )
         graph.add_item(target)
         graph.add_item(source)
@@ -965,9 +932,7 @@ class TestValidate:
         # Write YAML with a stale link hash
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
-        (srs_dir / "SRS001.yml").write_text(
-            "uid: SRS001\ntext: Source text\nlinks:\n  - SYS001: stale_link_hash\n"
-        )
+        (srs_dir / "SRS001.yml").write_text(f"uid: SRS001\ntext: Source text\nlinks:\n  - SYS001: {stale_link_hash}\n")
 
         issues = validate(
             dag,
@@ -980,16 +945,10 @@ class TestValidate:
             check_unlinked=False,
         )
         # Review check should flag SRS001's stale reviewed hash
-        review_issues = [
-            i
-            for i in issues
-            if "modified since last review" in str(i) and "SRS001" in str(i)
-        ]
+        review_issues = [i for i in issues if "modified since last review" in str(i) and "SRS001" in str(i)]
         assert len(review_issues) == 1
         # Suspect check should flag the stale link hash on SRS001
-        suspect_issues = [
-            i for i in issues if "suspect" in str(i).lower() and "SRS001" in str(i)
-        ]
+        suspect_issues = [i for i in issues if "suspect" in str(i).lower() and "SRS001" in str(i)]
         assert len(suspect_issues) == 1
 
     def test_multiple_parent_documents_link_to_one(self):
@@ -1000,9 +959,7 @@ class TestValidate:
         dag.documents["HW"] = DocumentConfig(prefix="HW")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS", "HW"])
         graph = TraceabilityGraph()
-        sys_item = Item(
-            uid="SYS001", text="System", document_prefix="SYS", reviewed="h"
-        )
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS", reviewed="h")
         hw_item = Item(uid="HW001", text="Hardware", document_prefix="HW", reviewed="h")
         # SRS item links only to HW001, which is a valid parent
         srs_item = Item(
@@ -1088,8 +1045,6 @@ class TestValidate:
             check_empty_text=False,
             check_item_cycles=False,
         )
-        unlinked = [
-            i for i in issues if "normative non-derived item has no links" in str(i)
-        ]
+        unlinked = [i for i in issues if "normative non-derived item has no links" in str(i)]
         assert len(unlinked) == 1
         assert "SRS001" in str(unlinked[0])

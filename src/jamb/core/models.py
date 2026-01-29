@@ -67,10 +67,21 @@ class Item:
 
     @property
     def display_text(self) -> str:
-        """Return header if present, otherwise truncated text."""
+        """Return header if present, otherwise truncated text.
+
+        Truncation is safe for multi-byte UTF-8 characters since Python
+        strings are Unicode codepoint sequences, not byte sequences.
+        """
         if self.header:
             return self.header
-        return self.text[:80] + "..." if len(self.text) > 80 else self.text
+        if len(self.text) > 80:
+            # Truncate at word boundary if possible to avoid mid-word cuts
+            truncated = self.text[:80]
+            last_space = truncated.rfind(" ")
+            if last_space > 60:  # Only use word boundary if reasonably close
+                truncated = truncated[:last_space]
+            return truncated + "..."
+        return self.text
 
     @property
     def full_display_text(self) -> str:
@@ -207,7 +218,12 @@ class ItemCoverage:
 
     @property
     def all_tests_passed(self) -> bool:
-        """Return True if all linked tests passed."""
+        """Return True if all linked tests passed.
+
+        Returns False if there are no linked tests, since an item with
+        no tests cannot be considered to have "all tests passing".
+        This is intentional - use ``is_covered`` to check if tests exist.
+        """
         if not self.linked_tests:
             return False
         return all(t.test_outcome == "passed" for t in self.linked_tests)
@@ -268,9 +284,7 @@ class TraceabilityGraph:
         """
         # Check for self-loop
         if item.uid in item.links:
-            raise ValueError(
-                f"Item '{item.uid}' cannot link to itself (self-loop detected)"
-            )
+            raise ValueError(f"Item '{item.uid}' cannot link to itself (self-loop detected)")
 
         if item.uid in self.items:
             for old_parent in self.item_parents.get(item.uid, []):
@@ -292,9 +306,10 @@ class TraceabilityGraph:
                 self.item_children[parent_uid].append(item.uid)
 
     def set_document_parent(self, prefix: str, parent_prefix: str | None) -> None:
-        """Set a single parent document (backward-compat wrapper).
+        """Set a single parent document, replacing any existing parents.
 
-        For DAG support, use set_document_parents() instead.
+        Backward-compatible wrapper for single-parent hierarchies.
+        For DAG support with multiple parents, use set_document_parents().
 
         Args:
             prefix: The document prefix to set the parent for.
@@ -306,7 +321,10 @@ class TraceabilityGraph:
             self.document_parents[prefix] = [parent_prefix]
 
     def set_document_parents(self, prefix: str, parents: list[str]) -> None:
-        """Set the parent documents for a document prefix (DAG).
+        """Replace all parent documents with the given list.
+
+        Use this when you need to set the complete list of parents at once.
+        Existing parents are replaced, not merged.
 
         Args:
             prefix: The document prefix to set parents for.
@@ -315,7 +333,10 @@ class TraceabilityGraph:
         self.document_parents[prefix] = list(parents)
 
     def add_document_parent(self, prefix: str, parent: str) -> None:
-        """Add a parent document to a document prefix.
+        """Add a parent document without removing existing parents.
+
+        Use this when building the graph incrementally.
+        No-op if the parent already exists for this prefix.
 
         Args:
             prefix: The document prefix to add a parent to.
@@ -414,8 +435,7 @@ class TraceabilityGraph:
         return [
             self.items[child_uid]
             for child_uid in self.item_children.get(uid, [])
-            if child_uid in self.items
-            and self.items[child_uid].document_prefix == prefix
+            if child_uid in self.items and self.items[child_uid].document_prefix == prefix
         ]
 
     def get_parents_from_document(self, uid: str, prefix: str) -> list[Item]:
@@ -431,8 +451,7 @@ class TraceabilityGraph:
         return [
             self.items[parent_uid]
             for parent_uid in self.item_parents.get(uid, [])
-            if parent_uid in self.items
-            and self.items[parent_uid].document_prefix == prefix
+            if parent_uid in self.items and self.items[parent_uid].document_prefix == prefix
         ]
 
     def get_items_by_document(self, prefix: str) -> list[Item]:
@@ -452,9 +471,7 @@ class TraceabilityGraph:
         Returns:
             List of document prefix strings with no parent documents.
         """
-        return [
-            prefix for prefix, parents in self.document_parents.items() if not parents
-        ]
+        return [prefix for prefix, parents in self.document_parents.items() if not parents]
 
     def get_leaf_documents(self) -> list[str]:
         """Get document prefixes that are not parents of any other document.
@@ -465,11 +482,7 @@ class TraceabilityGraph:
         all_parents: set[str] = set()
         for parents in self.document_parents.values():
             all_parents.update(parents)
-        return [
-            prefix
-            for prefix in self.document_parents.keys()
-            if prefix not in all_parents
-        ]
+        return [prefix for prefix in self.document_parents.keys() if prefix not in all_parents]
 
     def get_document_children(self, prefix: str) -> list[str]:
         """Get child document prefixes for a document.
@@ -480,11 +493,7 @@ class TraceabilityGraph:
         Returns:
             List of document prefix strings that have this document as a parent.
         """
-        return [
-            child_prefix
-            for child_prefix, parents in self.document_parents.items()
-            if prefix in parents
-        ]
+        return [child_prefix for child_prefix, parents in self.document_parents.items() if prefix in parents]
 
 
 @dataclass

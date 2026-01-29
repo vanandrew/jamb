@@ -72,11 +72,13 @@ class TestDocumentDAG:
         assert order.index("HAZ") < order.index("SRS")
 
     def test_topological_sort_parent_referencing_nonexistent(self):
-        """3a: Doc with parent not in documents is treated as root."""
+        """3a: Doc with parent not in documents raises ValueError."""
+        import pytest
+
         dag = DocumentDAG()
         dag.documents["A"] = DocumentConfig(prefix="A", parents=["NONEXIST"])
-        order = dag.topological_sort()
-        assert "A" in order
+        with pytest.raises(ValueError, match="missing parents"):
+            dag.topological_sort()
 
     def test_validate_acyclic_self_reference(self):
         """3b: Self-referencing document (A.parents = ['A']) is a cycle."""

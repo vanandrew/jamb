@@ -12,6 +12,37 @@ from jamb.storage.items import (
 )
 
 
+class TestReadItemErrorHandling:
+    """Tests for read_item error handling."""
+
+    def test_read_item_os_error(self, tmp_path):
+        """Test read_item handles OSError appropriately."""
+        from unittest.mock import patch
+
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("text: test")
+
+        # Mock open to raise OSError on the second call (after file exists check)
+        original_open = open
+
+        def mock_open_wrapper(*args, **kwargs):
+            if str(item_path) in str(args[0]) and "r" in str(kwargs.get("mode", "r")):
+                raise OSError("Permission denied")
+            return original_open(*args, **kwargs)
+
+        with patch("builtins.open", side_effect=mock_open_wrapper):
+            with pytest.raises(OSError, match="Permission denied"):
+                read_item(item_path, "SRS")
+
+    def test_read_item_yaml_error(self, tmp_path):
+        """Test read_item raises ValueError on YAML syntax error."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("invalid: yaml: [unclosed")
+
+        with pytest.raises(ValueError, match="Invalid YAML"):
+            read_item(item_path, "SRS")
+
+
 class TestReadItem:
     def test_reads_basic_item(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
@@ -25,18 +56,18 @@ class TestReadItem:
 
     def test_reads_links_plain(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
-        item_path.write_text(
-            "active: true\ntext: Test\nlinks:\n  - SYS001\n  - SYS002\n"
-        )
+        item_path.write_text("active: true\ntext: Test\nlinks:\n  - SYS001\n  - SYS002\n")
         data = read_item(item_path, "SRS")
         assert data["links"] == ["SYS001", "SYS002"]
 
     def test_reads_links_with_hash(self, tmp_path):
+        # Hash must be >= 20 chars and contain only URL-safe base64 chars
+        valid_hash = "abcdefghijklmnopqrstuvwxyz"
         item_path = tmp_path / "SRS001.yml"
-        item_path.write_text("active: true\ntext: Test\nlinks:\n  - SYS001: abc123\n")
+        item_path.write_text(f"active: true\ntext: Test\nlinks:\n  - SYS001: {valid_hash}\n")
         data = read_item(item_path, "SRS")
         assert data["links"] == ["SYS001"]
-        assert data["link_hashes"] == {"SYS001": "abc123"}
+        assert data["link_hashes"] == {"SYS001": valid_hash}
 
     def test_reads_explicit_type(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
@@ -52,13 +83,13 @@ class TestReadItem:
 
     def test_reads_mixed_link_formats(self, tmp_path):
         """Links list with both dict and string entries."""
+        # Hash must be >= 20 chars and contain only URL-safe base64 chars
+        valid_hash = "abcdefghijklmnopqrstuvwxyz"
         item_path = tmp_path / "SRS001.yml"
-        item_path.write_text(
-            "active: true\ntext: Test\nlinks:\n  - SYS001: abc\n  - SYS002\n"
-        )
+        item_path.write_text(f"active: true\ntext: Test\nlinks:\n  - SYS001: {valid_hash}\n  - SYS002\n")
         data = read_item(item_path, "SRS")
         assert data["links"] == ["SYS001", "SYS002"]
-        assert data["link_hashes"] == {"SYS001": "abc"}
+        assert data["link_hashes"] == {"SYS001": valid_hash}
 
     def test_reads_empty_header_as_none(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
@@ -80,12 +111,17 @@ class TestReadItem:
         assert data["text"] == ""
         assert data["active"] is True
 
-    def test_reads_numeric_link_as_string(self, tmp_path):
-        """A link that YAML parses as int should become a string."""
+    def test_reads_numeric_link_rejected_with_warning(self, tmp_path):
+        """A link that YAML parses as int is rejected with warning."""
+        import warnings
+
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("active: true\ntext: Test\nlinks:\n  - 123\n")
-        data = read_item(item_path, "SRS")
-        assert data["links"] == ["123"]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            data = read_item(item_path, "SRS")
+        # Non-string links are rejected
+        assert data["links"] == []
 
     def test_null_hash_excluded_from_link_hashes(self, tmp_path):
         """1a: {UID: null} link hash should be excluded from link_hashes."""
@@ -141,11 +177,64 @@ class TestReadItem:
         assert data["header"] is None
 
     def test_raises_on_yaml_syntax_error(self, tmp_path):
-        """Malformed YAML content causes yaml.YAMLError to propagate."""
+        """Malformed YAML content raises ValueError with context."""
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text(": bad: {{")
-        with pytest.raises(yaml.YAMLError):
+        with pytest.raises(ValueError, match="Invalid YAML in file"):
             read_item(item_path, "SRS")
+
+    def test_reads_empty_dict_in_links(self, tmp_path):
+        """Empty dict {} in links list is skipped without error."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\nlinks:\n  - {}\n  - SYS001\n")
+        data = read_item(item_path, "SRS")
+        assert data["links"] == ["SYS001"]
+        assert data["link_hashes"] == {}
+
+    def test_reads_empty_string_link_with_warning(self, tmp_path):
+        """Empty string in links list produces warning."""
+        import warnings
+
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\nlinks:\n  - ''\n  - SYS001\n")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            data = read_item(item_path, "SRS")
+            # Should skip empty string but keep valid link
+            assert data["links"] == ["SYS001"]
+            # Should warn about empty link
+            assert any("Empty link UID" in str(warning.message) for warning in w)
+
+    def test_reads_short_hash_with_warning(self, tmp_path):
+        """Link hash shorter than 20 chars produces warning."""
+        import warnings
+
+        short_hash = "abc123"  # Only 6 chars, should be rejected
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text(f"active: true\ntext: Test\nlinks:\n  - SYS001: {short_hash}\n")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            data = read_item(item_path, "SRS")
+            # Link UID should still be added
+            assert data["links"] == ["SYS001"]
+            # But hash should not be stored due to invalid format
+            assert data["link_hashes"] == {}
+            # Should warn about invalid hash format
+            assert any("Invalid hash format" in str(warning.message) for warning in w)
+
+    def test_reads_non_string_reviewed_with_warning(self, tmp_path):
+        """Non-string reviewed field produces warning and is treated as None."""
+        import warnings
+
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\nreviewed: 123\n")
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            data = read_item(item_path, "SRS")
+            # Should be treated as not reviewed
+            assert data["reviewed"] is None
+            # Should warn about non-string reviewed
+            assert any("non-string 'reviewed'" in str(warning.message) for warning in w)
 
 
 class TestWriteItem:
@@ -216,6 +305,22 @@ class TestWriteItem:
         write_item({"active": True, "text": "Test"}, item_path)
         assert item_path.exists()
 
+    def test_cleans_temp_on_write_failure(self, tmp_path):
+        """Temp file is cleaned up if write fails."""
+        from unittest.mock import patch
+
+        item_path = tmp_path / "SRS001.yml"
+
+        # Mock dump_yaml to raise an error during write
+        with patch("jamb.storage.items.dump_yaml") as mock_dump:
+            mock_dump.side_effect = ValueError("Simulated write failure")
+            with pytest.raises(ValueError, match="Simulated write failure"):
+                write_item({"active": True, "text": "Test"}, item_path)
+
+        # No temp files should remain
+        temp_files = list(tmp_path.glob(".tmp_*.yml"))
+        assert temp_files == []
+
 
 class TestReadDocumentItems:
     def test_reads_items(self, tmp_path):
@@ -247,10 +352,10 @@ class TestReadDocumentItems:
         assert items[0]["uid"] == "API-0001"
 
     def test_raises_on_yaml_syntax_error(self, tmp_path):
-        """A malformed YAML item file causes yaml.YAMLError to propagate."""
+        """A malformed YAML item file raises ValueError with context."""
         (tmp_path / "SRS001.yml").write_text("active: true\ntext: Valid\n")
         (tmp_path / "SRS002.yml").write_text(": bad: {{")
-        with pytest.raises(yaml.YAMLError):
+        with pytest.raises(ValueError, match="Invalid YAML in file"):
             read_document_items(tmp_path, "SRS")
 
 
@@ -321,9 +426,7 @@ class TestRoundTrip:
         """Write multiline text, read back, assert exact match and | in raw file."""
         item_path = tmp_path / "SRS001.yml"
         multiline_text = "line1\nline2\nline3"
-        write_item(
-            {"active": True, "text": multiline_text, "type": "requirement"}, item_path
-        )
+        write_item({"active": True, "text": multiline_text, "type": "requirement"}, item_path)
         raw = item_path.read_text()
         assert "|" in raw
         data = read_item(item_path, "SRS")
@@ -331,6 +434,9 @@ class TestRoundTrip:
 
     def test_preserves_all_fields(self, tmp_path):
         """Write item with every field populated, read back, assert all match."""
+        # Hash must be >= 20 chars and contain only URL-safe base64 chars
+        link_hash = "abcdefghijklmnopqrstuvwxyz"
+        reviewed_hash = "reviewhash_0123456789abcdef"
         item_path = tmp_path / "SRS001.yml"
         item_data = {
             "active": True,
@@ -338,8 +444,8 @@ class TestRoundTrip:
             "type": "heading",
             "header": "Section A",
             "links": ["SYS001", "SYS002"],
-            "link_hashes": {"SYS001": "abc123"},
-            "reviewed": "reviewhash",
+            "link_hashes": {"SYS001": link_hash},
+            "reviewed": reviewed_hash,
             "derived": True,
         }
         write_item(item_data, item_path)
@@ -351,16 +457,14 @@ class TestRoundTrip:
         assert data["active"] is True
         assert "SYS001" in data["links"]
         assert "SYS002" in data["links"]
-        assert data["link_hashes"]["SYS001"] == "abc123"
-        assert data["reviewed"] == "reviewhash"
+        assert data["link_hashes"]["SYS001"] == link_hash
+        assert data["reviewed"] == reviewed_hash
         assert data["derived"] is True
 
     def test_empty_links_and_no_header(self, tmp_path):
         """Round-trip with links=[] and header=''."""
         item_path = tmp_path / "SRS001.yml"
-        write_item(
-            {"active": True, "text": "Simple", "links": [], "header": ""}, item_path
-        )
+        write_item({"active": True, "text": "Simple", "links": [], "header": ""}, item_path)
         data = read_item(item_path, "SRS")
         assert data["text"] == "Simple"
         assert data["links"] == []
