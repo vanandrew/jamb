@@ -2548,3 +2548,53 @@ class TestMatrixCommand:
 
         assert result.exit_code == 0
         assert output.exists()
+
+    def test_matrix_with_trace_to_ignore(self, runner, tmp_path, jamb_file):
+        """Test matrix command with --trace-to-ignore option."""
+        output = tmp_path / "matrix.html"
+
+        result = runner.invoke(
+            cli,
+            [
+                "matrix",
+                str(output),
+                "--input",
+                str(jamb_file),
+                "--trace-from",
+                "SYS",
+                "--trace-to-ignore",
+                "PRJ",
+            ],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        assert output.exists()
+
+    def test_matrix_corrupt_jamb_file(self, runner, tmp_path):
+        """Test matrix command with corrupt .jamb file."""
+        # Create corrupt .jamb file
+        jamb_path = tmp_path / ".jamb"
+        jamb_path.write_text('{"version": 999}')
+
+        output = tmp_path / "matrix.html"
+
+        result = runner.invoke(
+            cli,
+            ["matrix", str(output), "--input", str(jamb_path)],
+        )
+
+        assert result.exit_code == 1
+        assert "Error" in result.output
+
+    def test_matrix_unrecognized_extension(self, runner, tmp_path, jamb_file):
+        """Test matrix command with unrecognized file extension."""
+        output = tmp_path / "matrix.xyz"
+
+        result = runner.invoke(
+            cli,
+            ["matrix", str(output), "--input", str(jamb_file), "--trace-from", "SYS"],
+        )
+
+        assert result.exit_code == 1
+        assert "Unrecognized file extension" in result.output

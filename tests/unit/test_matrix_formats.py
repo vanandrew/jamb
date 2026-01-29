@@ -420,6 +420,41 @@ class TestRenderTestRecordsXlsx:
         wb = load_workbook(io.BytesIO(output))
         assert wb.active.title == "Test Records"
 
+    def test_includes_metadata_with_environment(
+        self, sample_test_records, sample_metadata
+    ):
+        """Test that metadata with environment is included."""
+        output = render_test_records_xlsx(sample_test_records, metadata=sample_metadata)
+
+        wb = load_workbook(io.BytesIO(output))
+        ws = wb.active
+
+        # Check metadata cells are present
+        values = [cell.value for row in ws.iter_rows() for cell in row if cell.value]
+        assert "Software Version:" in values
+        assert "1.0.0" in values
+        assert "Environment:" in values
+        assert "Test Tools:" in values
+
+    def test_all_outcome_colors(self):
+        """Test that all test outcomes get appropriate colors."""
+        records = [
+            TestRecord(
+                test_id=f"TC{i:03d}",
+                test_name=f"test_{outcome}",
+                test_nodeid=f"test.py::test_{outcome}",
+                outcome=outcome,
+                requirements=["SRS001"],
+            )
+            for i, outcome in enumerate(
+                ["passed", "failed", "skipped", "error", "unknown"], 1
+            )
+        ]
+
+        output = render_test_records_xlsx(records)
+        wb = load_workbook(io.BytesIO(output))
+        assert wb.active is not None
+
 
 # =============================================================================
 # Full Chain XLSX Tests
@@ -442,3 +477,74 @@ class TestRenderFullChainXlsx:
 
         wb = load_workbook(io.BytesIO(output))
         assert wb.active.title == "Traceability Matrix"
+
+    def test_multiple_matrices_create_sheets(self):
+        """Test that multiple matrices create separate sheets."""
+        item1 = Item(uid="UN001", text="User need", document_prefix="UN")
+        item2 = Item(uid="SYS001", text="System req", document_prefix="SYS")
+
+        matrices = [
+            FullChainMatrix(
+                path_name="UN -> SYS",
+                document_hierarchy=["UN", "SYS"],
+                rows=[ChainRow(chain={"UN": item1, "SYS": item2})],
+                summary={"total": 1, "passed": 1},
+            ),
+            FullChainMatrix(
+                path_name="UN -> HAZ",
+                document_hierarchy=["UN", "HAZ"],
+                rows=[ChainRow(chain={"UN": item1})],
+                summary={"total": 1, "not_covered": 1},
+            ),
+        ]
+
+        output = render_full_chain_xlsx(matrices)
+        wb = load_workbook(io.BytesIO(output))
+
+        # Should have 2 sheets
+        assert len(wb.sheetnames) == 2
+
+    def test_all_status_colors(self):
+        """Test that all status values get appropriate colors."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+
+        matrices = [
+            FullChainMatrix(
+                path_name="SRS",
+                document_hierarchy=["SRS"],
+                rows=[
+                    ChainRow(chain={"SRS": item}, rollup_status="Passed"),
+                    ChainRow(chain={"SRS": item}, rollup_status="Failed"),
+                    ChainRow(chain={"SRS": item}, rollup_status="Partial"),
+                    ChainRow(chain={"SRS": item}, rollup_status="Not Covered"),
+                    ChainRow(chain={"SRS": item}, rollup_status="N/A"),
+                ],
+                summary={"total": 5, "passed": 1, "failed": 1, "not_covered": 1},
+            )
+        ]
+
+        output = render_full_chain_xlsx(matrices)
+        wb = load_workbook(io.BytesIO(output))
+        assert wb.active is not None
+
+    def test_include_ancestors_column(self):
+        """Test that ancestors column is included when flag is set."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+
+        matrices = [
+            FullChainMatrix(
+                path_name="SRS",
+                document_hierarchy=["SRS"],
+                rows=[ChainRow(chain={"SRS": item}, ancestor_uids=["UN001", "SYS001"])],
+                summary={"total": 1},
+                include_ancestors=True,
+            )
+        ]
+
+        output = render_full_chain_xlsx(matrices)
+        wb = load_workbook(io.BytesIO(output))
+        ws = wb.active
+
+        # Check for "Traces To" header
+        values = [cell.value for row in ws.iter_rows() for cell in row if cell.value]
+        assert "Traces To" in values

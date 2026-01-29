@@ -214,3 +214,105 @@ class TestLoadCoverage:
         assert loaded_metadata.environment.os_name == "Linux"
         assert loaded_metadata.environment.cpu_count == 4
         assert loaded_metadata.environment.test_tools == {"pytest": "7.0.0"}
+
+    def test_load_raises_on_unsupported_version(self, tmp_path: Path):
+        """Test that ValueError is raised for unsupported version."""
+        bad_file = tmp_path / ".jamb"
+        bad_file.write_text(json.dumps({"version": 999, "coverage": {}, "graph": {}}))
+
+        with pytest.raises(ValueError, match="Unsupported .jamb file version"):
+            load_coverage(str(bad_file))
+
+    def test_load_raises_on_missing_required_fields(self, tmp_path: Path):
+        """Test that ValueError is raised when required fields are missing."""
+        bad_file = tmp_path / ".jamb"
+        bad_file.write_text(json.dumps({"version": 1}))
+
+        with pytest.raises(ValueError, match="missing required fields"):
+            load_coverage(str(bad_file))
+
+    def test_load_warns_on_orphaned_items(self, tmp_path: Path):
+        """Test that warning is emitted for orphaned items in coverage."""
+        output_path = tmp_path / ".jamb"
+
+        # Create a coverage file with orphaned items (in coverage but not in graph)
+        data = {
+            "version": 1,
+            "coverage": {
+                "SRS001": {
+                    "item": {
+                        "uid": "SRS001",
+                        "text": "Test",
+                        "document_prefix": "SRS",
+                    },
+                    "linked_tests": [],
+                },
+            },
+            "graph": {
+                "items": {},  # Empty graph - SRS001 is orphaned
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+        }
+        output_path.write_text(json.dumps(data))
+
+        with pytest.warns(UserWarning, match="Orphaned items"):
+            load_coverage(str(output_path))
+
+    def test_load_warns_on_malformed_coverage_entry(self, tmp_path: Path):
+        """Test that warning is emitted for malformed coverage entries."""
+        output_path = tmp_path / ".jamb"
+
+        # Create a coverage file with malformed entry (missing 'item' field)
+        data = {
+            "version": 1,
+            "coverage": {
+                "SRS001": {
+                    "linked_tests": [],
+                    # Missing 'item' field
+                },
+            },
+            "graph": {
+                "items": {},
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+        }
+        output_path.write_text(json.dumps(data))
+
+        with pytest.warns(UserWarning, match="Malformed coverage entry"):
+            coverage, _, _ = load_coverage(str(output_path))
+            # The malformed entry should be skipped
+            assert "SRS001" not in coverage
+
+    def test_load_with_many_orphaned_items_shows_truncated_warning(
+        self, tmp_path: Path
+    ):
+        """Test that orphaned items warning shows 'and N more' for >5 items."""
+        output_path = tmp_path / ".jamb"
+
+        # Create coverage with more than 5 orphaned items
+        coverage_entries = {}
+        for i in range(10):
+            uid = f"SRS{i:03d}"
+            coverage_entries[uid] = {
+                "item": {"uid": uid, "text": f"Item {i}", "document_prefix": "SRS"},
+                "linked_tests": [],
+            }
+
+        data = {
+            "version": 1,
+            "coverage": coverage_entries,
+            "graph": {
+                "items": {},  # All items are orphaned
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+        }
+        output_path.write_text(json.dumps(data))
+
+        with pytest.warns(UserWarning, match=r"and \d+ more"):
+            load_coverage(str(output_path))

@@ -12,9 +12,12 @@ from jamb.core.models import (
     TraceabilityGraph,
 )
 from jamb.matrix.generator import (
+    build_test_id_mapping,
     build_test_records,
+    generate_full_chain_matrix,
     generate_test_records_matrix,
 )
+from jamb.matrix.utils import infer_format
 
 # ============================================================================
 # Coverage Factory Functions
@@ -252,7 +255,6 @@ class TestGenerateFullChainMatrix:
 
     def test_html_format(self, tmp_path):
         """Test generating full chain matrix in HTML format."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.html"
@@ -270,7 +272,6 @@ class TestGenerateFullChainMatrix:
 
     def test_markdown_format(self, tmp_path):
         """Test generating full chain matrix in Markdown format."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.md"
@@ -288,7 +289,6 @@ class TestGenerateFullChainMatrix:
 
     def test_json_format(self, tmp_path):
         """Test generating full chain matrix in JSON format."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.json"
@@ -306,7 +306,6 @@ class TestGenerateFullChainMatrix:
 
     def test_csv_format(self, tmp_path):
         """Test generating full chain matrix in CSV format."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.csv"
@@ -324,7 +323,6 @@ class TestGenerateFullChainMatrix:
 
     def test_xlsx_format(self, tmp_path):
         """Test generating full chain matrix in XLSX format."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.xlsx"
@@ -342,7 +340,6 @@ class TestGenerateFullChainMatrix:
 
     def test_unknown_format_raises(self, tmp_path):
         """Test that unknown format raises ValueError."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.txt"
@@ -354,7 +351,6 @@ class TestGenerateFullChainMatrix:
 
     def test_creates_parent_directories(self, tmp_path):
         """Test that parent directories are created."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "subdir" / "nested" / "matrix.html"
@@ -371,7 +367,6 @@ class TestGenerateFullChainMatrix:
 
     def test_include_ancestors_passed_to_builder(self, tmp_path):
         """Test that include_ancestors flag is passed to chain builder."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.html"
@@ -399,7 +394,6 @@ class TestGenerateFullChainMatrix:
 
     def test_tc_mapping_passed_to_renderer(self, tmp_path):
         """Test that tc_mapping is passed to renderer."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.html"
@@ -424,7 +418,6 @@ class TestGenerateFullChainMatrix:
 
     def test_builds_tc_mapping_when_not_provided(self, tmp_path):
         """Test that TC mapping is built when not provided."""
-        from jamb.matrix.generator import generate_full_chain_matrix
 
         graph, coverage = self._make_graph_and_coverage()
         output = tmp_path / "matrix.html"
@@ -445,3 +438,80 @@ class TestGenerateFullChainMatrix:
         args, _ = mock.call_args
         # TC mapping should have been built automatically
         assert args[1] == {"test.py::test_req": "TC001"}
+
+
+class TestInferFormat:
+    """Tests for infer_format utility function."""
+
+    def test_html_extension(self):
+        """Test .html extension."""
+        assert infer_format("matrix.html") == "html"
+
+    def test_htm_extension(self):
+        """Test .htm extension."""
+        assert infer_format("matrix.htm") == "html"
+
+    def test_json_extension(self):
+        """Test .json extension."""
+        assert infer_format("output.json") == "json"
+
+    def test_csv_extension(self):
+        """Test .csv extension."""
+        assert infer_format("data.csv") == "csv"
+
+    def test_markdown_extension(self):
+        """Test .md extension."""
+        assert infer_format("readme.md") == "markdown"
+
+    def test_xlsx_extension(self):
+        """Test .xlsx extension."""
+        assert infer_format("workbook.xlsx") == "xlsx"
+
+    def test_case_insensitive(self):
+        """Test that extension matching is case insensitive."""
+        assert infer_format("MATRIX.HTML") == "html"
+        assert infer_format("Matrix.Json") == "json"
+
+    def test_unrecognized_extension_raises(self):
+        """Test that unrecognized extension raises ValueError."""
+        with pytest.raises(ValueError, match="Unrecognized file extension"):
+            infer_format("file.xyz")
+
+    def test_no_extension_raises(self):
+        """Test that file without extension raises ValueError."""
+        with pytest.raises(ValueError, match="Unrecognized file extension"):
+            infer_format("noextension")
+
+
+class TestBuildTestIdMapping:
+    """Tests for build_test_id_mapping function."""
+
+    def test_empty_coverage_returns_empty_dict(self):
+        """Test that empty coverage returns empty dict."""
+        result = build_test_id_mapping({})
+        assert result == {}
+
+    def test_builds_sequential_ids(self):
+        """Test that TC IDs are assigned sequentially."""
+        coverage = make_coverage(with_tests=True)
+        result = build_test_id_mapping(coverage)
+
+        # Should have 2 tests with TC001 and TC002
+        assert len(result) == 2
+        assert "TC001" in result.values()
+        assert "TC002" in result.values()
+
+    def test_nodeid_to_tc_mapping(self):
+        """Test that mapping is from nodeid to TC ID."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test_foo",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+
+        result = build_test_id_mapping(coverage)
+
+        assert "test.py::test_foo" in result
+        assert result["test.py::test_foo"] == "TC001"
