@@ -6,7 +6,7 @@ Complete reference for all `jamb` CLI commands.
 
 | Group | Commands | Description |
 |-------|----------|-------------|
-| Top-level | `init`, `info`, `check`, `validate`, `publish`, `publish-template`, `export`, `import`, `reorder` | Project setup, validation, publishing, and data exchange |
+| Top-level | `init`, `info`, `check`, `validate`, `publish`, `publish-template`, `export`, `import`, `reorder`, `matrix` | Project setup, validation, publishing, and data exchange |
 | Document | `doc create`, `doc delete`, `doc list` | Create, remove, and list requirement documents |
 | Item | `item add`, `item remove`, `item edit`, `item show`, `item list` | Add, remove, edit, inspect, and list requirement items |
 | Link | `link add`, `link remove` | Create and remove traceability links between items |
@@ -25,6 +25,7 @@ Complete reference for all `jamb` CLI commands.
   - [jamb export](#jamb-export)
   - [jamb import](#jamb-import)
   - [jamb reorder](#jamb-reorder)
+  - [jamb matrix](#jamb-matrix)
 - [Document Commands](#document-commands)
   - [jamb doc](#jamb-doc)
   - [jamb doc create](#jamb-doc-create)
@@ -71,6 +72,7 @@ Commands:
   init              Initialize a new jamb project with default IEC 62304 documents.
   item              Manage items.
   link              Manage item links.
+  matrix            Generate traceability or test records matrix.
   publish           Publish a document.
   publish-template  Generate a DOCX template file with jamb styles.
   reorder           Renumber item UIDs sequentially to fill gaps.
@@ -431,6 +433,48 @@ jamb reorder SRS
 
 # Renumber UT items
 jamb reorder UT
+```
+
+---
+
+### jamb matrix
+
+```
+Usage: jamb matrix [OPTIONS] OUTPUT
+
+  Generate traceability or test records matrix from saved coverage data.
+
+  OUTPUT is the output file path. Format is inferred from the file extension
+  (.html, .json, .csv, .md, .xlsx).
+
+Options:
+  -i, --input PATH              Coverage file path (default: .jamb)
+  --trace-from PREFIX           Starting document prefix for trace matrix
+  --test-records                Generate test records matrix instead of trace matrix
+  --include-ancestors           Include "Traces To" column showing ancestors
+  --trace-to-ignore PREFIX      Exclude document prefix from matrix (repeatable)
+  --help                        Show this message and exit.
+```
+
+**Example:**
+```bash
+# Generate trace matrix from root document
+jamb matrix trace.html
+
+# Generate trace matrix starting from SYS document
+jamb matrix trace.html --trace-from=SYS
+
+# Generate test records matrix
+jamb matrix test-records.html --test-records
+
+# Exclude PRJ document from trace matrix
+jamb matrix trace.html --trace-to-ignore=PRJ
+
+# Generate trace matrix with ancestor column
+jamb matrix trace.html --include-ancestors
+
+# Use a specific coverage file
+jamb matrix trace.html --input=.jamb-coverage
 ```
 
 ---

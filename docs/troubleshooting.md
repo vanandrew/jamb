@@ -146,3 +146,22 @@ These errors come from `jamb import`.
 **"Duplicate UIDs in import file: \<UIDs\>"**
 : The import file contains multiple items with the same UID.
 : **Fix:** Remove or rename duplicate entries so each UID is unique.
+
+## Matrix Generation Warnings
+
+These warnings are reported when generating traceability or test records matrices.
+
+**"Orphaned items in coverage not found in graph: ['SRS001', 'SRS002'] and N more"**
+: The `.jamb` coverage file contains items that no longer exist in your requirement documents. This can happen when:
+  - Requirements were deleted after running tests
+  - Item UIDs were renamed
+  - The wrong `.jamb` file is being used
+: **Fix:** Regenerate the coverage file by running `pytest --jamb` again.
+
+**"trace_from 'XXX' not found in documents"**
+: The `trace_from` configuration option references a document prefix that doesn't exist in your project.
+: **Fix:** Check your `pyproject.toml` and ensure `trace_from` matches one of your document prefixes (e.g., UN, SYS, SRS). Run `jamb doc list` to see available documents.
+
+**"Large dataset warning: N rows. Consider using CSV format for better performance."**
+: The matrix being generated contains more than 5,000 rows. HTML and XLSX formats may be slow to generate and consume significant memory for large datasets.
+: **Fix:** Use `--jamb-matrix-format csv` for large matrices, or use `jamb matrix output.csv` to generate CSV format.

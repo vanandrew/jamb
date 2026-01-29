@@ -1,6 +1,8 @@
 """Shared fixtures for jamb tests."""
 
+import contextlib
 import os
+import warnings
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,51 @@ from click.testing import CliRunner
 
 from jamb.cli.commands import cli
 from jamb.core.models import Item, ItemCoverage, LinkedTest, TraceabilityGraph
+
+# =============================================================================
+# Warning Suppression Utilities
+# =============================================================================
+
+
+@contextlib.contextmanager
+def expect_user_warning(match: str | None = None):
+    """Context manager for code that is expected to emit UserWarning.
+
+    Use this instead of bare `warnings.simplefilter("ignore")` to document
+    that warnings are expected and optionally verify the warning message.
+
+    Args:
+        match: Optional regex pattern to match against warning message.
+              If provided, asserts that at least one warning matches.
+
+    Example:
+        with expect_user_warning("deprecated"):
+            deprecated_function()
+    """
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always", UserWarning)
+        yield recorded
+        if match is not None:
+            import re
+
+            matched = any(re.search(match, str(w.message)) for w in recorded)
+            if not matched:
+                got = [str(w.message) for w in recorded]
+                msg = f"Expected UserWarning matching '{match}', got: {got}"
+                raise AssertionError(msg)
+
+
+@contextlib.contextmanager
+def suppress_expected_warnings():
+    """Context manager to suppress expected warnings in tests.
+
+    Use this when warnings are a known, documented side effect of the test
+    scenario (e.g., testing deprecated paths or error recovery).
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        yield
+
 
 # =============================================================================
 # Shared Test Helpers
@@ -221,8 +268,8 @@ def sample_pyproject(tmp_path) -> Path:
 [tool.jamb]
 test_documents = ["SRS", "SYS"]
 fail_uncovered = true
-matrix_output = "matrix.html"
-matrix_format = "html"
+test_matrix_output = "test-records.html"
+trace_matrix_output = "traceability.html"
 """
     pyproject = tmp_path / "pyproject.toml"
     pyproject.write_text(content)

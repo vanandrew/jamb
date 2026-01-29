@@ -1,15 +1,12 @@
 """Aggressive system tests targeting edge cases and boundary conditions."""
 
-import csv
-import io
-import json
 import os
 from pathlib import Path
 
 import pytest
 import yaml
 
-from jamb.core.models import Item, ItemCoverage, LinkedTest, TraceabilityGraph
+from jamb.core.models import Item, TraceabilityGraph
 from jamb.storage.document_config import DocumentConfig
 from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.items import (
@@ -89,16 +86,22 @@ class TestMalformedYaml:
 
     def test_read_item_links_is_a_string(self, tmp_path: Path) -> None:
         """links: 'not a list' is treated as empty (not a list)."""
+        from conftest import suppress_expected_warnings
+
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text("text: hello\nlinks: 'not a list'\n")
-        result = read_item(item_file, "SRS")
+        with suppress_expected_warnings():  # warns about invalid links type
+            result = read_item(item_file, "SRS")
         assert result["links"] == []
 
     def test_read_item_links_is_a_number(self, tmp_path: Path) -> None:
         """links: 42 is treated as empty (not a list)."""
+        from conftest import suppress_expected_warnings
+
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text("text: hello\nlinks: 42\n")
-        result = read_item(item_file, "SRS")
+        with suppress_expected_warnings():  # warns about invalid links type
+            result = read_item(item_file, "SRS")
         assert result["links"] == []
 
     def test_read_item_links_contains_numbers(self, tmp_path: Path) -> None:
@@ -291,13 +294,12 @@ class TestGraphPathologies:
     """Tests for TraceabilityGraph with pathological inputs."""
 
     def test_graph_self_referential_item(self) -> None:
-        """Item links to itself — get_ancestors doesn't infinite loop."""
+        """Item linking to itself raises ValueError."""
         graph = TraceabilityGraph()
         item = Item(uid="A", text="self-ref", document_prefix="X", links=["A"])
-        graph.add_item(item)
-        ancestors = graph.get_ancestors("A")
-        # A links to itself, but visited set prevents infinite loop
-        assert len(ancestors) <= 1
+
+        with pytest.raises(ValueError, match="cannot link to itself"):
+            graph.add_item(item)
 
     def test_graph_mutual_cycle_two_items(self) -> None:
         """A links to B, B links to A — get_ancestors terminates."""
@@ -493,15 +495,13 @@ class TestValidationEdgeCases:
         assert item_issues == []
 
     def test_validate_item_links_to_itself(self) -> None:
-        """Self-link produces a warning."""
-        dag = self._make_dag({"SRS": []})
+        """Self-link raises ValueError when adding to graph."""
         graph = TraceabilityGraph()
         graph.set_document_parents("SRS", [])
         item = Item(uid="SRS001", text="test", document_prefix="SRS", links=["SRS001"])
-        graph.add_item(item)
-        issues = validate(dag, graph, check_suspect=False, check_review=False)
-        self_link_issues = [i for i in issues if "links to itself" in i.message]
-        assert len(self_link_issues) == 1
+
+        with pytest.raises(ValueError, match="cannot link to itself"):
+            graph.add_item(item)
 
     def test_validate_mutual_cycle(self) -> None:
         """A->B->A cycle detected."""
@@ -1180,140 +1180,66 @@ class TestRoundTrip:
 class TestMatrixEdgeCases:
     """Tests for matrix generation with edge-case inputs."""
 
-    def _make_coverage(
-        self,
-        items: list[Item],
-        tests: dict[str, list[LinkedTest]] | None = None,
-    ) -> dict[str, ItemCoverage]:
-        """Build coverage dict from items and optional test mapping."""
-        tests = tests or {}
-        return {
-            item.uid: ItemCoverage(item=item, linked_tests=tests.get(item.uid, []))
-            for item in items
-        }
+    def test_matrix_empty_records(self) -> None:
+        """Generate matrix with no test records — valid output."""
+        from jamb.matrix.formats.markdown import render_test_records_markdown
 
-    def test_matrix_empty_graph(self) -> None:
-        """Generate matrix with no items — valid output."""
-        from jamb.matrix.formats.html import render_html
-
-        result = render_html({}, None)
-        assert "<html>" in result.lower()
-        assert "Total Items" in result
-
-    def test_matrix_no_tests_linked(self) -> None:
-        """Items exist but no tests — matrix shows uncovered."""
-        from jamb.matrix.formats.html import render_html
-
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        coverage = self._make_coverage([item])
-        result = render_html(coverage, None)
-        assert "Not Covered" in result
+        result = render_test_records_markdown([])
+        assert "# Test Records" in result
+        assert "Total Tests" in result
 
     def test_matrix_all_tests_failed(self) -> None:
         """Every test has outcome='failed' — matrix shows all failed."""
-        from jamb.matrix.formats.html import render_html
+        from jamb.core.models import TestRecord
+        from jamb.matrix.formats.markdown import render_test_records_markdown
 
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        test = LinkedTest(
-            test_nodeid="test.py::test_fail", item_uid="SRS001", test_outcome="failed"
-        )
-        coverage = self._make_coverage([item], {"SRS001": [test]})
-        result = render_html(coverage, None)
-        assert "Failed" in result
+        records = [
+            TestRecord(
+                test_id="TC001",
+                test_name="test_fail",
+                test_nodeid="test.py::test_fail",
+                outcome="failed",
+                requirements=["SRS001"],
+            )
+        ]
+        result = render_test_records_markdown(records)
+        assert "failed" in result
 
-    def test_matrix_item_with_100_tests(self) -> None:
-        """One item, 100 linked tests — all appear."""
-        from jamb.matrix.formats.html import render_html
+    def test_matrix_many_tests(self) -> None:
+        """100 test records — all appear."""
+        from jamb.core.models import TestRecord
+        from jamb.matrix.formats.markdown import render_test_records_markdown
 
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        tests = [
-            LinkedTest(
+        records = [
+            TestRecord(
+                test_id=f"TC{i:03d}",
+                test_name=f"test_{i}",
                 test_nodeid=f"test.py::test_{i}",
-                item_uid="SRS001",
-                test_outcome="passed",
+                outcome="passed",
+                requirements=["SRS001"],
             )
             for i in range(100)
         ]
-        coverage = self._make_coverage([item], {"SRS001": tests})
-        result = render_html(coverage, None)
+        result = render_test_records_markdown(records)
         assert "test_99" in result
 
-    def test_matrix_special_chars_in_text(self) -> None:
-        """Item text with <script>, &, ' — HTML-escaped properly."""
-        from jamb.matrix.formats.html import render_html
+    def test_matrix_special_chars_in_name(self) -> None:
+        """Test name with pipe characters — escaped properly."""
+        from jamb.core.models import TestRecord
+        from jamb.matrix.formats.markdown import render_test_records_markdown
 
-        item = Item(
-            uid="SRS001",
-            text='<script>alert("xss")</script> & "quotes"',
-            document_prefix="SRS",
-        )
-        coverage = self._make_coverage([item])
-        result = render_html(coverage, None)
-        assert "<script>" not in result
-        assert "&lt;script&gt;" in result
-        assert "&amp;" in result
-
-    def test_matrix_html_format(self, tmp_path: Path) -> None:
-        """Generate HTML matrix — valid HTML structure."""
-        from jamb.matrix.generator import generate_matrix
-
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        coverage = self._make_coverage([item])
-        output = tmp_path / "matrix.html"
-        generate_matrix(coverage, None, str(output), output_format="html")
-        content = output.read_text()
-        assert "<!DOCTYPE html>" in content
-
-    def test_matrix_json_format(self, tmp_path: Path) -> None:
-        """Generate JSON matrix — valid JSON."""
-        from jamb.matrix.generator import generate_matrix
-
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        coverage = self._make_coverage([item])
-        output = tmp_path / "matrix.json"
-        generate_matrix(coverage, None, str(output), output_format="json")
-        data = json.loads(output.read_text())
-        assert "summary" in data
-        assert "items" in data
-        assert data["summary"]["total_items"] == 1
-
-    def test_matrix_csv_format(self, tmp_path: Path) -> None:
-        """Generate CSV matrix — valid CSV."""
-        from jamb.matrix.generator import generate_matrix
-
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        coverage = self._make_coverage([item])
-        output = tmp_path / "matrix.csv"
-        generate_matrix(coverage, None, str(output), output_format="csv")
-        content = output.read_text()
-        reader = csv.reader(io.StringIO(content))
-        rows = list(reader)
-        assert len(rows) == 2  # header + 1 data row
-        assert rows[0][0] == "UID"
-
-    def test_matrix_markdown_format(self, tmp_path: Path) -> None:
-        """Generate Markdown matrix — valid markdown table."""
-        from jamb.matrix.generator import generate_matrix
-
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        coverage = self._make_coverage([item])
-        output = tmp_path / "matrix.md"
-        generate_matrix(coverage, None, str(output), output_format="markdown")
-        content = output.read_text()
-        assert "# Traceability and Test Record Matrix" in content
-        assert "| SRS001 |" in content
-
-    def test_matrix_xlsx_format(self, tmp_path: Path) -> None:
-        """Generate XLSX matrix — valid Excel file."""
-        from jamb.matrix.generator import generate_matrix
-
-        item = Item(uid="SRS001", text="test", document_prefix="SRS")
-        coverage = self._make_coverage([item])
-        output = tmp_path / "matrix.xlsx"
-        generate_matrix(coverage, None, str(output), output_format="xlsx")
-        content = output.read_bytes()
-        # XLSX files start with PK (ZIP format)
-        assert content[:2] == b"PK"
+        records = [
+            TestRecord(
+                test_id="TC001",
+                test_name="test_with|pipe",
+                test_nodeid="test.py::test_with|pipe",
+                outcome="passed",
+                requirements=["SRS001"],
+            )
+        ]
+        result = render_test_records_markdown(records)
+        # Pipes are escaped in markdown tables
+        assert "\\|" in result
 
 
 # =============================================================================
@@ -1330,7 +1256,6 @@ class TestConfigEdgeCases:
 
         config = load_config(tmp_path / "nonexistent.toml")
         assert config.fail_uncovered is False
-        assert config.matrix_format == "html"
         assert config.test_documents == []
 
     def test_config_empty_jamb_section(self, tmp_path: Path) -> None:
@@ -1341,10 +1266,11 @@ class TestConfigEdgeCases:
         pyproject.write_text("[tool.jamb]\n")
         config = load_config(pyproject)
         assert config.fail_uncovered is False
-        assert config.matrix_format == "html"
 
     def test_config_unknown_keys(self, tmp_path: Path) -> None:
         """Extra keys in [tool.jamb] — ignored gracefully."""
+        from conftest import suppress_expected_warnings
+
         from jamb.config.loader import load_config
 
         pyproject = tmp_path / "pyproject.toml"
@@ -1352,7 +1278,8 @@ class TestConfigEdgeCases:
         # load_config uses .get() with defaults, so unknown keys are just ignored
         # But they'll also be passed as kwargs to JambConfig — let's check
         # Actually the code extracts specific keys, so unknowns are dropped
-        config = load_config(pyproject)
+        with suppress_expected_warnings():  # may warn about unknown keys
+            config = load_config(pyproject)
         assert config.fail_uncovered is False  # default not overridden
 
     def test_config_wrong_types(self, tmp_path: Path) -> None:
@@ -1373,17 +1300,6 @@ class TestConfigEdgeCases:
         pyproject.write_text('[tool.jamb]\ntest_documents = ["NOPE"]\n')
         config = load_config(pyproject)
         assert config.test_documents == ["NOPE"]
-
-    def test_config_matrix_format_invalid(self, tmp_path: Path) -> None:
-        """matrix_format: 'pdf' — raises ValueError at load time."""
-        import pytest
-
-        from jamb.config.loader import load_config
-
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[tool.jamb]\nmatrix_format = "pdf"\n')
-        with pytest.raises(ValueError, match="Invalid matrix_format"):
-            load_config(pyproject)
 
     def test_config_empty_exclude_patterns(self, tmp_path: Path) -> None:
         """exclude_patterns: [] — no exclusions."""

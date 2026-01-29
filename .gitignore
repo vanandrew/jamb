@@ -12,6 +12,7 @@ src/jamb/_version.py
 .ruff_cache/
 .coverage
 .mypy_cache/
+.jamb
 
 # Virtual environments
 .venv
