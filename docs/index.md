@@ -61,8 +61,8 @@ jamb publish SRS docs/srs.html
 ```
 
 ```{toctree}
-:maxdepth: 2
-:caption: Contents
+:maxdepth: 1
+:hidden:
 
 getting-started/index
 user-guide/index
