@@ -37,7 +37,7 @@ def _cli_error_handler(f: F) -> F:
 
 
 def _find_item_path(
-    uid: str, root: Path | None = None
+    uid: str, root: Path | None = None, dag: DocumentDAG | None = None
 ) -> tuple[Path | None, str | None]:
     """Find the filesystem path of an item YAML file.
 
@@ -45,6 +45,9 @@ def _find_item_path(
         uid: The item UID to locate (e.g. ``"SRS001"``).
         root: Optional project root directory. Defaults to the
             current working directory.
+        dag: Optional pre-built ``DocumentDAG``.  When provided,
+            ``discover_documents()`` is skipped, avoiding redundant
+            filesystem discovery.
 
     Returns:
         ``(item_path, document_prefix)`` if found, or
@@ -54,7 +57,8 @@ def _find_item_path(
 
     from jamb.storage import discover_documents
 
-    dag = discover_documents(root)
+    if dag is None:
+        dag = discover_documents(root)
 
     for prefix, doc_path in dag.document_paths.items():
         config = dag.documents[prefix]
@@ -230,6 +234,8 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
         # Add [tool.jamb] section
         jamb_config = tomlkit.table()
         jamb_config["test_documents"] = ["SRS"]
+        # PRJ is a heading-only project description document, so tracing
+        # its items to a parent is not meaningful.
         jamb_config["trace_to_ignore"] = ["PRJ"]
         cast(Table, doc["tool"])["jamb"] = jamb_config
 
@@ -239,6 +245,26 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
 
     except (OSError, tomlkit.exceptions.TOMLKitError) as e:
         click.echo(f"Warning: Could not update pyproject.toml: {e}", err=True)
+
+
+def _print_document_summary(dag: DocumentDAG) -> None:
+    """Print a summary of all documents with item counts.
+
+    Args:
+        dag: The document DAG to summarize.
+    """
+    from jamb.storage.items import read_document_items
+
+    click.echo(f"Found {len(dag.documents)} documents:")
+    for prefix in dag.topological_sort():
+        config = dag.documents[prefix]
+        doc_path = dag.document_paths.get(prefix)
+        count = 0
+        if doc_path:
+            items = read_document_items(doc_path, prefix, sep=config.sep)
+            count = len(items)
+        parents_str = ", ".join(config.parents) if config.parents else "(root)"
+        click.echo(f"  - {prefix}: {count} active items (parents: {parents_str})")
 
 
 @cli.command("info")
@@ -256,21 +282,9 @@ def info(root: Path | None) -> None:
     relationships, then prints a tree view of the full document hierarchy.
     """
     from jamb.storage import discover_documents
-    from jamb.storage.items import read_document_items
 
     dag = discover_documents(root)
-    click.echo(f"Found {len(dag.documents)} documents:")
-    for prefix in dag.topological_sort():
-        config = dag.documents[prefix]
-        doc_path = dag.document_paths.get(prefix)
-        count = 0
-        if doc_path:
-            items = read_document_items(doc_path, prefix, sep=config.sep)
-            count = len(items)
-        parents_str = ", ".join(config.parents) if config.parents else "(root)"
-        click.echo(f"  - {prefix}: {count} active items (parents: {parents_str})")
-
-    # Show hierarchy
+    _print_document_summary(dag)
     click.echo("\nDocument hierarchy:")
     _print_dag_hierarchy(dag)
 
@@ -325,8 +339,12 @@ def check(documents: str | None, root: Path | None) -> None:
     Scans test files for @pytest.mark.requirement markers and
     reports which items have linked tests.
 
-    Note: This does a static scan and doesn't run tests.
-    For full coverage including test outcomes, use pytest --jamb.
+    \b
+    Note: This is a static scan of test source files and does not
+    execute any tests.  Only the ``@pytest.mark.requirement(...)``
+    decorator form is detected; other import styles or aliases are
+    not recognized.  For full coverage including test outcomes, use
+    ``pytest --jamb``.
     """
     from jamb.config.loader import load_config
     from jamb.storage import build_traceability_graph, discover_documents
@@ -602,6 +620,18 @@ def doc_delete(prefix: str, root: Path | None, force: bool) -> None:
             sys.exit(1)
 
     doc_path = dag.document_paths[prefix]
+
+    # Count items for the confirmation prompt
+    item_count = len(list(doc_path.glob("*.yml"))) - (
+        1 if (doc_path / ".jamb.yml").exists() else 0
+    )
+
+    if not force:
+        click.confirm(
+            f"Delete document '{prefix}' ({item_count} items)? This cannot be undone",
+            abort=True,
+        )
+
     import shutil
 
     shutil.rmtree(doc_path)
@@ -618,20 +648,9 @@ def doc_delete(prefix: str, root: Path | None, force: bool) -> None:
 def doc_list(root: Path | None) -> None:
     """List all documents in the tree."""
     from jamb.storage import discover_documents
-    from jamb.storage.items import read_document_items
 
     dag = discover_documents(root)
-    click.echo(f"Found {len(dag.documents)} documents:")
-    for prefix in dag.topological_sort():
-        config = dag.documents[prefix]
-        doc_path = dag.document_paths.get(prefix)
-        count = 0
-        if doc_path:
-            items = read_document_items(doc_path, prefix, sep=config.sep)
-            count = len(items)
-        parents_str = ", ".join(config.parents) if config.parents else "(root)"
-        click.echo(f"  {prefix}: {count} active items (parents: {parents_str})")
-
+    _print_document_summary(dag)
     click.echo("\nHierarchy:")
     _print_dag_hierarchy(dag)
 
@@ -917,12 +936,16 @@ def link_add(child: str, parent: str) -> None:
     CHILD is the child item UID (e.g., SRS001).
     PARENT is the parent item UID (e.g., SYS001).
     """
-    item_path, prefix = _find_item_path(child)
+    from jamb.storage import discover_documents
+
+    dag = discover_documents()
+
+    item_path, prefix = _find_item_path(child, dag=dag)
     if item_path is None:
         click.echo(f"Error: Item '{child}' not found", err=True)
         sys.exit(1)
 
-    parent_path, _ = _find_item_path(parent)
+    parent_path, _ = _find_item_path(parent, dag=dag)
     if parent_path is None:
         click.echo(f"Error: Parent item '{parent}' not found", err=True)
         sys.exit(1)
@@ -1095,7 +1118,7 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
                     target = graph.items[link_uid_str]
                     target_data = {
                         "text": target.text,
-                        "header": target.header or "",
+                        "header": target.header,
                         "links": target.links,
                         "type": target.type,
                     }
@@ -1104,7 +1127,7 @@ def review_clear(label: str, parents: tuple[str, ...]) -> None:
                     updated = True
                 else:
                     # Fall back to file-based lookup for items not in graph
-                    linked_path, linked_prefix = _find_item_path(link_uid_str)
+                    linked_path, linked_prefix = _find_item_path(link_uid_str, dag=dag)
                     if linked_path and linked_prefix:
                         linked_data = read_item(linked_path, linked_prefix)
                         new_hash = compute_content_hash(linked_data)
@@ -1252,7 +1275,7 @@ def _resolve_label_to_item_paths(
 @click.option("--markdown", "-m", is_flag=True, help="Output Markdown")
 @click.option("--docx", "-d", is_flag=True, help="Output DOCX (Word document)")
 @click.option(
-    "--no-child-links", "-C", is_flag=True, help="Do not include child links on items"
+    "--no-links", "-L", is_flag=True, help="Do not include link sections in output"
 )
 @click.option(
     "--template",
@@ -1260,13 +1283,14 @@ def _resolve_label_to_item_paths(
     type=click.Path(exists=True, path_type=Path),
     help="DOCX template file to use for styling (use with --docx)",
 )
+@_cli_error_handler
 def publish(
     prefix: str,
     path: str | None,
     html: bool,
     markdown: bool,
     docx: bool,
-    no_child_links: bool,
+    no_links: bool,
     template: Path | None,
 ) -> None:
     """Publish a document.
@@ -1279,7 +1303,7 @@ def publish(
 
     For a traceability matrix with test coverage, use: pytest --jamb --jamb-matrix PATH
     """
-    include_links = not no_child_links
+    include_links = not no_links
 
     # Validate template option
     if template:

@@ -122,9 +122,7 @@ def export_items_to_yaml(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(
-            data, f, default_flow_style=False, sort_keys=False, allow_unicode=True
-        )
+        _dump_yaml(data, f)
 
 
 def export_to_yaml(
@@ -176,9 +174,7 @@ def export_to_yaml(
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(
-            data, f, default_flow_style=False, sort_keys=False, allow_unicode=True
-        )
+        _dump_yaml(data, f)
 
 
 def _graph_item_to_dict(item: Item) -> ItemDict:
@@ -428,7 +424,7 @@ def _create_item(
     links = spec.get("links", [])
 
     # Extract prefix from UID (e.g., SRS001 -> SRS)
-    prefix = _extract_prefix(uid)
+    prefix = _extract_prefix(uid, dag=dag)
     if not prefix:
         echo(f"  Error: Cannot determine prefix from UID: {uid}")
         return "error"
@@ -496,17 +492,30 @@ def _document_exists(prefix: str, dag: DocumentDAG | None = None) -> bool:
     return prefix in dag.documents
 
 
-def _extract_prefix(uid: str) -> str | None:
+def _extract_prefix(uid: str, dag: DocumentDAG | None = None) -> str | None:
     """Extract document prefix from UID (e.g., SRS001 -> SRS).
 
     Args:
         uid: The item UID string to extract a prefix from.
+        dag: Optional pre-built DAG.  When provided, the UID is matched
+            against known prefixes (longest first) so that prefixes
+            containing digits or underscores are handled correctly
+            (e.g., ``SRS2`` vs ``SRS``).
 
     Returns:
-        The alphabetic prefix string, or None if no alphabetic prefix
-        is found.
+        The prefix string, or None if no valid prefix is found.
     """
-    match = re.match(r"^([A-Za-z]+)", uid)
+    if dag is not None:
+        # Match against known prefixes, longest first, to resolve ambiguity
+        # (e.g. both "SRS" and "SRS2" exist — "SRS2001" should match "SRS2").
+        for prefix in sorted(dag.documents, key=len, reverse=True):
+            config = dag.documents[prefix]
+            sep = config.sep
+            if uid.startswith(prefix + sep) and uid[len(prefix) + len(sep) :].isdigit():
+                return prefix
+        # Fall through to regex if no known prefix matched
+
+    match = re.match(r"^([A-Za-z][A-Za-z_]*)", uid)
     return match.group(1) if match else None
 
 

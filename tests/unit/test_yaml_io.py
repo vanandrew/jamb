@@ -47,6 +47,36 @@ class TestExtractPrefix:
         assert _extract_prefix("") is None
         assert _extract_prefix("123ABC") is None
 
+    def test_prefix_with_digits_using_dag(self):
+        """DAG-aware extraction handles prefixes containing digits."""
+        dag = DocumentDAG()
+        dag.documents["SRS2"] = DocumentConfig(prefix="SRS2", digits=3)
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS", digits=3)
+        # "SRS2001" should match "SRS2", not "SRS"
+        assert _extract_prefix("SRS2001", dag=dag) == "SRS2"
+        # "SRS001" should still match "SRS"
+        assert _extract_prefix("SRS001", dag=dag) == "SRS"
+
+    def test_prefix_with_underscore_using_dag(self):
+        """DAG-aware extraction handles prefixes with underscores."""
+        dag = DocumentDAG()
+        dag.documents["MY_DOC"] = DocumentConfig(prefix="MY_DOC", sep="-", digits=3)
+        assert _extract_prefix("MY_DOC-001", dag=dag) == "MY_DOC"
+
+    def test_fallback_regex_without_dag(self):
+        """Fallback regex (no DAG) matches letter/underscore prefixes only."""
+        # Without DAG, digits in the prefix are ambiguous so they are
+        # treated as part of the numeric suffix.
+        assert _extract_prefix("SRS2001") == "SRS"
+        assert _extract_prefix("MY_DOC001") == "MY_DOC"
+
+    def test_dag_no_match_falls_through(self):
+        """When DAG has no matching prefix, fallback regex is used."""
+        dag = DocumentDAG()
+        dag.documents["UT"] = DocumentConfig(prefix="UT", digits=3)
+        # "SRS001" not in DAG — falls through to regex
+        assert _extract_prefix("SRS001", dag=dag) == "SRS"
+
 
 class TestLoadImportFile:
     """Tests for load_import_file function."""

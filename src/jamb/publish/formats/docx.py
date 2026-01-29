@@ -243,7 +243,7 @@ def render_docx(
             doc.add_heading(f"{current_doc}", level=1)
 
         # Create heading with UID and optional header
-        item_type = getattr(item, "type", "requirement")
+        item_type = item.type
 
         if item_type == "heading":
             heading_display = item.header if item.header else item.uid

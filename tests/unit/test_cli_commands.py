@@ -304,13 +304,44 @@ class TestDocCrud:
         assert cfg["settings"]["parents"] == ["SRS"]
 
     def test_doc_delete_removes_folder(self, tmp_path):
-        """doc delete removes the document directory entirely."""
+        """doc delete removes the document directory entirely (--force skips prompt)."""
         _init_project(tmp_path)
         runner = CliRunner()
         assert (tmp_path / "reqs" / "rc").exists()
-        r = _invoke(runner, ["doc", "delete", "RC"], cwd=tmp_path)
+        r = _invoke(runner, ["doc", "delete", "RC", "--force"], cwd=tmp_path)
         assert r.exit_code == 0
         assert not (tmp_path / "reqs" / "rc").exists()
+
+    def test_doc_delete_confirmed(self, tmp_path):
+        """doc delete with 'y' confirmation removes the document directory."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        assert (tmp_path / "reqs" / "rc").exists()
+        old = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            r = runner.invoke(
+                cli, ["doc", "delete", "RC"], input="y\n", catch_exceptions=False
+            )
+        finally:
+            os.chdir(old)
+        assert r.exit_code == 0
+        assert not (tmp_path / "reqs" / "rc").exists()
+
+    def test_doc_delete_abort_preserves_folder(self, tmp_path):
+        """doc delete aborted by user leaves directory intact."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        assert (tmp_path / "reqs" / "rc").exists()
+        old = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            r = runner.invoke(cli, ["doc", "delete", "RC"], input="n\n")
+        finally:
+            os.chdir(old)
+        assert r.exit_code != 0
+        assert (tmp_path / "reqs" / "rc").exists()
+        assert "Aborted" in r.output
 
     def test_doc_delete_nonexistent_errors(self, tmp_path):
         """doc delete on a missing prefix exits with code 1."""
@@ -1087,6 +1118,21 @@ class TestFindItemPath:
         path, prefix = _find_item_path("ZZZ001", root=tmp_path)
         assert path is None
         assert prefix is None
+
+    def test_find_item_path_with_prebuilt_dag(self, tmp_path):
+        """Passing a pre-built DAG skips discover_documents()."""
+        from jamb.cli.commands import _find_item_path
+        from jamb.storage import discover_documents
+
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+
+        dag = discover_documents(tmp_path)
+        path, prefix = _find_item_path("SRS001", dag=dag)
+        assert path is not None
+        assert path.name == "SRS001.yml"
+        assert prefix == "SRS"
 
 
 # =========================================================================
