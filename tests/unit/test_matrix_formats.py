@@ -1029,3 +1029,58 @@ class TestNonTestableItems:
         ws = wb.active
         status_cell = ws.cell(row=8, column=9)
         assert status_cell.fill.start_color.rgb == "00D9D9D9"
+
+
+# =========================================================================
+# Tests for markdown truncation behavior
+# =========================================================================
+
+
+class TestMarkdownTruncation:
+    """Tests for markdown truncation behavior."""
+
+    def test_long_content_truncated_at_200_chars(self, sample_graph):
+        """Test that content over 200 chars is truncated."""
+        long_action = "A" * 250  # 250 chars
+        item = Item(uid="SRS001", text="Test", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test",
+            item_uid="SRS001",
+            test_outcome="passed",
+            test_actions=[long_action],
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+        md = render_markdown(coverage, sample_graph)
+        # Full string should NOT appear (it's 250 chars)
+        assert long_action not in md
+        # Truncated version should appear (197 A's + "...")
+        assert "A" * 197 + "..." in md
+
+    def test_truncated_content_has_ellipsis(self, sample_graph):
+        """Test that truncated content ends with '...'."""
+        long_note = "N" * 300
+        item = Item(uid="SRS001", text="Test", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test",
+            item_uid="SRS001",
+            test_outcome="passed",
+            notes=[long_note],
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+        md = render_markdown(coverage, sample_graph)
+        assert "..." in md
+
+    def test_content_under_200_not_truncated(self, sample_graph):
+        """Test that content under 200 chars is not truncated."""
+        short_action = "A" * 150
+        item = Item(uid="SRS001", text="Test", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test",
+            item_uid="SRS001",
+            test_outcome="passed",
+            test_actions=[short_action],
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+        md = render_markdown(coverage, sample_graph)
+        # Full string should appear
+        assert short_action in md
