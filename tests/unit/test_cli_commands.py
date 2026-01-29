@@ -698,6 +698,26 @@ class TestReviewCommands:
         data = _read_yaml(tmp_path / "reqs" / "srs" / "SRS001.yml")
         assert "reviewed" not in data or data.get("reviewed") is None
 
+    def test_review_clear_empty_dict_link(self, tmp_path):
+        """Test review clear handles empty dict link entries gracefully."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create an item with a valid link first
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        srs_item = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(srs_item)
+        data["text"] = "Test item"
+        # Add malformed empty dict in links alongside a valid link
+        data["links"] = [{}, "SYS001"]
+        _write_yaml(srs_item, data)
+
+        # Review clear should not crash on empty dict
+        r = _invoke(runner, ["review", "clear", "all"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "Cleared" in r.output
+
 
 # =========================================================================
 # 7. Reorder command

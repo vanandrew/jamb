@@ -323,6 +323,78 @@ class TestUpdateItem:
         assert result == "updated"
         assert any("Updated" in msg and "SRS001" in msg for msg in messages)
 
+    def test_update_item_preserves_type_derived_testable(self, tmp_path):
+        """Test _update_item updates type, derived, and testable fields."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Original\n")
+
+        result = _update_item(
+            item_path,
+            {
+                "uid": "SRS001",
+                "text": "Updated",
+                "type": "info",
+                "derived": True,
+                "testable": False,
+            },
+            verbose=False,
+            echo=lambda x: None,
+        )
+
+        assert result == "updated"
+        content = yaml.safe_load(item_path.read_text())
+        assert content["type"] == "info"
+        assert content["derived"] is True
+        assert content["testable"] is False
+
+    def test_update_item_removes_type_when_requirement(self, tmp_path):
+        """Test _update_item removes type field when reset to 'requirement'."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Original\ntype: heading\n")
+
+        result = _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "Updated", "type": "requirement"},
+            verbose=False,
+            echo=lambda x: None,
+        )
+
+        assert result == "updated"
+        content = yaml.safe_load(item_path.read_text())
+        assert "type" not in content
+
+    def test_update_item_removes_derived_when_false(self, tmp_path):
+        """Test _update_item removes derived field when set to False."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Original\nderived: true\n")
+
+        result = _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "Updated", "derived": False},
+            verbose=False,
+            echo=lambda x: None,
+        )
+
+        assert result == "updated"
+        content = yaml.safe_load(item_path.read_text())
+        assert "derived" not in content
+
+    def test_update_item_removes_testable_when_true(self, tmp_path):
+        """Test _update_item removes testable field when set to True."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Original\ntestable: false\n")
+
+        result = _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "Updated", "testable": True},
+            verbose=False,
+            echo=lambda x: None,
+        )
+
+        assert result == "updated"
+        content = yaml.safe_load(item_path.read_text())
+        assert "testable" not in content
+
 
 class TestImportFromYaml:
     """Tests for import_from_yaml function."""
@@ -623,6 +695,52 @@ class TestCreateItem:
             content = yaml.safe_load((tmp_path / "SRS001.yml").read_text())
             assert content["header"] == "Auth"
             assert content["links"] == ["UN001"]
+
+    def test_create_item_preserves_type_derived_testable(self, tmp_path):
+        """Test _create_item writes type, derived, and testable fields."""
+        with patch("jamb.yaml_io._get_document_path") as mock_path:
+            mock_path.return_value = tmp_path
+
+            result = _create_item(
+                {
+                    "uid": "SRS001",
+                    "text": "A heading",
+                    "type": "heading",
+                    "derived": True,
+                    "testable": False,
+                },
+                dry_run=False,
+                update=False,
+                verbose=False,
+                echo=lambda x: None,
+            )
+
+            assert result == "created"
+            content = yaml.safe_load((tmp_path / "SRS001.yml").read_text())
+            assert content["type"] == "heading"
+            assert content["derived"] is True
+            assert content["testable"] is False
+
+    def test_create_item_skips_default_type(self, tmp_path):
+        """Test _create_item does not write type if it's 'requirement' (default)."""
+        with patch("jamb.yaml_io._get_document_path") as mock_path:
+            mock_path.return_value = tmp_path
+
+            result = _create_item(
+                {
+                    "uid": "SRS001",
+                    "text": "Normal requirement",
+                    "type": "requirement",
+                },
+                dry_run=False,
+                update=False,
+                verbose=False,
+                echo=lambda x: None,
+            )
+
+            assert result == "created"
+            content = yaml.safe_load((tmp_path / "SRS001.yml").read_text())
+            assert "type" not in content
 
 
 class TestDocumentExists:

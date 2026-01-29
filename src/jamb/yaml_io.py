@@ -466,6 +466,13 @@ def _create_item(
         item_data["header"] = header
     if links:
         item_data["links"] = links
+    # Preserve type, derived, and testable fields from import spec
+    if spec.get("type") and spec["type"] != "requirement":
+        item_data["type"] = spec["type"]
+    if spec.get("derived"):
+        item_data["derived"] = True
+    if "testable" in spec and not spec["testable"]:
+        item_data["testable"] = False
 
     with open(item_path, "w", encoding="utf-8") as f:
         _dump_yaml(item_data, f)
@@ -581,6 +588,22 @@ def _update_item(
             existing_data["links"] = spec["links"]
         elif "links" in existing_data:
             del existing_data["links"]
+    # Preserve type, derived, and testable fields from import spec
+    if "type" in spec:
+        if spec["type"] and spec["type"] != "requirement":
+            existing_data["type"] = spec["type"]
+        elif "type" in existing_data:
+            del existing_data["type"]
+    if "derived" in spec:
+        if spec["derived"]:
+            existing_data["derived"] = True
+        elif "derived" in existing_data:
+            del existing_data["derived"]
+    if "testable" in spec:
+        if not spec["testable"]:
+            existing_data["testable"] = False
+        elif "testable" in existing_data:
+            del existing_data["testable"]
 
     # Only clear reviewed status if content actually changed
     new_hash = compute_content_hash(existing_data)
