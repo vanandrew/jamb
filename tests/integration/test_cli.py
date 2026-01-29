@@ -851,7 +851,7 @@ class TestDocDeleteWithMock:
         (srs_dir / "SRS001.yml").write_text("active: true\ntext: req\n")
 
         monkeypatch.chdir(tmp_path)
-        result = runner.invoke(cli, ["doc", "delete", "SRS"])
+        result = runner.invoke(cli, ["doc", "delete", "SRS", "--force"])
 
         assert result.exit_code == 0
         assert not srs_dir.exists()
@@ -1249,7 +1249,7 @@ class TestPublishWithMock:
         assert '<a href="#SRS001">' in content
 
     def test_publish_html_no_child_links(self, runner, tmp_path, monkeypatch):
-        """Test publish HTML with --no-child-links suppresses links."""
+        """Test publish HTML with --no-links suppresses links."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
         (srs_dir / ".jamb.yml").write_text(
@@ -1262,7 +1262,7 @@ class TestPublishWithMock:
         output_file = tmp_path / "output.html"
         monkeypatch.chdir(tmp_path)
         result = runner.invoke(
-            cli, ["publish", "SRS", str(output_file), "--html", "--no-child-links"]
+            cli, ["publish", "SRS", str(output_file), "--html", "--no-links"]
         )
 
         assert result.exit_code == 0
@@ -1316,7 +1316,7 @@ class TestPublishWithMock:
         assert "Software req" in content
 
     def test_publish_no_child_links(self, runner, tmp_path, monkeypatch):
-        """Test publish with --no-child-links flag."""
+        """Test publish with --no-links flag."""
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
         (srs_dir / ".jamb.yml").write_text(
@@ -1326,9 +1326,7 @@ class TestPublishWithMock:
 
         output_file = tmp_path / "output.html"
         monkeypatch.chdir(tmp_path)
-        result = runner.invoke(
-            cli, ["publish", "SRS", str(output_file), "--no-child-links"]
-        )
+        result = runner.invoke(cli, ["publish", "SRS", str(output_file), "--no-links"])
 
         assert result.exit_code == 0
 
@@ -2249,7 +2247,7 @@ class TestPublishDocx:
         assert "Published" in result.output
 
     def test_publish_docx_with_no_child_links(self, runner, jamb_project):
-        """Test publishing DOCX with --no-child-links flag."""
+        """Test publishing DOCX with --no-links flag."""
         import os
 
         output_file = jamb_project / "output.docx"
@@ -2259,7 +2257,7 @@ class TestPublishDocx:
             os.chdir(jamb_project)
             result = runner.invoke(
                 cli,
-                ["publish", "SRS", str(output_file), "--docx", "--no-child-links"],
+                ["publish", "SRS", str(output_file), "--docx", "--no-links"],
                 catch_exceptions=False,
             )
         finally:

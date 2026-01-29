@@ -551,7 +551,7 @@ def _check_item_link_cycles(
         skip: Set of document prefixes to exclude from validation.
 
     Returns:
-        A list of ``ValidationIssue`` objects with level ``warning`` for
+        A list of ``ValidationIssue`` objects with level ``error`` for
         each distinct cycle found in the item link graph.
     """
     issues: list[ValidationIssue] = []
@@ -599,7 +599,7 @@ def _check_item_link_cycles(
                         cycle_uids = path[cycle_start:]
                         issues.append(
                             ValidationIssue(
-                                "warning",
+                                "error",
                                 link,
                                 graph.items[link].document_prefix,
                                 f"cycle in item links: "

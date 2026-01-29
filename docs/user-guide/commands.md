@@ -253,7 +253,7 @@ Options:
   -H, --html            Output HTML (standalone document with inline CSS and hyperlinks)
   -m, --markdown        Output Markdown
   -d, --docx            Output DOCX (Word document)
-  -C, --no-child-links  Do not include child links on items
+  -L, --no-links        Do not include link sections in output
   -t, --template PATH   DOCX template file to use for styling (use with --docx)
   --help                Show this message and exit.
 ```
