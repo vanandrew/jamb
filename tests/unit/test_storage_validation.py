@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from jamb.core.models import Item, TraceabilityGraph
 from jamb.storage.document_config import DocumentConfig
 from jamb.storage.document_dag import DocumentDAG
@@ -375,8 +377,7 @@ class TestValidate:
         assert any("has empty text" in str(i) for i in issues)
 
     def test_self_link_warning(self):
-        dag = DocumentDAG()
-        dag.documents["SRS"] = DocumentConfig(prefix="SRS")
+        """Self-link raises ValueError when adding to graph."""
         graph = TraceabilityGraph()
         item = Item(
             uid="SRS001",
@@ -385,20 +386,9 @@ class TestValidate:
             links=["SRS001"],
             reviewed="h",
         )
-        graph.add_item(item)
-        graph.set_document_parents("SRS", [])
-        issues = validate(
-            dag,
-            graph,
-            check_suspect=False,
-            check_review=False,
-            check_children=False,
-            check_empty_docs=False,
-            check_empty_text=False,
-            check_item_cycles=False,
-            check_unlinked=False,
-        )
-        assert any("links to itself" in str(i) for i in issues)
+
+        with pytest.raises(ValueError, match="cannot link to itself"):
+            graph.add_item(item)
 
     def test_link_to_non_normative_warning(self):
         dag = DocumentDAG()

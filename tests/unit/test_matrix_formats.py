@@ -7,1080 +7,544 @@ import json
 import pytest
 from openpyxl import load_workbook
 
-from jamb.core.models import Item, ItemCoverage, LinkedTest, TraceabilityGraph
-from jamb.matrix.formats.csv import render_csv
-from jamb.matrix.formats.html import render_html
-from jamb.matrix.formats.json import render_json
-from jamb.matrix.formats.markdown import render_markdown
-from jamb.matrix.formats.xlsx import render_xlsx
+from jamb.core.models import (
+    ChainRow,
+    FullChainMatrix,
+    Item,
+    LinkedTest,
+    MatrixMetadata,
+    TestEnvironment,
+    TestRecord,
+)
+from jamb.matrix.formats.csv import render_full_chain_csv, render_test_records_csv
+from jamb.matrix.formats.html import render_full_chain_html, render_test_records_html
+from jamb.matrix.formats.json import render_full_chain_json, render_test_records_json
+from jamb.matrix.formats.markdown import (
+    render_full_chain_markdown,
+    render_test_records_markdown,
+)
+from jamb.matrix.formats.xlsx import render_full_chain_xlsx, render_test_records_xlsx
 
 
 @pytest.fixture
-def sample_coverage():
-    """Sample coverage data for testing renderers."""
-    item = Item(
+def sample_test_records():
+    """Sample test records for testing renderers."""
+    return [
+        TestRecord(
+            test_id="TC001",
+            test_name="test_valid",
+            test_nodeid="test_auth.py::test_valid",
+            outcome="passed",
+            requirements=["SRS001", "SRS002"],
+            test_actions=["Enter credentials", "Click submit"],
+            expected_results=["Login successful"],
+            actual_results=["Login successful"],
+            notes=["Verified with valid user"],
+            execution_timestamp="2024-01-01T10:00:00Z",
+        ),
+        TestRecord(
+            test_id="TC002",
+            test_name="test_invalid",
+            test_nodeid="test_auth.py::test_invalid",
+            outcome="failed",
+            requirements=["SRS003"],
+            test_actions=["Enter invalid credentials"],
+            expected_results=["Error message displayed"],
+            actual_results=["No error shown"],
+            notes=["[FAILURE] AssertionError: expected error message"],
+            execution_timestamp="2024-01-01T10:01:00Z",
+        ),
+    ]
+
+
+@pytest.fixture
+def sample_metadata():
+    """Sample metadata for testing renderers."""
+    return MatrixMetadata(
+        software_version="1.0.0",
+        tester_id="CI Pipeline",
+        execution_timestamp="2024-01-01T10:00:00Z",
+        environment=TestEnvironment(
+            os_name="Linux",
+            os_version="5.4.0",
+            python_version="3.10.0",
+            platform="x86_64",
+            processor="Intel",
+            hostname="ci-server",
+            cpu_count=4,
+            test_tools={"pytest": "7.0.0"},
+        ),
+    )
+
+
+@pytest.fixture
+def sample_full_chain_matrices():
+    """Sample full chain matrices for testing renderers."""
+    item1 = Item(uid="SYS001", text="System requirement", document_prefix="SYS")
+    item2 = Item(
         uid="SRS001",
-        text="Software shall validate credentials",
+        text="Software requirement",
         document_prefix="SRS",
-        links=["SYS001"],
+        header="Login",
     )
-    link = LinkedTest(
-        test_nodeid="test_auth.py::test_valid",
-        item_uid="SRS001",
-        test_outcome="passed",
+
+    row1 = ChainRow(
+        chain={"SYS": item1, "SRS": item2},
+        rollup_status="Passed",
+        descendant_tests=[
+            LinkedTest(
+                test_nodeid="test_auth.py::test_login",
+                item_uid="SRS001",
+                test_outcome="passed",
+            )
+        ],
+        ancestor_uids=["PRJ001"],
     )
-    return {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
-
-
-@pytest.fixture
-def sample_graph():
-    """Sample graph for testing renderers."""
-    graph = TraceabilityGraph()
-    sys_item = Item(uid="SYS001", text="System req", document_prefix="SYS")
-    graph.add_item(sys_item)
-    graph.set_document_parent("SRS", "SYS")
-    graph.set_document_parent("SYS", None)
-    return graph
-
-
-@pytest.fixture
-def uncovered_coverage():
-    """Coverage data with uncovered item."""
-    item = Item(
-        uid="SRS002",
-        text="Uncovered requirement",
-        document_prefix="SRS",
+    row2 = ChainRow(
+        chain={"SYS": item1, "SRS": None},
+        rollup_status="Not Covered",
+        descendant_tests=[],
+        ancestor_uids=["PRJ001"],
     )
-    return {"SRS002": ItemCoverage(item=item, linked_tests=[])}
 
-
-@pytest.fixture
-def failed_coverage():
-    """Coverage data with failed test."""
-    item = Item(
-        uid="SRS003",
-        text="Failed requirement",
-        document_prefix="SRS",
+    matrix = FullChainMatrix(
+        path_name="SYS -> SRS",
+        document_hierarchy=["SYS", "SRS"],
+        rows=[row1, row2],
+        summary={"total": 2, "passed": 1, "failed": 0, "not_covered": 1},
+        include_ancestors=True,
     )
-    link = LinkedTest(
-        test_nodeid="test_fail.py::test_bad",
-        item_uid="SRS003",
-        test_outcome="failed",
-    )
-    return {"SRS003": ItemCoverage(item=item, linked_tests=[link])}
+    return [matrix]
 
 
-@pytest.fixture
-def coverage_with_messages():
-    """Coverage data with test notes."""
-    item = Item(
-        uid="SRS004",
-        text="Requirement with messages",
-        document_prefix="SRS",
-    )
-    link = LinkedTest(
-        test_nodeid="test_msg.py::test_with_messages",
-        item_uid="SRS004",
-        test_outcome="passed",
-        notes=["Custom verification message", "Second test note"],
-        test_actions=["Entered valid data", "Clicked submit"],
-        expected_results=["Form accepted", "Success page shown"],
-    )
-    return {"SRS004": ItemCoverage(item=item, linked_tests=[link])}
+# =============================================================================
+# Test Records HTML Tests
+# =============================================================================
 
 
-@pytest.fixture
-def coverage_with_failure_message():
-    """Coverage data with failure message."""
-    item = Item(
-        uid="SRS005",
-        text="Requirement with failure",
-        document_prefix="SRS",
-    )
-    link = LinkedTest(
-        test_nodeid="test_fail.py::test_assertion",
-        item_uid="SRS005",
-        test_outcome="failed",
-        notes=["[FAILURE] AssertionError: expected 1, got 2"],
-    )
-    return {"SRS005": ItemCoverage(item=item, linked_tests=[link])}
+class TestRenderTestRecordsHtml:
+    """Tests for test records HTML renderer."""
 
-
-class TestRenderHtml:
-    """Tests for HTML renderer."""
-
-    def test_renders_basic_structure(self, sample_coverage, sample_graph):
+    def test_renders_basic_structure(self, sample_test_records):
         """Test that HTML output has basic structure."""
-        html = render_html(sample_coverage, sample_graph)
+        html = render_test_records_html(sample_test_records)
 
         assert "<html" in html
         assert "<table" in html
         assert "</html>" in html
 
-    def test_contains_charset_meta_tag(self, sample_coverage, sample_graph):
+    def test_contains_charset_meta_tag(self, sample_test_records):
         """Test that HTML output declares UTF-8 charset."""
-        html = render_html(sample_coverage, sample_graph)
+        html = render_test_records_html(sample_test_records)
 
         assert '<meta charset="utf-8">' in html
 
-    def test_contains_item_uid(self, sample_coverage, sample_graph):
-        """Test that HTML contains item UID."""
-        html = render_html(sample_coverage, sample_graph)
+    def test_contains_test_id(self, sample_test_records):
+        """Test that HTML contains test ID."""
+        html = render_test_records_html(sample_test_records)
+
+        assert "TC001" in html
+        assert "TC002" in html
+
+    def test_contains_test_name(self, sample_test_records):
+        """Test that HTML contains test name."""
+        html = render_test_records_html(sample_test_records)
+
+        assert "test_valid" in html
+        assert "test_invalid" in html
+
+    def test_passed_status_class(self, sample_test_records):
+        """Test that passed tests have correct CSS class."""
+        html = render_test_records_html(sample_test_records)
+
+        assert 'class="passed"' in html
+
+    def test_failed_status_class(self, sample_test_records):
+        """Test that failed tests have correct CSS class."""
+        html = render_test_records_html(sample_test_records)
+
+        assert 'class="failed"' in html
+
+    def test_includes_metadata(self, sample_test_records, sample_metadata):
+        """Test that HTML includes metadata when provided."""
+        html = render_test_records_html(sample_test_records, metadata=sample_metadata)
+
+        assert "1.0.0" in html  # software version
+        assert "CI Pipeline" in html  # tester id
+
+    def test_includes_requirements(self, sample_test_records):
+        """Test that requirements are included."""
+        html = render_test_records_html(sample_test_records)
 
         assert "SRS001" in html
+        assert "SRS002" in html
 
-    def test_passed_status_class(self, sample_coverage, sample_graph):
-        """Test that passed items have correct CSS class."""
-        html = render_html(sample_coverage, sample_graph)
+    def test_includes_test_actions(self, sample_test_records):
+        """Test that test actions are included."""
+        html = render_test_records_html(sample_test_records)
 
-        assert "passed" in html.lower()
-
-    def test_uncovered_status_class(self, uncovered_coverage, sample_graph):
-        """Test that uncovered items have correct CSS class."""
-        html = render_html(uncovered_coverage, sample_graph)
-
-        assert "uncovered" in html.lower()
-
-    def test_failed_status_class(self, failed_coverage, sample_graph):
-        """Test that failed items have correct CSS class."""
-        html = render_html(failed_coverage, sample_graph)
-
-        assert "failed" in html.lower()
-
-    def test_escapes_html_in_text(self, sample_graph):
-        """Test that HTML special characters are escaped."""
-        item = Item(
-            uid="SRS001",
-            text="Test <script>alert('xss')</script>",
-            document_prefix="SRS",
-        )
-        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[])}
-
-        html = render_html(coverage, sample_graph)
-
-        assert "<script>" not in html
-        assert "&lt;script&gt;" in html
-
-    def test_contains_test_name(self, sample_coverage, sample_graph):
-        """Test that HTML contains test name."""
-        html = render_html(sample_coverage, sample_graph)
-
-        # HTML uses abbreviated test names (just the function name)
-        assert "test_valid" in html
+        assert "Enter credentials" in html
 
 
-class TestRenderMarkdown:
-    """Tests for Markdown renderer."""
+# =============================================================================
+# Full Chain HTML Tests
+# =============================================================================
 
-    def test_renders_table_structure(self, sample_coverage, sample_graph):
+
+class TestRenderFullChainHtml:
+    """Tests for full chain HTML renderer."""
+
+    def test_renders_basic_structure(self, sample_full_chain_matrices):
+        """Test that HTML output has basic structure."""
+        html = render_full_chain_html(sample_full_chain_matrices)
+
+        assert "<html" in html
+        assert "<table" in html
+        assert "</html>" in html
+
+    def test_contains_document_columns(self, sample_full_chain_matrices):
+        """Test that HTML contains document hierarchy columns."""
+        html = render_full_chain_html(sample_full_chain_matrices)
+
+        assert "SYS" in html
+        assert "SRS" in html
+
+    def test_contains_item_uid(self, sample_full_chain_matrices):
+        """Test that HTML contains item UIDs."""
+        html = render_full_chain_html(sample_full_chain_matrices)
+
+        assert "SYS001" in html
+        assert "SRS001" in html
+
+    def test_contains_status(self, sample_full_chain_matrices):
+        """Test that HTML contains status."""
+        html = render_full_chain_html(sample_full_chain_matrices)
+
+        assert "Passed" in html
+        assert "Not Covered" in html
+
+    def test_tc_mapping_applied(self, sample_full_chain_matrices):
+        """Test that TC mapping is applied to test display."""
+        tc_mapping = {"test_auth.py::test_login": "TC001"}
+        html = render_full_chain_html(sample_full_chain_matrices, tc_mapping=tc_mapping)
+
+        assert "TC001" in html
+
+
+# =============================================================================
+# Test Records Markdown Tests
+# =============================================================================
+
+
+class TestRenderTestRecordsMarkdown:
+    """Tests for test records Markdown renderer."""
+
+    def test_renders_table(self, sample_test_records):
         """Test that Markdown output has table structure."""
-        md = render_markdown(sample_coverage, sample_graph)
+        md = render_test_records_markdown(sample_test_records)
 
         assert "|" in md
-        assert "---" in md  # Table header separator
+        assert "---" in md
 
-    def test_contains_item_uid(self, sample_coverage, sample_graph):
-        """Test that Markdown contains item UID."""
-        md = render_markdown(sample_coverage, sample_graph)
+    def test_contains_test_id(self, sample_test_records):
+        """Test that Markdown contains test ID."""
+        md = render_test_records_markdown(sample_test_records)
 
-        assert "SRS001" in md
+        assert "TC001" in md
 
-    def test_contains_status(self, sample_coverage, sample_graph):
-        """Test that Markdown contains status."""
-        md = render_markdown(sample_coverage, sample_graph)
+    def test_includes_metadata(self, sample_test_records, sample_metadata):
+        """Test that Markdown includes metadata when provided."""
+        md = render_test_records_markdown(sample_test_records, metadata=sample_metadata)
 
-        assert "Passed" in md
-
-    def test_uncovered_status(self, uncovered_coverage, sample_graph):
-        """Test that uncovered items show Not Covered status."""
-        md = render_markdown(uncovered_coverage, sample_graph)
-
-        assert "Not Covered" in md
-
-    def test_escapes_pipes_in_description(self, sample_graph):
-        """Test that pipe characters are escaped in Markdown."""
-        item = Item(
-            uid="SRS001",
-            text="Test with | pipe character",
-            document_prefix="SRS",
-        )
-        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[])}
-
-        md = render_markdown(coverage, sample_graph)
-
-        # Pipe in text should be escaped to \|
-        assert "\\|" in md
+        assert "1.0.0" in md
+        assert "CI Pipeline" in md
 
 
-class TestRenderJson:
-    """Tests for JSON renderer."""
+# =============================================================================
+# Full Chain Markdown Tests
+# =============================================================================
 
-    def test_renders_valid_json(self, sample_coverage, sample_graph):
+
+class TestRenderFullChainMarkdown:
+    """Tests for full chain Markdown renderer."""
+
+    def test_renders_table(self, sample_full_chain_matrices):
+        """Test that Markdown output has table structure."""
+        md = render_full_chain_markdown(sample_full_chain_matrices)
+
+        assert "|" in md
+        assert "---" in md
+
+    def test_contains_document_columns(self, sample_full_chain_matrices):
+        """Test that Markdown contains document hierarchy columns."""
+        md = render_full_chain_markdown(sample_full_chain_matrices)
+
+        assert "SYS" in md
+        assert "SRS" in md
+
+
+# =============================================================================
+# Test Records JSON Tests
+# =============================================================================
+
+
+class TestRenderTestRecordsJson:
+    """Tests for test records JSON renderer."""
+
+    def test_valid_json(self, sample_test_records):
         """Test that output is valid JSON."""
-        json_str = render_json(sample_coverage, sample_graph)
+        output = render_test_records_json(sample_test_records)
 
-        # Should not raise
-        data = json.loads(json_str)
-        assert isinstance(data, dict)
-
-    def test_contains_items_key(self, sample_coverage, sample_graph):
-        """Test that JSON has items key."""
-        json_str = render_json(sample_coverage, sample_graph)
-        data = json.loads(json_str)
-
-        assert "items" in data
-
-    def test_contains_summary_key(self, sample_coverage, sample_graph):
-        """Test that JSON has summary key."""
-        json_str = render_json(sample_coverage, sample_graph)
-        data = json.loads(json_str)
-
+        data = json.loads(output)
         assert "summary" in data
+        assert "tests" in data
 
-    def test_item_structure(self, sample_coverage, sample_graph):
-        """Test that items have expected structure."""
-        json_str = render_json(sample_coverage, sample_graph)
-        data = json.loads(json_str)
+    def test_contains_test_records(self, sample_test_records):
+        """Test that JSON contains test records."""
+        output = render_test_records_json(sample_test_records)
 
-        # items is a dict keyed by UID
-        item = data["items"]["SRS001"]
-        assert "uid" in item
-        assert "text" in item
-        assert "is_covered" in item
-        assert "linked_tests" in item
+        data = json.loads(output)
+        assert len(data["tests"]) == 2
+        assert data["tests"][0]["test_id"] == "TC001"
 
-    def test_summary_statistics(self, sample_coverage, sample_graph):
-        """Test that summary has statistics."""
-        json_str = render_json(sample_coverage, sample_graph)
-        data = json.loads(json_str)
+    def test_summary_stats(self, sample_test_records):
+        """Test that JSON contains summary statistics."""
+        output = render_test_records_json(sample_test_records)
 
-        summary = data["summary"]
-        assert "total_items" in summary
-        assert "covered" in summary
-        assert "all_tests_passing" in summary
+        data = json.loads(output)
+        assert data["summary"]["total_tests"] == 2
+        assert data["summary"]["passed"] == 1
+        assert data["summary"]["failed"] == 1
 
-    def test_empty_coverage(self, sample_graph):
-        """Test rendering with empty coverage."""
-        json_str = render_json({}, sample_graph)
-        data = json.loads(json_str)
+    def test_includes_metadata(self, sample_test_records, sample_metadata):
+        """Test that JSON includes metadata when provided."""
+        output = render_test_records_json(sample_test_records, metadata=sample_metadata)
 
-        assert data["items"] == {}
-        assert data["summary"]["total_items"] == 0
+        data = json.loads(output)
+        assert "metadata" in data
+        assert data["metadata"]["software_version"] == "1.0.0"
 
 
-class TestRenderCsv:
-    """Tests for CSV renderer."""
+# =============================================================================
+# Full Chain JSON Tests
+# =============================================================================
 
-    def test_renders_valid_csv(self, sample_coverage, sample_graph):
+
+class TestRenderFullChainJson:
+    """Tests for full chain JSON renderer."""
+
+    def test_valid_json(self, sample_full_chain_matrices):
+        """Test that output is valid JSON."""
+        output = render_full_chain_json(sample_full_chain_matrices)
+
+        data = json.loads(output)
+        assert "summary" in data
+        assert "matrices" in data
+
+    def test_contains_matrices(self, sample_full_chain_matrices):
+        """Test that JSON contains matrices."""
+        output = render_full_chain_json(sample_full_chain_matrices)
+
+        data = json.loads(output)
+        assert len(data["matrices"]) == 1
+        assert data["matrices"][0]["path_name"] == "SYS -> SRS"
+
+
+# =============================================================================
+# Test Records CSV Tests
+# =============================================================================
+
+
+class TestRenderTestRecordsCsv:
+    """Tests for test records CSV renderer."""
+
+    def test_valid_csv(self, sample_test_records):
         """Test that output is valid CSV."""
-        csv_str = render_csv(sample_coverage, sample_graph)
+        output = render_test_records_csv(sample_test_records)
 
-        # Should be parseable as CSV
-        reader = csv.reader(io.StringIO(csv_str))
+        reader = csv.reader(io.StringIO(output))
         rows = list(reader)
-        assert len(rows) >= 2  # Header + at least one data row
+        assert len(rows) > 0
 
-    def test_has_header_row(self, sample_coverage, sample_graph):
-        """Test that CSV has header row."""
-        csv_str = render_csv(sample_coverage, sample_graph)
+    def test_contains_test_records(self, sample_test_records):
+        """Test that CSV contains test records."""
+        output = render_test_records_csv(sample_test_records)
 
-        reader = csv.reader(io.StringIO(csv_str))
-        header = next(reader)
+        assert "TC001" in output
+        assert "test_valid" in output
 
-        assert "UID" in header
-        assert "Description" in header
-        assert "Status" in header
 
-    def test_contains_item_uid(self, sample_coverage, sample_graph):
-        """Test that CSV contains item UID."""
-        csv_str = render_csv(sample_coverage, sample_graph)
+# =============================================================================
+# Full Chain CSV Tests
+# =============================================================================
 
-        assert "SRS001" in csv_str
 
-    def test_contains_status(self, sample_coverage, sample_graph):
-        """Test that CSV contains status."""
-        csv_str = render_csv(sample_coverage, sample_graph)
+class TestRenderFullChainCsv:
+    """Tests for full chain CSV renderer."""
 
-        assert "Passed" in csv_str
+    def test_valid_csv(self, sample_full_chain_matrices):
+        """Test that output is valid CSV."""
+        output = render_full_chain_csv(sample_full_chain_matrices)
 
-    def test_uncovered_status(self, uncovered_coverage, sample_graph):
-        """Test that uncovered items show Not Covered status."""
-        csv_str = render_csv(uncovered_coverage, sample_graph)
-
-        assert "Not Covered" in csv_str
-
-    def test_failed_status(self, failed_coverage, sample_graph):
-        """Test that failed items show Failed status."""
-        csv_str = render_csv(failed_coverage, sample_graph)
-
-        assert "Failed" in csv_str
-
-    def test_handles_commas_in_text(self, sample_graph):
-        """Test that commas in text are properly escaped."""
-        item = Item(
-            uid="SRS001",
-            text="Test with, comma character",
-            document_prefix="SRS",
-        )
-        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[])}
-
-        csv_str = render_csv(coverage, sample_graph)
-
-        # CSV should still be valid and contain the text
-        reader = csv.reader(io.StringIO(csv_str))
+        reader = csv.reader(io.StringIO(output))
         rows = list(reader)
-        assert any("comma character" in str(row) for row in rows)
+        assert len(rows) > 0
+
+    def test_contains_document_columns(self, sample_full_chain_matrices):
+        """Test that CSV contains document hierarchy columns."""
+        output = render_full_chain_csv(sample_full_chain_matrices)
+
+        assert "SYS" in output
+        assert "SRS" in output
 
 
-class TestRenderXlsx:
-    """Tests for XLSX renderer."""
+# =============================================================================
+# Test Records XLSX Tests
+# =============================================================================
 
-    def test_renders_valid_xlsx(self, sample_coverage, sample_graph):
+
+class TestRenderTestRecordsXlsx:
+    """Tests for test records XLSX renderer."""
+
+    def test_valid_xlsx(self, sample_test_records):
         """Test that output is valid XLSX."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
+        output = render_test_records_xlsx(sample_test_records)
 
-        # Should be loadable as a workbook
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        wb = load_workbook(io.BytesIO(output))
         assert wb.active is not None
 
-    def test_has_title(self, sample_coverage, sample_graph):
-        """Test that worksheet has correct title."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
+    def test_sheet_title(self, sample_test_records):
+        """Test that sheet has correct title."""
+        output = render_test_records_xlsx(sample_test_records)
 
+        wb = load_workbook(io.BytesIO(output))
+        assert wb.active.title == "Test Records"
+
+    def test_includes_metadata_with_environment(
+        self, sample_test_records, sample_metadata
+    ):
+        """Test that metadata with environment is included."""
+        output = render_test_records_xlsx(sample_test_records, metadata=sample_metadata)
+
+        wb = load_workbook(io.BytesIO(output))
+        ws = wb.active
+
+        # Check metadata cells are present
+        values = [cell.value for row in ws.iter_rows() for cell in row if cell.value]
+        assert "Software Version:" in values
+        assert "1.0.0" in values
+        assert "Environment:" in values
+        assert "Test Tools:" in values
+
+    def test_all_outcome_colors(self):
+        """Test that all test outcomes get appropriate colors."""
+        records = [
+            TestRecord(
+                test_id=f"TC{i:03d}",
+                test_name=f"test_{outcome}",
+                test_nodeid=f"test.py::test_{outcome}",
+                outcome=outcome,
+                requirements=["SRS001"],
+            )
+            for i, outcome in enumerate(
+                ["passed", "failed", "skipped", "error", "unknown"], 1
+            )
+        ]
+
+        output = render_test_records_xlsx(records)
+        wb = load_workbook(io.BytesIO(output))
+        assert wb.active is not None
+
+
+# =============================================================================
+# Full Chain XLSX Tests
+# =============================================================================
+
+
+class TestRenderFullChainXlsx:
+    """Tests for full chain XLSX renderer."""
+
+    def test_valid_xlsx(self, sample_full_chain_matrices):
+        """Test that output is valid XLSX."""
+        output = render_full_chain_xlsx(sample_full_chain_matrices)
+
+        wb = load_workbook(io.BytesIO(output))
+        assert wb.active is not None
+
+    def test_sheet_title(self, sample_full_chain_matrices):
+        """Test that sheet has correct title."""
+        output = render_full_chain_xlsx(sample_full_chain_matrices)
+
+        wb = load_workbook(io.BytesIO(output))
         assert wb.active.title == "Traceability Matrix"
 
-    def test_contains_summary(self, sample_coverage, sample_graph):
-        """Test that XLSX contains summary section."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
+    def test_multiple_matrices_create_sheets(self):
+        """Test that multiple matrices create separate sheets."""
+        item1 = Item(uid="UN001", text="User need", document_prefix="UN")
+        item2 = Item(uid="SYS001", text="System req", document_prefix="SYS")
 
-        # Check for summary title
-        assert "Traceability and Test Record Matrix" in str(ws["A1"].value)
+        matrices = [
+            FullChainMatrix(
+                path_name="UN -> SYS",
+                document_hierarchy=["UN", "SYS"],
+                rows=[ChainRow(chain={"UN": item1, "SYS": item2})],
+                summary={"total": 1, "passed": 1},
+            ),
+            FullChainMatrix(
+                path_name="UN -> HAZ",
+                document_hierarchy=["UN", "HAZ"],
+                rows=[ChainRow(chain={"UN": item1})],
+                summary={"total": 1, "not_covered": 1},
+            ),
+        ]
 
-    def test_contains_header_row(self, sample_coverage, sample_graph):
-        """Test that XLSX contains header row."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
+        output = render_full_chain_xlsx(matrices)
+        wb = load_workbook(io.BytesIO(output))
 
-        # Header is in row 7
-        assert ws.cell(row=7, column=1).value == "UID"
-        assert ws.cell(row=7, column=5).value == "Test Actions"
-        assert ws.cell(row=7, column=6).value == "Expected Results"
-        assert ws.cell(row=7, column=7).value == "Actual Results"
-        assert ws.cell(row=7, column=8).value == "Notes"
-        assert ws.cell(row=7, column=9).value == "Status"
+        # Should have 2 sheets
+        assert len(wb.sheetnames) == 2
 
-    def test_contains_item_uid(self, sample_coverage, sample_graph):
-        """Test that XLSX contains item UID."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
+    def test_all_status_colors(self):
+        """Test that all status values get appropriate colors."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
 
-        # Data starts in row 8
-        assert ws.cell(row=8, column=1).value == "SRS001"
+        matrices = [
+            FullChainMatrix(
+                path_name="SRS",
+                document_hierarchy=["SRS"],
+                rows=[
+                    ChainRow(chain={"SRS": item}, rollup_status="Passed"),
+                    ChainRow(chain={"SRS": item}, rollup_status="Failed"),
+                    ChainRow(chain={"SRS": item}, rollup_status="Partial"),
+                    ChainRow(chain={"SRS": item}, rollup_status="Not Covered"),
+                    ChainRow(chain={"SRS": item}, rollup_status="N/A"),
+                ],
+                summary={"total": 5, "passed": 1, "failed": 1, "not_covered": 1},
+            )
+        ]
 
-    def test_contains_status(self, sample_coverage, sample_graph):
-        """Test that XLSX contains status."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        # Status is in column 9 (after Actual Results and Notes columns)
-        assert ws.cell(row=8, column=9).value == "Passed"
-
-    def test_uncovered_status(self, uncovered_coverage, sample_graph):
-        """Test that uncovered items show Not Covered status."""
-        xlsx_bytes = render_xlsx(uncovered_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        assert ws.cell(row=8, column=9).value == "Not Covered"
-
-    def test_failed_status(self, failed_coverage, sample_graph):
-        """Test that failed items show Failed status."""
-        xlsx_bytes = render_xlsx(failed_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        assert ws.cell(row=8, column=9).value == "Failed"
-
-    def test_empty_coverage(self, sample_graph):
-        """Test rendering with empty coverage."""
-        xlsx_bytes = render_xlsx({}, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-
-        # Should still be valid
+        output = render_full_chain_xlsx(matrices)
+        wb = load_workbook(io.BytesIO(output))
         assert wb.active is not None
 
+    def test_include_ancestors_column(self):
+        """Test that ancestors column is included when flag is set."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
 
-class TestTraceToIgnore:
-    """Tests for trace_to_ignore filtering in renderers."""
+        matrices = [
+            FullChainMatrix(
+                path_name="SRS",
+                document_hierarchy=["SRS"],
+                rows=[ChainRow(chain={"SRS": item}, ancestor_uids=["UN001", "SYS001"])],
+                summary={"total": 1},
+                include_ancestors=True,
+            )
+        ]
 
-    @pytest.fixture
-    def trace_graph(self):
-        """Graph with PRJ -> UN -> SYS -> SRS hierarchy."""
-        graph = TraceabilityGraph()
-        prj = Item(uid="PRJ001", text="Project req", document_prefix="PRJ")
-        un = Item(uid="UN001", text="User need", document_prefix="UN", links=["PRJ001"])
-        sys_item = Item(
-            uid="SYS001", text="System req", document_prefix="SYS", links=["UN001"]
-        )
-        srs = Item(
-            uid="SRS001", text="Software req", document_prefix="SRS", links=["SYS001"]
-        )
-        graph.add_item(prj)
-        graph.add_item(un)
-        graph.add_item(sys_item)
-        graph.add_item(srs)
-        graph.set_document_parent("PRJ", None)
-        graph.set_document_parent("UN", "PRJ")
-        graph.set_document_parent("SYS", "UN")
-        graph.set_document_parent("SRS", "SYS")
-        return graph
-
-    @pytest.fixture
-    def trace_coverage(self):
-        """Coverage for SRS001."""
-        item = Item(
-            uid="SRS001",
-            text="Software req",
-            document_prefix="SRS",
-            links=["SYS001"],
-        )
-        link = LinkedTest(
-            test_nodeid="test_req.py::test_srs",
-            item_uid="SRS001",
-            test_outcome="passed",
-        )
-        return {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
-
-    def test_csv_excludes_ignored_prefix(self, trace_coverage, trace_graph):
-        """Test CSV excludes PRJ ancestors when trace_to_ignore={'PRJ'}."""
-        csv_str = render_csv(trace_coverage, trace_graph, trace_to_ignore={"PRJ"})
-        assert "PRJ001" not in csv_str
-        assert "SYS001" in csv_str
-
-    def test_csv_includes_all_when_empty(self, trace_coverage, trace_graph):
-        """Test CSV includes all ancestors when trace_to_ignore is empty."""
-        csv_str = render_csv(trace_coverage, trace_graph)
-        assert "PRJ001" in csv_str
-        assert "SYS001" in csv_str
-
-    def test_markdown_excludes_ignored_prefix(self, trace_coverage, trace_graph):
-        """Test Markdown excludes PRJ ancestors when trace_to_ignore={'PRJ'}."""
-        md = render_markdown(trace_coverage, trace_graph, trace_to_ignore={"PRJ"})
-        assert "PRJ001" not in md
-        assert "SYS001" in md
-
-    def test_markdown_includes_all_when_empty(self, trace_coverage, trace_graph):
-        """Test Markdown includes all ancestors when trace_to_ignore is empty."""
-        md = render_markdown(trace_coverage, trace_graph)
-        assert "PRJ001" in md
-
-    def test_html_excludes_ignored_prefix(self, trace_coverage, trace_graph):
-        """Test HTML excludes PRJ ancestors when trace_to_ignore={'PRJ'}."""
-        html = render_html(trace_coverage, trace_graph, trace_to_ignore={"PRJ"})
-        assert "PRJ001" not in html
-        assert "SYS001" in html
-
-    def test_html_includes_all_when_empty(self, trace_coverage, trace_graph):
-        """Test HTML includes all ancestors when trace_to_ignore is empty."""
-        html = render_html(trace_coverage, trace_graph)
-        assert "PRJ001" in html
-
-    def test_json_excludes_ignored_prefix(self, trace_coverage, trace_graph):
-        """Test JSON excludes PRJ ancestors when trace_to_ignore={'PRJ'}."""
-        json_str = render_json(trace_coverage, trace_graph, trace_to_ignore={"PRJ"})
-        data = json.loads(json_str)
-        traces = data["items"]["SRS001"]["traces_to"]
-        uids = [t["uid"] for t in traces]
-        assert "PRJ001" not in uids
-        assert "SYS001" in uids
-
-    def test_json_includes_all_when_empty(self, trace_coverage, trace_graph):
-        """Test JSON includes all ancestors when trace_to_ignore is empty."""
-        json_str = render_json(trace_coverage, trace_graph)
-        data = json.loads(json_str)
-        traces = data["items"]["SRS001"]["traces_to"]
-        uids = [t["uid"] for t in traces]
-        assert "PRJ001" in uids
-
-    def test_xlsx_excludes_ignored_prefix(self, trace_coverage, trace_graph):
-        """Test XLSX excludes PRJ ancestors when trace_to_ignore={'PRJ'}."""
-        xlsx_bytes = render_xlsx(trace_coverage, trace_graph, trace_to_ignore={"PRJ"})
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        traces_to = ws.cell(row=8, column=3).value or ""
-        assert "PRJ001" not in traces_to
-        assert "SYS001" in traces_to
-
-    def test_xlsx_includes_all_when_empty(self, trace_coverage, trace_graph):
-        """Test XLSX includes all ancestors when trace_to_ignore is empty."""
-        xlsx_bytes = render_xlsx(trace_coverage, trace_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        traces_to = ws.cell(row=8, column=3).value or ""
-        assert "PRJ001" in traces_to
-
-
-class TestNotesInRenderers:
-    """Tests for notes display in all renderers."""
-
-    def test_html_contains_custom_notes(self, coverage_with_messages, sample_graph):
-        """Test that HTML output contains custom notes."""
-        html = render_html(coverage_with_messages, sample_graph)
-
-        assert "Custom verification message" in html
-        assert "Second test note" in html
-
-    def test_html_contains_test_actions(self, coverage_with_messages, sample_graph):
-        """Test that HTML output contains test actions."""
-        html = render_html(coverage_with_messages, sample_graph)
-
-        assert "Entered valid data" in html
-        assert "Clicked submit" in html
-        assert "<th>Test Actions</th>" in html
-
-    def test_html_contains_expected_results(self, coverage_with_messages, sample_graph):
-        """Test that HTML output contains expected results."""
-        html = render_html(coverage_with_messages, sample_graph)
-
-        assert "Form accepted" in html
-        assert "Success page shown" in html
-        assert "<th>Expected Results</th>" in html
-
-    def test_html_contains_failure_message(
-        self, coverage_with_failure_message, sample_graph
-    ):
-        """Test that HTML output contains failure messages with correct class."""
-        html = render_html(coverage_with_failure_message, sample_graph)
-
-        assert "[FAILURE]" in html
-        assert 'class="message failure"' in html
-
-    def test_json_contains_notes(self, coverage_with_messages, sample_graph):
-        """Test that JSON output includes notes array."""
-        json_str = render_json(coverage_with_messages, sample_graph)
-        data = json.loads(json_str)
-
-        item = data["items"]["SRS004"]
-        test = item["linked_tests"][0]
-        assert "notes" in test
-        assert "Custom verification message" in test["notes"]
-        assert "Second test note" in test["notes"]
-
-    def test_json_contains_test_actions(self, coverage_with_messages, sample_graph):
-        """Test that JSON output includes test_actions array."""
-        json_str = render_json(coverage_with_messages, sample_graph)
-        data = json.loads(json_str)
-
-        item = data["items"]["SRS004"]
-        test = item["linked_tests"][0]
-        assert "test_actions" in test
-        assert "Entered valid data" in test["test_actions"]
-
-    def test_json_contains_expected_results(self, coverage_with_messages, sample_graph):
-        """Test that JSON output includes expected_results array."""
-        json_str = render_json(coverage_with_messages, sample_graph)
-        data = json.loads(json_str)
-
-        item = data["items"]["SRS004"]
-        test = item["linked_tests"][0]
-        assert "expected_results" in test
-        assert "Form accepted" in test["expected_results"]
-
-    def test_csv_contains_notes_column(self, coverage_with_messages, sample_graph):
-        """Test that CSV output has Notes column."""
-        csv_str = render_csv(coverage_with_messages, sample_graph)
-
-        reader = csv.reader(io.StringIO(csv_str))
-        header = next(reader)
-        assert "Notes" in header
-
-    def test_csv_contains_test_actions_column(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that CSV output has Test Actions column."""
-        csv_str = render_csv(coverage_with_messages, sample_graph)
-
-        reader = csv.reader(io.StringIO(csv_str))
-        header = next(reader)
-        assert "Test Actions" in header
-
-    def test_csv_contains_expected_results_column(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that CSV output has Expected Results column."""
-        csv_str = render_csv(coverage_with_messages, sample_graph)
-
-        reader = csv.reader(io.StringIO(csv_str))
-        header = next(reader)
-        assert "Expected Results" in header
-
-    def test_csv_contains_note_content(self, coverage_with_messages, sample_graph):
-        """Test that CSV output contains note content."""
-        csv_str = render_csv(coverage_with_messages, sample_graph)
-
-        assert "Custom verification message" in csv_str
-
-    def test_csv_contains_test_action_content(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that CSV output contains test action content."""
-        csv_str = render_csv(coverage_with_messages, sample_graph)
-
-        assert "Entered valid data" in csv_str
-
-    def test_xlsx_contains_notes_column(self, coverage_with_messages, sample_graph):
-        """Test that XLSX output has Notes column."""
-        xlsx_bytes = render_xlsx(coverage_with_messages, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
+        output = render_full_chain_xlsx(matrices)
+        wb = load_workbook(io.BytesIO(output))
         ws = wb.active
 
-        # Notes is in column 8 (after Actual Results)
-        assert ws.cell(row=7, column=8).value == "Notes"
-
-    def test_xlsx_contains_test_actions_column(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that XLSX output has Test Actions column."""
-        xlsx_bytes = render_xlsx(coverage_with_messages, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        assert ws.cell(row=7, column=5).value == "Test Actions"
-
-    def test_xlsx_contains_expected_results_column(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that XLSX output has Expected Results column."""
-        xlsx_bytes = render_xlsx(coverage_with_messages, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        assert ws.cell(row=7, column=6).value == "Expected Results"
-
-    def test_xlsx_contains_note_content(self, coverage_with_messages, sample_graph):
-        """Test that XLSX output contains note content."""
-        xlsx_bytes = render_xlsx(coverage_with_messages, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        # Notes are in column 8, data row 8
-        notes_cell = ws.cell(row=8, column=8).value
-        assert "Custom verification message" in notes_cell
-
-    def test_markdown_contains_notes_column(self, coverage_with_messages, sample_graph):
-        """Test that Markdown output has Notes column."""
-        md = render_markdown(coverage_with_messages, sample_graph)
-
-        assert "| Notes |" in md
-
-    def test_markdown_contains_test_actions_column(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that Markdown output has Test Actions column."""
-        md = render_markdown(coverage_with_messages, sample_graph)
-
-        assert "| Test Actions |" in md
-
-    def test_markdown_contains_expected_results_column(
-        self, coverage_with_messages, sample_graph
-    ):
-        """Test that Markdown output has Expected Results column."""
-        md = render_markdown(coverage_with_messages, sample_graph)
-
-        assert "| Expected Results |" in md
-
-    def test_markdown_contains_note_content(self, coverage_with_messages, sample_graph):
-        """Test that Markdown output contains note content."""
-        md = render_markdown(coverage_with_messages, sample_graph)
-
-        assert "Custom verification message" in md
-
-
-# =========================================================================
-# Gap 9 — XLSX conditional formatting (fill colors)
-# =========================================================================
-
-
-class TestXlsxConditionalFormatting:
-    """Tests for XLSX status cell fill colors."""
-
-    def test_passed_cell_has_green_fill(self, sample_coverage, sample_graph):
-        """Passed status cell has green fill (C6EFCE)."""
-        xlsx_bytes = render_xlsx(sample_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        status_cell = ws.cell(row=8, column=9)
-        assert status_cell.value == "Passed"
-        assert status_cell.fill.start_color.rgb == "00C6EFCE"
-
-    def test_failed_cell_has_red_fill(self, failed_coverage, sample_graph):
-        """Failed status cell has red fill (FFC7CE)."""
-        xlsx_bytes = render_xlsx(failed_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        status_cell = ws.cell(row=8, column=9)
-        assert status_cell.value == "Failed"
-        assert status_cell.fill.start_color.rgb == "00FFC7CE"
-
-    def test_uncovered_cell_has_yellow_fill(self, uncovered_coverage, sample_graph):
-        """Uncovered status cell has yellow fill (FFEB9C)."""
-        xlsx_bytes = render_xlsx(uncovered_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-
-        status_cell = ws.cell(row=8, column=9)
-        assert status_cell.value == "Not Covered"
-        assert status_cell.fill.start_color.rgb == "00FFEB9C"
-
-
-# =========================================================================
-# Tests for actual_results field in matrices
-# =========================================================================
-
-
-class TestActualResultsInRenderers:
-    """Tests for actual_results display in all renderers."""
-
-    @pytest.fixture
-    def coverage_with_actual_results(self):
-        """Coverage data with actual results."""
-        item = Item(
-            uid="SRS010",
-            text="Requirement with actual results",
-            document_prefix="SRS",
-        )
-        link = LinkedTest(
-            test_nodeid="test_actual.py::test_with_actual_results",
-            item_uid="SRS010",
-            test_outcome="passed",
-            test_actions=["Submit login form"],
-            expected_results=["Login succeeds"],
-            actual_results=["Login returned: success", "Token generated"],
-        )
-        return {"SRS010": ItemCoverage(item=item, linked_tests=[link])}
-
-    def test_html_contains_actual_results(
-        self, coverage_with_actual_results, sample_graph
-    ):
-        """Test that HTML output contains actual results."""
-        html = render_html(coverage_with_actual_results, sample_graph)
-        assert "Login returned: success" in html
-        assert "Token generated" in html
-        assert "<th>Actual Results</th>" in html
-
-    def test_json_contains_actual_results(
-        self, coverage_with_actual_results, sample_graph
-    ):
-        """Test that JSON output includes actual_results array."""
-        json_str = render_json(coverage_with_actual_results, sample_graph)
-        data = json.loads(json_str)
-        test = data["items"]["SRS010"]["linked_tests"][0]
-        assert "actual_results" in test
-        assert "Login returned: success" in test["actual_results"]
-
-    def test_csv_contains_actual_results(
-        self, coverage_with_actual_results, sample_graph
-    ):
-        """Test that CSV output has Actual Results column and content."""
-        csv_str = render_csv(coverage_with_actual_results, sample_graph)
-        reader = csv.reader(io.StringIO(csv_str))
-        header = next(reader)
-        assert "Actual Results" in header
-        assert "Login returned: success" in csv_str
-
-    def test_markdown_contains_actual_results(
-        self, coverage_with_actual_results, sample_graph
-    ):
-        """Test that Markdown output has Actual Results column and content."""
-        md = render_markdown(coverage_with_actual_results, sample_graph)
-        assert "| Actual Results |" in md
-        assert "Login returned: success" in md
-
-    def test_xlsx_contains_actual_results(
-        self, coverage_with_actual_results, sample_graph
-    ):
-        """Test that XLSX output has Actual Results column and content."""
-        xlsx_bytes = render_xlsx(coverage_with_actual_results, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        assert ws.cell(row=7, column=7).value == "Actual Results"
-        actual_cell = ws.cell(row=8, column=7).value
-        assert "Login returned: success" in actual_cell
-
-
-# =========================================================================
-# Tests for multi-test grouping (test name headers)
-# =========================================================================
-
-
-class TestMultiTestGrouping:
-    """Tests for grouping entries by test name when multi-test items."""
-
-    @pytest.fixture
-    def coverage_with_multiple_tests(self):
-        """Coverage data with multiple tests linked to one requirement."""
-        item = Item(
-            uid="SRS020",
-            text="Requirement with multiple tests",
-            document_prefix="SRS",
-        )
-        test1 = LinkedTest(
-            test_nodeid="test_multi.py::test_first",
-            item_uid="SRS020",
-            test_outcome="passed",
-            test_actions=["First action"],
-            expected_results=["First expected"],
-            actual_results=["First actual"],
-            notes=["First note"],
-        )
-        test2 = LinkedTest(
-            test_nodeid="test_multi.py::test_second",
-            item_uid="SRS020",
-            test_outcome="passed",
-            test_actions=["Second action"],
-            expected_results=["Second expected"],
-            actual_results=["Second actual"],
-            notes=["Second note"],
-        )
-        return {"SRS020": ItemCoverage(item=item, linked_tests=[test1, test2])}
-
-    def test_html_groups_by_test_name(self, coverage_with_multiple_tests, sample_graph):
-        """Test that HTML shows test name headers for multi-test items."""
-        html = render_html(coverage_with_multiple_tests, sample_graph)
-        assert "test_first" in html
-        assert "test_second" in html
-        assert 'class="test-header"' in html
-
-    def test_markdown_prefixes_with_test_name(
-        self, coverage_with_multiple_tests, sample_graph
-    ):
-        """Test that Markdown prefixes entries with [test_name] for multi-test items."""
-        md = render_markdown(coverage_with_multiple_tests, sample_graph)
-        assert "[test_first]" in md
-        assert "[test_second]" in md
-
-    def test_csv_prefixes_with_test_name(
-        self, coverage_with_multiple_tests, sample_graph
-    ):
-        """Test that CSV prefixes entries with [test_name] for multi-test items."""
-        csv_str = render_csv(coverage_with_multiple_tests, sample_graph)
-        assert "[test_first]" in csv_str
-        assert "[test_second]" in csv_str
-
-    def test_xlsx_groups_by_test_name(self, coverage_with_multiple_tests, sample_graph):
-        """Test that XLSX shows test name headers for multi-test items."""
-        xlsx_bytes = render_xlsx(coverage_with_multiple_tests, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        actions_cell = ws.cell(row=8, column=5).value
-        assert "[test_first]" in actions_cell
-        assert "[test_second]" in actions_cell
-
-    def test_single_test_no_prefix(self, sample_coverage, sample_graph):
-        """Test that single-test items don't get test name prefix."""
-        md = render_markdown(sample_coverage, sample_graph)
-        # Should not have brackets around test name in the content
-        assert "[test_valid]" not in md
-
-
-# =========================================================================
-# Tests for metadata in matrix output
-# =========================================================================
-
-
-class TestMatrixMetadata:
-    """Tests for metadata header in matrix output."""
-
-    @pytest.fixture
-    def sample_metadata(self):
-        """Sample metadata for testing."""
-        from jamb.core.models import MatrixMetadata, TestEnvironment
-
-        return MatrixMetadata(
-            software_version="1.2.3",
-            tester_id="QA Team",
-            execution_timestamp="2026-01-28T12:00:00Z",
-            environment=TestEnvironment(
-                os_name="Darwin",
-                os_version="25.2.0",
-                python_version="3.12.0",
-                platform="arm64",
-                processor="arm",
-                hostname="test-machine",
-                cpu_count=10,
-                test_tools={"pytest": "8.0.0", "jamb": "1.0.0"},
-            ),
-        )
-
-    def test_html_contains_metadata(
-        self, sample_coverage, sample_graph, sample_metadata
-    ):
-        """Test that HTML output contains metadata section."""
-        html = render_html(sample_coverage, sample_graph, metadata=sample_metadata)
-        assert "1.2.3" in html
-        assert "QA Team" in html
-        assert "2026-01-28T12:00:00Z" in html
-        assert "Darwin" in html
-        assert "pytest 8.0.0" in html
-
-    def test_json_contains_metadata(
-        self, sample_coverage, sample_graph, sample_metadata
-    ):
-        """Test that JSON output contains metadata object."""
-        json_str = render_json(sample_coverage, sample_graph, metadata=sample_metadata)
-        data = json.loads(json_str)
-        assert "metadata" in data
-        assert data["metadata"]["software_version"] == "1.2.3"
-        assert data["metadata"]["tester_id"] == "QA Team"
-        assert data["metadata"]["test_tools"]["pytest"] == "8.0.0"
-
-    def test_markdown_contains_metadata(
-        self, sample_coverage, sample_graph, sample_metadata
-    ):
-        """Test that Markdown output contains metadata section."""
-        md = render_markdown(sample_coverage, sample_graph, metadata=sample_metadata)
-        assert "**Software Version:** 1.2.3" in md
-        assert "**Tester:** QA Team" in md
-        assert "pytest 8.0.0" in md
-
-    def test_csv_contains_metadata(
-        self, sample_coverage, sample_graph, sample_metadata
-    ):
-        """Test that CSV output contains metadata rows."""
-        csv_str = render_csv(sample_coverage, sample_graph, metadata=sample_metadata)
-        assert "Software Version,1.2.3" in csv_str
-        assert "Tester,QA Team" in csv_str
-
-    def test_xlsx_contains_metadata(
-        self, sample_coverage, sample_graph, sample_metadata
-    ):
-        """Test that XLSX output contains metadata rows."""
-        xlsx_bytes = render_xlsx(
-            sample_coverage, sample_graph, metadata=sample_metadata
-        )
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        # Metadata starts at row 3
-        assert ws.cell(row=3, column=1).value == "Software Version:"
-        assert ws.cell(row=3, column=2).value == "1.2.3"
-
-
-# =========================================================================
-# Tests for testable: false items (N/A status)
-# =========================================================================
-
-
-class TestNonTestableItems:
-    """Tests for non-testable items showing N/A status."""
-
-    @pytest.fixture
-    def nontestable_coverage(self):
-        """Coverage data with non-testable item."""
-        item = Item(
-            uid="SRS099",
-            text="User manual shall be provided",
-            document_prefix="SRS",
-            testable=False,
-        )
-        return {"SRS099": ItemCoverage(item=item, linked_tests=[])}
-
-    def test_html_shows_na_status(self, nontestable_coverage, sample_graph):
-        """Test that HTML shows N/A status for non-testable items."""
-        html = render_html(nontestable_coverage, sample_graph)
-        assert "N/A" in html
-        assert 'class="na"' in html or "na" in html.lower()
-
-    def test_json_shows_na_status(self, nontestable_coverage, sample_graph):
-        """Test that JSON shows N/A status for non-testable items."""
-        json_str = render_json(nontestable_coverage, sample_graph)
-        data = json.loads(json_str)
-        assert data["items"]["SRS099"]["status"] == "N/A"
-        assert data["items"]["SRS099"]["testable"] is False
-
-    def test_markdown_shows_na_status(self, nontestable_coverage, sample_graph):
-        """Test that Markdown shows N/A status for non-testable items."""
-        md = render_markdown(nontestable_coverage, sample_graph)
-        assert "| N/A |" in md
-
-    def test_csv_shows_na_status(self, nontestable_coverage, sample_graph):
-        """Test that CSV shows N/A status for non-testable items."""
-        csv_str = render_csv(nontestable_coverage, sample_graph)
-        assert ",N/A" in csv_str
-
-    def test_xlsx_shows_na_status(self, nontestable_coverage, sample_graph):
-        """Test that XLSX shows N/A status for non-testable items."""
-        xlsx_bytes = render_xlsx(nontestable_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        assert ws.cell(row=8, column=9).value == "N/A"
-
-    def test_xlsx_na_has_gray_fill(self, nontestable_coverage, sample_graph):
-        """Test that N/A status cell has gray fill (D9D9D9)."""
-        xlsx_bytes = render_xlsx(nontestable_coverage, sample_graph)
-        wb = load_workbook(io.BytesIO(xlsx_bytes))
-        ws = wb.active
-        status_cell = ws.cell(row=8, column=9)
-        assert status_cell.fill.start_color.rgb == "00D9D9D9"
-
-
-# =========================================================================
-# Tests for markdown truncation behavior
-# =========================================================================
-
-
-class TestMarkdownTruncation:
-    """Tests for markdown truncation behavior."""
-
-    def test_long_content_truncated_at_200_chars(self, sample_graph):
-        """Test that content over 200 chars is truncated."""
-        long_action = "A" * 250  # 250 chars
-        item = Item(uid="SRS001", text="Test", document_prefix="SRS")
-        link = LinkedTest(
-            test_nodeid="test.py::test",
-            item_uid="SRS001",
-            test_outcome="passed",
-            test_actions=[long_action],
-        )
-        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
-        md = render_markdown(coverage, sample_graph)
-        # Full string should NOT appear (it's 250 chars)
-        assert long_action not in md
-        # Truncated version should appear (197 A's + "...")
-        assert "A" * 197 + "..." in md
-
-    def test_truncated_content_has_ellipsis(self, sample_graph):
-        """Test that truncated content ends with '...'."""
-        long_note = "N" * 300
-        item = Item(uid="SRS001", text="Test", document_prefix="SRS")
-        link = LinkedTest(
-            test_nodeid="test.py::test",
-            item_uid="SRS001",
-            test_outcome="passed",
-            notes=[long_note],
-        )
-        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
-        md = render_markdown(coverage, sample_graph)
-        assert "..." in md
-
-    def test_content_under_200_not_truncated(self, sample_graph):
-        """Test that content under 200 chars is not truncated."""
-        short_action = "A" * 150
-        item = Item(uid="SRS001", text="Test", document_prefix="SRS")
-        link = LinkedTest(
-            test_nodeid="test.py::test",
-            item_uid="SRS001",
-            test_outcome="passed",
-            test_actions=[short_action],
-        )
-        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
-        md = render_markdown(coverage, sample_graph)
-        # Full string should appear
-        assert short_action in md
+        # Check for "Traces To" header
+        values = [cell.value for row in ws.iter_rows() for cell in row if cell.value]
+        assert "Traces To" in values

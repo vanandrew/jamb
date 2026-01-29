@@ -16,6 +16,12 @@ matrix_format = "html"
 software_version = "1.0.0"
 exclude_patterns = []
 trace_to_ignore = []
+
+# Dual-matrix output options
+test_matrix_output = "test-records.html"
+trace_matrix_output = "traceability.html"
+trace_from = "UN"
+include_ancestors = true
 ```
 
 ### Options Reference
@@ -61,6 +67,26 @@ trace_to_ignore = []
 : **Type:** `str | null`
 : **Default:** `null` (auto-detected)
 
+`test_matrix_output`
+: Output path for the test records matrix (separate from trace matrix). Contains test-centric view with test actions, expected/actual results.
+: **Type:** `str | null`
+: **Default:** `null`
+
+`trace_matrix_output`
+: Output path for the trace matrix. Contains requirement-centric view with traceability chains.
+: **Type:** `str | null`
+: **Default:** `null`
+
+`trace_from`
+: Starting document prefix for full chain trace matrix. When set, the trace matrix starts from this document and traces down through the hierarchy.
+: **Type:** `str | null`
+: **Default:** `null` (auto-detect root document)
+
+`include_ancestors`
+: Include a "Traces To" column showing ancestor UIDs in the trace matrix.
+: **Type:** `bool`
+: **Default:** `false`
+
 ### Example Configurations
 
 **Minimal (most projects):**
@@ -80,6 +106,18 @@ require_all_pass = true
 matrix_output = "matrix.html"
 matrix_format = "html"
 trace_to_ignore = ["PRJ"]
+```
+
+**Dual-matrix output (trace + test records):**
+
+```toml
+[tool.jamb]
+test_documents = ["SRS"]
+trace_matrix_output = "docs/traceability.html"
+test_matrix_output = "docs/test-records.html"
+trace_from = "UN"
+include_ancestors = true
+trace_to_ignore = ["PRJ", "HAZ"]
 ```
 
 ## Document Configuration (`.jamb.yml`)

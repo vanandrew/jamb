@@ -1,5 +1,7 @@
 """Tests for jamb.config.loader module."""
 
+import warnings
+
 from jamb.config.loader import (
     JambConfig,
     _extract_version_from_file,
@@ -18,8 +20,8 @@ class TestJambConfig:
         assert config.test_documents == []
         assert config.fail_uncovered is False
         assert config.require_all_pass is True
-        assert config.matrix_output is None
-        assert config.matrix_format == "html"
+        assert config.test_matrix_output is None
+        assert config.trace_matrix_output is None
         assert config.exclude_patterns == []
         assert config.trace_to_ignore == []
 
@@ -47,8 +49,8 @@ class TestLoadConfig:
 
         assert config.test_documents == ["SRS", "SYS"]
         assert config.fail_uncovered is True
-        assert config.matrix_output == "matrix.html"
-        assert config.matrix_format == "html"
+        assert config.test_matrix_output == "test-records.html"
+        assert config.trace_matrix_output == "traceability.html"
 
     def test_load_config_partial_options(self, tmp_path):
         """Test loading config with partial options."""
@@ -63,7 +65,8 @@ test_documents = ["UT"]
 
         assert config.test_documents == ["UT"]
         assert config.fail_uncovered is False  # Default
-        assert config.matrix_format == "html"  # Default
+        assert config.test_matrix_output is None  # Default
+        assert config.trace_matrix_output is None  # Default
 
     def test_load_config_default_path(self, tmp_path, monkeypatch):
         """Test loading from default pyproject.toml in cwd."""
@@ -113,8 +116,8 @@ require_all_pass = false
 test_documents = ["SRS", "SYS", "REQ"]
 fail_uncovered = true
 require_all_pass = false
-matrix_output = "output/matrix.html"
-matrix_format = "markdown"
+test_matrix_output = "output/test-records.html"
+trace_matrix_output = "output/traceability.md"
 exclude_patterns = ["**/skip_*.py"]
 trace_to_ignore = ["PRJ", "UN"]
 """
@@ -126,8 +129,8 @@ trace_to_ignore = ["PRJ", "UN"]
         assert config.test_documents == ["SRS", "SYS", "REQ"]
         assert config.fail_uncovered is True
         assert config.require_all_pass is False
-        assert config.matrix_output == "output/matrix.html"
-        assert config.matrix_format == "markdown"
+        assert config.test_matrix_output == "output/test-records.html"
+        assert config.trace_matrix_output == "output/traceability.md"
         assert config.exclude_patterns == ["**/skip_*.py"]
         assert config.trace_to_ignore == ["PRJ", "UN"]
 
@@ -186,19 +189,22 @@ fail_uncovered = "yes"
         config = load_config(pyproject)
         assert config.fail_uncovered == "yes"
 
-    def test_matrix_format_as_int(self, tmp_path):
-        """matrix_format = 42 raises ValueError."""
-        import pytest
+    def test_unknown_key_warning(self, tmp_path):
+        """Unknown keys emit a warning."""
+        import warnings
 
         content = """
 [tool.jamb]
-matrix_format = 42
+unknown_key = "value"
 """
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        with pytest.raises(ValueError, match="Invalid matrix_format"):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             load_config(pyproject)
+            assert len(w) == 1
+            assert "Unrecognized keys" in str(w[0].message)
 
     def test_exclude_patterns_as_string(self, tmp_path):
         """exclude_patterns = '*.py' passes through as string."""
@@ -235,7 +241,9 @@ another_fake = 99
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        config = load_config(pyproject)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            config = load_config(pyproject)
         assert config.test_documents == ["SRS"]
         assert not hasattr(config, "totally_unknown_key")
 

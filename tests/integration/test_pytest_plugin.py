@@ -20,10 +20,10 @@ class TestPluginRegistration:
         result.stdout.fnmatch_lines(["*--jamb-fail-uncovered*"])
 
     def test_jamb_matrix_option(self, pytester):
-        """Test that --jamb-matrix option is available."""
+        """Test that --jamb-test-matrix option is available."""
         result = pytester.runpytest("--help")
 
-        result.stdout.fnmatch_lines(["*--jamb-matrix*"])
+        result.stdout.fnmatch_lines(["*--jamb-test-matrix*"])
 
 
 class TestMarkerCollection:
@@ -127,7 +127,7 @@ class TestMatrixGeneration:
     """Tests for matrix generation during test run."""
 
     def test_generates_html_matrix(self, pytester, tmp_path):
-        """Test that --jamb-matrix generates HTML file."""
+        """Test that --jamb-test-matrix generates HTML file."""
         pytester.makepyfile(
             """
             import pytest
@@ -144,7 +144,7 @@ class TestMatrixGeneration:
         pytester.makefile(".yml", SRS001="active: true\ntext: Test\nlinks: []")
 
         matrix_path = pytester.path / "matrix.html"
-        result = pytester.runpytest("--jamb", f"--jamb-matrix={matrix_path}")
+        result = pytester.runpytest("--jamb", f"--jamb-test-matrix={matrix_path}")
 
         assert result.ret == 0
         assert matrix_path.exists()
@@ -152,7 +152,7 @@ class TestMatrixGeneration:
         assert "<html" in content
 
     def test_generates_markdown_matrix(self, pytester):
-        """Test that --jamb-matrix with markdown format works."""
+        """Test that --jamb-test-matrix with markdown format works."""
         pytester.makepyfile(
             """
             def test_simple():
@@ -167,15 +167,14 @@ class TestMatrixGeneration:
         matrix_path = pytester.path / "matrix.md"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=markdown",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         assert result.ret == 0
         assert matrix_path.exists()
 
     def test_generates_csv_matrix(self, pytester):
-        """Test that --jamb-matrix with csv format works."""
+        """Test that --jamb-trace-matrix with csv format works."""
         pytester.makepyfile(
             """
             def test_simple():
@@ -190,17 +189,16 @@ class TestMatrixGeneration:
         matrix_path = pytester.path / "matrix.csv"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=csv",
+            f"--jamb-trace-matrix={matrix_path}",
         )
 
         assert result.ret == 0
         assert matrix_path.exists()
         content = matrix_path.read_text()
-        assert "UID" in content  # Header row exists
+        assert "Traceability Matrix" in content  # Title row exists
 
     def test_generates_xlsx_matrix(self, pytester):
-        """Test that --jamb-matrix with xlsx format works."""
+        """Test that --jamb-trace-matrix with xlsx format works."""
         from openpyxl import load_workbook
 
         pytester.makepyfile(
@@ -217,8 +215,7 @@ class TestMatrixGeneration:
         matrix_path = pytester.path / "matrix.xlsx"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=xlsx",
+            f"--jamb-trace-matrix={matrix_path}",
         )
 
         assert result.ret == 0
@@ -456,17 +453,17 @@ class TestSkipAndXfailCapture:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         assert result.ret == 0
         assert matrix_path.exists()
 
         data = json.loads(matrix_path.read_text())
-        item = data["items"]["SRS001"]
+        # Find test linked to SRS001
+        test = next(t for t in data["tests"] if "SRS001" in t["requirements"])
         # Should have skipped outcome
-        assert item["linked_tests"][0]["outcome"] == "skipped"
+        assert test["outcome"] == "skipped"
 
     def test_xfail_message_captured(self, pytester):
         """Test that xfail messages are captured in matrix."""
@@ -487,8 +484,7 @@ class TestSkipAndXfailCapture:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         # xfail tests still result in success
@@ -539,17 +535,16 @@ class TestJambLogFixture:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         assert result.ret == 0
         assert matrix_path.exists()
 
         data = json.loads(matrix_path.read_text())
-        item = data["items"]["SRS001"]
-        notes = item["linked_tests"][0]["notes"]
-        assert "Custom verification message" in notes
+        # Find test linked to SRS001
+        test = next(t for t in data["tests"] if "SRS001" in t["requirements"])
+        assert "Custom verification message" in test["notes"]
 
     def test_failure_message_captured(self, pytester):
         """Test that failure messages are captured in matrix."""
@@ -570,8 +565,7 @@ class TestJambLogFixture:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         # Test fails but matrix should still be generated
@@ -579,8 +573,9 @@ class TestJambLogFixture:
         assert matrix_path.exists()
 
         data = json.loads(matrix_path.read_text())
-        item = data["items"]["SRS001"]
-        notes = item["linked_tests"][0]["notes"]
+        # Find test linked to SRS001
+        test = next(t for t in data["tests"] if "SRS001" in t["requirements"])
+        notes = test["notes"]
 
         # Should have a failure message starting with [FAILURE]
         assert any(msg.startswith("[FAILURE]") for msg in notes)
@@ -604,7 +599,7 @@ class TestJambLogFixture:
         matrix_path = pytester.path / "matrix.html"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         assert result.ret == 0
@@ -636,15 +631,15 @@ class TestJambLogFixture:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
         )
 
         assert result.ret == 0
         assert matrix_path.exists()
 
         data = json.loads(matrix_path.read_text())
-        test = data["items"]["SRS001"]["linked_tests"][0]
+        # Find test linked to SRS001
+        test = next(t for t in data["tests"] if "SRS001" in t["requirements"])
         assert "Login returned: success" in test["actual_results"]
         assert "Submit login form" in test["test_actions"]
         assert "Login succeeds" in test["expected_results"]
@@ -669,8 +664,7 @@ class TestMatrixMetadataIntegration:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
             "--jamb-tester-id=CI Pipeline",
         )
 
@@ -694,8 +688,7 @@ class TestMatrixMetadataIntegration:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
             "--jamb-software-version=2.5.0",
         )
 
@@ -719,8 +712,7 @@ class TestMatrixMetadataIntegration:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
             "--jamb-tester-id=Test",
         )
 
@@ -748,8 +740,7 @@ class TestMatrixMetadataIntegration:
         matrix_path = pytester.path / "matrix.json"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
-            "--jamb-matrix-format=json",
+            f"--jamb-test-matrix={matrix_path}",
             "--jamb-tester-id=Test",
         )
 
@@ -772,11 +763,11 @@ class TestMatrixMetadataIntegration:
         matrix_path = pytester.path / "matrix.html"
         result = pytester.runpytest(
             "--jamb",
-            f"--jamb-matrix={matrix_path}",
+            f"--jamb-test-matrix={matrix_path}",
             "--jamb-tester-id=QA Team",
         )
 
         assert result.ret == 0
         content = matrix_path.read_text()
         assert "QA Team" in content
-        assert "Traceability and Test Record Matrix" in content
+        assert "Test Records" in content

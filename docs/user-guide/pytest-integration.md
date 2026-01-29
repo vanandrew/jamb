@@ -31,6 +31,7 @@ The marker accepts any number of item UIDs as positional arguments.
 | `--jamb-documents PREFIXES` | Comma-separated document prefixes to check |
 | `--jamb-tester-id ID` | Tester identification for traceability matrix (default: "Unknown") |
 | `--jamb-software-version VERSION` | Software version for traceability matrix (overrides pyproject.toml) |
+| `--jamb-trace-to-ignore PREFIX` | Exclude document prefix from trace matrix (repeatable) |
 
 **Note:** All pytest CLI options override their corresponding `[tool.jamb]` settings in `pyproject.toml`. For example, `--jamb-fail-uncovered` on the command line takes effect even if `fail_uncovered = false` in the config. When no CLI flag is given, the config file value is used.
 
@@ -56,6 +57,11 @@ pytest --jamb --jamb-documents SRS
 pytest --jamb --jamb-matrix matrix.html \
     --jamb-tester-id "CI Pipeline" \
     --jamb-software-version "1.2.3"
+
+# Exclude specific documents from trace matrix
+pytest --jamb --jamb-matrix matrix.html \
+    --jamb-trace-to-ignore PRJ \
+    --jamb-trace-to-ignore HAZ
 ```
 
 ## The `jamb_log` Fixture
@@ -100,16 +106,17 @@ When a test fails, jamb automatically captures the failure message and includes 
 
 ## Static vs Runtime Checking
 
-| Feature | `jamb check` (static) | `pytest --jamb` (runtime) |
-|---------|----------------------|--------------------------|
-| Runs tests | No | Yes |
-| Detects `@pytest.mark.requirement` | Yes | Yes |
-| Reports pass/fail status | No | Yes |
-| Captures `jamb_log` output | No | Yes |
-| Generates traceability matrix | No | Yes (with `--jamb-matrix`) |
-| Speed | Fast | Depends on test suite |
+| Feature | `jamb check` (static) | `pytest --jamb` (runtime) | `jamb matrix` (post-run) |
+|---------|----------------------|--------------------------|--------------------------|
+| Runs tests | No | Yes | No |
+| Detects `@pytest.mark.requirement` | Yes | Yes | Uses saved data |
+| Reports pass/fail status | No | Yes | Uses saved data |
+| Captures `jamb_log` output | No | Yes | Uses saved data |
+| Generates traceability matrix | No | Yes (with `--jamb-matrix`) | Yes |
+| Generates test records matrix | No | No | Yes (with `--test-records`) |
+| Speed | Fast | Depends on test suite | Fast |
 
-Use `jamb check` for quick feedback during development. Use `pytest --jamb` in CI for full traceability evidence.
+Use `jamb check` for quick feedback during development. Use `pytest --jamb` in CI for full traceability evidence. Use `jamb matrix` to regenerate matrices from saved coverage data without re-running tests.
 
 ## Matrix Output Formats
 
@@ -120,8 +127,10 @@ The traceability matrix can be generated in several formats:
 | HTML | `--jamb-matrix-format html` | Regulatory submissions, standalone viewing |
 | Markdown | `--jamb-matrix-format markdown` | GitHub/GitLab rendering |
 | JSON | `--jamb-matrix-format json` | Tooling integration, programmatic access |
-| CSV | `--jamb-matrix-format csv` | Spreadsheet import |
+| CSV | `--jamb-matrix-format csv` | Spreadsheet import, large datasets |
 | XLSX | `--jamb-matrix-format xlsx` | Excel, stakeholder review |
+
+**Performance Note:** When generating HTML or XLSX matrices with more than 5,000 rows, jamb emits a warning recommending CSV format for better performance and memory usage.
 
 ### Format Details
 
@@ -137,14 +146,26 @@ When using `--jamb-tester-id` and `--jamb-software-version`, the matrix includes
 
 This metadata satisfies IEC 62304 Clause 5.7.5 requirements for software system test records.
 
-#### Example
+#### Test Records Matrix Example
 
-| UID | Description | Traces To | Tests | Test Actions | Expected Results | Actual Results | Notes | Status |
-|-----|-------------|-----------|-------|--------------|------------------|----------------|-------|--------|
-| SRS001 | Software shall authenticate users with username and password | SYS001, UN001 | `test_credential_validation` [passed] | Submit valid credentials | Authentication returns True | auth_user() returned True | Verified both auth paths | Passed |
-| SRS002 | Software shall lock account after 3 failed login attempts | SYS001, UN001 | `test_account_lockout` [failed] | Submit 3 invalid passwords | Account is locked | account.locked = False | [FAILURE] AssertionError | Failed |
-| SRS003 | Software shall display heart rate in real-time | SYS002, UN002 | - | - | - | - | - | Not Covered |
-| SRS099 | User manual shall be provided | SYS003 | - | - | - | - | Verified by inspection | N/A |
+The test records matrix is test-centric, showing one row per test:
+
+| Test Case | Test Name | Outcome | Requirements | Test Actions | Expected Results | Actual Results | Notes | Timestamp |
+|-----------|-----------|---------|--------------|--------------|------------------|----------------|-------|-----------|
+| TC001 | test_credential_validation | passed | SRS001 | Submit valid credentials | Authentication returns True | auth_user() returned True | Verified both auth paths | 2024-01-15T10:30:00Z |
+| TC002 | test_account_lockout | failed | SRS002 | Submit 3 invalid passwords | Account is locked | account.locked = False | [FAILURE] AssertionError | 2024-01-15T10:30:05Z |
+| TC003 | test_heart_rate_boundaries | passed | SRS005 | Submit heart rate at boundary | Value is accepted | validate_heart_rate(30) returned True | Boundary values per RA-005 | 2024-01-15T10:30:10Z |
+
+#### Trace Matrix Example
+
+The trace matrix is requirement-centric, showing the full traceability chain from a starting document through the hierarchy:
+
+| Traces To | UN | SYS | SRS | Tests | Status |
+|-----------|----|-----|-----|-------|--------|
+| - | UN001: User Authentication | SYS001: Authentication System | SRS001: The system shall authenticate users | TC001: test_credential_validation [passed] | Passed |
+| - | UN001: User Authentication | SYS001: Authentication System | SRS002: The system shall lock accounts | TC002: test_account_lockout [failed] | Failed |
+| - | UN002: Heart Rate Monitoring | SYS002: Vital Signs Display | SRS003: Display heart rate in real-time | - | Not Covered |
+| - | UN003: Documentation | SYS003: User Manual | SRS099: User manual shall be provided | - | N/A |
 
 **Status Values**:
 - **Passed** (green): All linked tests passed
@@ -152,28 +173,37 @@ This metadata satisfies IEC 62304 Clause 5.7.5 requirements for software system 
 - **Not Covered** (yellow): No tests linked to this requirement
 - **N/A** (gray): Requirement marked as `testable: false` (verified by other means)
 
-**HTML** -- Standalone document with inline CSS. Includes metadata header, styled tables, color-coded status, and hyperlinked UIDs. Test actions, expected results, actual results, and notes appear in separate columns. When multiple tests are linked to a requirement, entries are grouped under test name headers.
+**HTML** -- Standalone document with inline CSS. Includes summary statistics banner, styled tables, and color-coded status. Test records matrix shows test actions, expected/actual results, and notes in separate columns. Trace matrix shows document hierarchy columns with bold UIDs and full requirement text.
 
-**Markdown** -- Pipe-delimited table with metadata section. Test actions, expected results, actual results, and notes are semicolon-separated within their columns. When multiple tests are linked, entries are prefixed with `[test_name]`.
+**Markdown** -- Pipe-delimited table with summary section. Test records show one row per test with semicolon-separated actions/results. Trace matrix shows document hierarchy with combined UID and text.
 
-**JSON** -- Structured data with `metadata` object and `test_actions`, `expected_results`, `actual_results`, and `notes` arrays per linked test. Each item includes a `testable` field. Suitable for custom tooling.
+**JSON** -- Structured data with arrays of test records or trace chain objects. Test records include `test_actions`, `expected_results`, `actual_results`, and `notes` arrays. Trace matrix includes nested chain objects per document level. Suitable for custom tooling.
 
-**CSV** -- Standard comma-separated values with metadata rows at the top. Test actions, expected results, actual results, and notes are semicolon-separated within their columns. When multiple tests are linked, entries are prefixed with `[test_name]`.
+**CSV** -- Standard comma-separated values with summary rows at the top. Test records show one row per test. Trace matrix shows document hierarchy as separate columns. Recommended for large datasets (5,000+ rows).
 
-**XLSX** -- Excel workbook with metadata rows, text wrapping, and color-coded status cells. Test actions, expected results, actual results, and notes are newline-separated within dedicated columns. When multiple tests are linked, entries are grouped under `[test_name]` headers.
+**XLSX** -- Excel workbook with summary rows, text wrapping, and color-coded status cells. Test records and trace matrices are formatted with appropriate column widths and styling.
 
 ## Matrix Columns
 
-The generated matrix includes:
+### Test Records Matrix Columns
 
 | Column | Description |
 |--------|-------------|
-| UID | Item identifier (e.g., SRS001) |
-| Description | Requirement text |
-| Traces To | Parent requirements this item links to |
-| Tests | pytest tests linked via `@pytest.mark.requirement` |
+| Test Case | Sequential test ID (TC001, TC002, etc.) |
+| Test Name | pytest function name |
+| Outcome | Test result: passed, failed, skipped, or error |
+| Requirements | Item UIDs covered by this test |
 | Test Actions | Steps performed (from `jamb_log.test_action()`) |
 | Expected Results | Acceptance criteria (from `jamb_log.expected_result()`) |
 | Actual Results | Observed outcomes (from `jamb_log.actual_result()`) |
 | Notes | Observations and failure messages (from `jamb_log.note()`) |
-| Status | Passed, Failed, Not Covered, or N/A |
+| Timestamp | ISO 8601 UTC timestamp of test execution |
+
+### Trace Matrix Columns
+
+| Column | Description |
+|--------|-------------|
+| Traces To | Ancestor UIDs (optional, enabled with `--include-ancestors`) |
+| [Document Columns] | One column per document in hierarchy (e.g., UN, SYS, SRS), showing UID and requirement text |
+| Tests | pytest tests linked to leaf items, with TC IDs and outcomes |
+| Status | Passed, Failed, Not Covered, Partial, or N/A |

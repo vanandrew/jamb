@@ -23,17 +23,23 @@ class JambConfig:
             lacks test coverage.
         require_all_pass (bool): Require all linked tests to pass for an item
             to be considered covered.
-        matrix_output (str | None): File path for the generated traceability matrix,
-            or ``None`` to skip generation.
-        matrix_format (str): Output format for the traceability matrix
-            (``"html"``, ``"markdown"``, ``"json"``, ``"csv"``, or
-            ``"xlsx"``).
+        test_matrix_output (str | None): File path for the generated test records
+            matrix, or ``None`` to skip generation. Format is inferred from
+            file extension (``.html``, ``.json``, ``.csv``, ``.md``, ``.xlsx``).
+        trace_matrix_output (str | None): File path for the generated traceability
+            matrix, or ``None`` to skip generation. Format is inferred from
+            file extension (``.html``, ``.json``, ``.csv``, ``.md``, ``.xlsx``).
         exclude_patterns (list[str]): Glob patterns for documents or items to
             exclude from processing.
         trace_to_ignore (list[str]): Document prefixes to exclude from the
             "Traces To" column in the traceability matrix.
         software_version (str | None): Software version for the traceability matrix.
             If None, auto-parsed from ``[project].version`` in pyproject.toml.
+        trace_from (str | None): Starting document prefix for full chain trace
+            matrix generation. When set, generates a full chain matrix instead
+            of the simple trace matrix.
+        include_ancestors (bool): Whether to include a "Traces To" column
+            showing ancestors of the starting items in full chain matrices.
 
     Examples:
         Construct a config with custom settings::
@@ -41,7 +47,7 @@ class JambConfig:
             >>> config = JambConfig(
             ...     test_documents=["SRS"],
             ...     fail_uncovered=True,
-            ...     matrix_output="matrix.html",
+            ...     test_matrix_output="test-records.html",
             ... )
             >>> config.test_documents
             ['SRS']
@@ -52,11 +58,44 @@ class JambConfig:
     test_documents: list[str] = field(default_factory=list)
     fail_uncovered: bool = False
     require_all_pass: bool = True
-    matrix_output: str | None = None
-    matrix_format: str = "html"
+    test_matrix_output: str | None = None
+    trace_matrix_output: str | None = None
     exclude_patterns: list[str] = field(default_factory=list)
     trace_to_ignore: list[str] = field(default_factory=list)
     software_version: str | None = None
+    trace_from: str | None = None
+    include_ancestors: bool = False
+
+    def validate(self, available_documents: list[str]) -> list[str]:
+        """Validate configuration against available documents.
+
+        Args:
+            available_documents: List of document prefixes discovered in the project.
+
+        Returns:
+            List of validation warning messages. Empty if no issues found.
+        """
+        validation_warnings: list[str] = []
+
+        if self.trace_from and self.trace_from not in available_documents:
+            validation_warnings.append(
+                f"trace_from '{self.trace_from}' not found in documents: "
+                f"{', '.join(sorted(available_documents))}"
+            )
+
+        for doc in self.test_documents:
+            if doc not in available_documents:
+                validation_warnings.append(
+                    f"test_documents contains '{doc}' not in available documents"
+                )
+
+        for doc in self.trace_to_ignore:
+            if doc not in available_documents:
+                validation_warnings.append(
+                    f"trace_to_ignore contains '{doc}' not in available documents"
+                )
+
+        return validation_warnings
 
 
 def _extract_version_from_file(version_file: Path) -> str | None:
@@ -194,11 +233,13 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         "test_documents",
         "fail_uncovered",
         "require_all_pass",
-        "matrix_output",
-        "matrix_format",
+        "test_matrix_output",
+        "trace_matrix_output",
         "exclude_patterns",
         "trace_to_ignore",
         "software_version",
+        "trace_from",
+        "include_ancestors",
     }
     unknown = set(jamb_config.keys()) - RECOGNIZED_KEYS
     if unknown:
@@ -220,21 +261,15 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         if "version" in dynamic:
             software_version = _get_dynamic_version(pyproject, config_path.parent)
 
-    matrix_format = jamb_config.get("matrix_format", "html")
-    valid_formats = {"html", "markdown", "json", "csv", "xlsx"}
-    if matrix_format not in valid_formats:
-        raise ValueError(
-            f"Invalid matrix_format '{matrix_format}' in [tool.jamb]. "
-            f"Must be one of: {', '.join(sorted(valid_formats))}"
-        )
-
     return JambConfig(
         test_documents=jamb_config.get("test_documents", []),
         fail_uncovered=jamb_config.get("fail_uncovered", False),
         require_all_pass=jamb_config.get("require_all_pass", True),
-        matrix_output=jamb_config.get("matrix_output"),
-        matrix_format=matrix_format,
+        test_matrix_output=jamb_config.get("test_matrix_output"),
+        trace_matrix_output=jamb_config.get("trace_matrix_output"),
         exclude_patterns=jamb_config.get("exclude_patterns", []),
         trace_to_ignore=jamb_config.get("trace_to_ignore", []),
         software_version=software_version,
+        trace_from=jamb_config.get("trace_from"),
+        include_ancestors=jamb_config.get("include_ancestors", False),
     )
