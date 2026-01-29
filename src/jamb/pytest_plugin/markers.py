@@ -14,8 +14,14 @@ def get_requirement_markers(item: pytest.Item) -> list[str]:
 
     Returns:
         List of requirement item UIDs found in requirement markers.
+        Duplicates within the same test are removed while preserving order.
+
+    Raises:
+        TypeError: If a marker argument is not a string.
+        ValueError: If a marker argument is empty or whitespace-only.
     """
     uids: list[str] = []
+    seen: set[str] = set()
 
     for marker in item.iter_markers("requirement"):
         for arg in marker.args:
@@ -24,6 +30,11 @@ def get_requirement_markers(item: pytest.Item) -> list[str]:
                     f"Requirement marker arguments must be strings, "
                     f"got {type(arg).__name__}: {arg!r}"
                 )
-            uids.append(arg)
+            uid = arg.strip()
+            if not uid:
+                raise ValueError(f"Empty requirement UID in test {item.nodeid}")
+            if uid not in seen:
+                seen.add(uid)
+                uids.append(uid)
 
     return uids

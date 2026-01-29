@@ -146,7 +146,7 @@ def render_full_chain_csv(
 
             # Traces To column
             if matrix.include_ancestors:
-                cells.append(", ".join(row.ancestor_uids))
+                cells.append(", ".join(row.ancestor_uids) or "-")
 
             # Document columns
             for prefix in matrix.document_hierarchy:

@@ -290,22 +290,31 @@ class TestInsertItems:
         assert yaml.safe_load((doc_path / "SRS001.yml").read_text())["text"] == "first"
 
     def test_insert_at_position_beyond_count(self, tmp_path):
-        """Insert at position > item count: no items shifted."""
+        """Insert at position > item count: warns and adjusts to max position."""
+        import warnings
+
         doc_path = _make_doc(tmp_path)
         _write_item(doc_path, "SRS001", text="first")
         _write_item(doc_path, "SRS002", text="second")
 
-        new_uids = insert_items(
-            doc_path,
-            "SRS",
-            3,
-            "",
-            position=10,
-            count=1,
-            all_doc_paths={"SRS": doc_path},
-        )
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            new_uids = insert_items(
+                doc_path,
+                "SRS",
+                3,
+                "",
+                position=10,
+                count=1,
+                all_doc_paths={"SRS": doc_path},
+            )
 
-        assert new_uids == ["SRS010"]
+            # Should emit warning about position adjustment
+            assert len(w) == 1
+            assert "exceeds item count" in str(w[0].message)
+
+        # Position adjusted to max (len + 1 = 3), so new UID is SRS003
+        assert new_uids == ["SRS003"]
         # Existing items unchanged
         assert yaml.safe_load((doc_path / "SRS001.yml").read_text())["text"] == "first"
         assert yaml.safe_load((doc_path / "SRS002.yml").read_text())["text"] == "second"

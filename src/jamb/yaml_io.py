@@ -211,14 +211,25 @@ def load_import_file(
     Raises:
         ValueError: If file is invalid.
     """
+    import warnings
+
     if echo is None:
         echo = print
 
-    with open(path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except OSError as e:
+        raise OSError(f"Failed to read file {path}: {e}") from e
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML in file {path}: {e}") from e
 
-    if not isinstance(data, dict):
-        raise ValueError("YAML file must contain a mapping")
+    # Handle null/empty YAML files
+    if data is None:
+        warnings.warn(f"File {path} is empty or contains only null", stacklevel=2)
+        data = {}
+    elif not isinstance(data, dict):
+        raise ValueError(f"Expected dict in {path}, got {type(data).__name__}")
 
     # Warn about unrecognized top-level keys
     recognized_keys = {"documents", "items"}
@@ -374,14 +385,23 @@ def _create_document(
     try:
         resolved = doc_path.resolve()
         cwd = Path.cwd().resolve()
-        if doc_path.is_absolute() or not resolved.is_relative_to(cwd):
+        if doc_path.is_absolute():
             echo(
                 f"  Error creating document {prefix}: "
-                "path must be relative and within project"
+                f"path '{path}' must be relative, not absolute"
             )
             return "error"
-    except (OSError, ValueError):
-        echo(f"  Error creating document {prefix}: invalid path '{path}'")
+        if not resolved.is_relative_to(cwd):
+            echo(
+                f"  Error creating document {prefix}: "
+                f"path '{path}' traverses outside project directory"
+            )
+            return "error"
+    except OSError as e:
+        echo(f"  Error creating document {prefix}: cannot resolve path '{path}': {e}")
+        return "error"
+    except ValueError as e:
+        echo(f"  Error creating document {prefix}: invalid path '{path}': {e}")
         return "error"
     try:
         save_document_config(config, doc_path)

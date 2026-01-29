@@ -67,10 +67,21 @@ class Item:
 
     @property
     def display_text(self) -> str:
-        """Return header if present, otherwise truncated text."""
+        """Return header if present, otherwise truncated text.
+
+        Truncation is safe for multi-byte UTF-8 characters since Python
+        strings are Unicode codepoint sequences, not byte sequences.
+        """
         if self.header:
             return self.header
-        return self.text[:80] + "..." if len(self.text) > 80 else self.text
+        if len(self.text) > 80:
+            # Truncate at word boundary if possible to avoid mid-word cuts
+            truncated = self.text[:80]
+            last_space = truncated.rfind(" ")
+            if last_space > 60:  # Only use word boundary if reasonably close
+                truncated = truncated[:last_space]
+            return truncated + "..."
+        return self.text
 
     @property
     def full_display_text(self) -> str:
@@ -207,7 +218,12 @@ class ItemCoverage:
 
     @property
     def all_tests_passed(self) -> bool:
-        """Return True if all linked tests passed."""
+        """Return True if all linked tests passed.
+
+        Returns False if there are no linked tests, since an item with
+        no tests cannot be considered to have "all tests passing".
+        This is intentional - use ``is_covered`` to check if tests exist.
+        """
         if not self.linked_tests:
             return False
         return all(t.test_outcome == "passed" for t in self.linked_tests)
@@ -292,9 +308,10 @@ class TraceabilityGraph:
                 self.item_children[parent_uid].append(item.uid)
 
     def set_document_parent(self, prefix: str, parent_prefix: str | None) -> None:
-        """Set a single parent document (backward-compat wrapper).
+        """Set a single parent document, replacing any existing parents.
 
-        For DAG support, use set_document_parents() instead.
+        Backward-compatible wrapper for single-parent hierarchies.
+        For DAG support with multiple parents, use set_document_parents().
 
         Args:
             prefix: The document prefix to set the parent for.
@@ -306,7 +323,10 @@ class TraceabilityGraph:
             self.document_parents[prefix] = [parent_prefix]
 
     def set_document_parents(self, prefix: str, parents: list[str]) -> None:
-        """Set the parent documents for a document prefix (DAG).
+        """Replace all parent documents with the given list.
+
+        Use this when you need to set the complete list of parents at once.
+        Existing parents are replaced, not merged.
 
         Args:
             prefix: The document prefix to set parents for.
@@ -315,7 +335,10 @@ class TraceabilityGraph:
         self.document_parents[prefix] = list(parents)
 
     def add_document_parent(self, prefix: str, parent: str) -> None:
-        """Add a parent document to a document prefix.
+        """Add a parent document without removing existing parents.
+
+        Use this when building the graph incrementally.
+        No-op if the parent already exists for this prefix.
 
         Args:
             prefix: The document prefix to add a parent to.

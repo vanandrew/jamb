@@ -77,16 +77,29 @@ class DocumentDAG:
 
         Uses Kahn's algorithm. If there are cycles, remaining nodes
         are appended at the end.
+
+        Raises:
+            ValueError: If any document references unknown parent documents.
         """
         # Build in-degree map
         in_degree: dict[str, int] = {p: 0 for p in self.documents}
         children_map: dict[str, list[str]] = {p: [] for p in self.documents}
+        missing_parents: list[str] = []
 
         for prefix, config in self.documents.items():
             for parent in config.parents:
                 if parent in self.documents:
                     in_degree[prefix] += 1
                     children_map[parent].append(prefix)
+                else:
+                    missing_parents.append(
+                        f"{prefix} references unknown parent {parent}"
+                    )
+
+        if missing_parents:
+            raise ValueError(
+                f"Document DAG has missing parents: {', '.join(missing_parents)}"
+            )
 
         # Start with nodes that have no parents
         queue: deque[str] = deque()

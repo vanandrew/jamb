@@ -516,6 +516,13 @@ Options:
   --help                Show this message and exit.
 ```
 
+**Validation Rules:**
+
+- `PREFIX` must be at least 2 characters long
+- `PREFIX` must start with an uppercase letter and contain only uppercase letters, digits, and underscores
+- `--digits` must be between 1 and 10 (inclusive)
+- `--sep` cannot start with an alphanumeric character (would create ambiguous UIDs)
+
 **Example:**
 ```bash
 # Create a root document

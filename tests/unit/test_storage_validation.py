@@ -936,6 +936,10 @@ class TestValidate:
 
     def test_item_with_reviewed_hash_and_link_hashes(self, tmp_path):
         """Item with both reviewed hash AND link_hashes: both checks fire."""
+        # Hashes must be >= 20 chars and contain only URL-safe base64 chars
+        stale_link_hash = "stale_link_hash_01234567"
+        stale_reviewed_hash = "stale_reviewed_hash_01234567"
+
         dag = DocumentDAG()
         dag.documents["SYS"] = DocumentConfig(prefix="SYS")
         dag.documents["SRS"] = DocumentConfig(prefix="SRS", parents=["SYS"])
@@ -947,7 +951,7 @@ class TestValidate:
             uid="SYS001",
             text="Target",
             document_prefix="SYS",
-            reviewed="h",
+            reviewed="valid_target_reviewed_hash",
         )
         # Source has a stale reviewed hash AND link_hashes on disk
         source = Item(
@@ -955,7 +959,7 @@ class TestValidate:
             text="Source text",
             document_prefix="SRS",
             links=["SYS001"],
-            reviewed="stale_reviewed_hash",
+            reviewed=stale_reviewed_hash,
         )
         graph.add_item(target)
         graph.add_item(source)
@@ -966,7 +970,7 @@ class TestValidate:
         srs_dir = tmp_path / "srs"
         srs_dir.mkdir()
         (srs_dir / "SRS001.yml").write_text(
-            "uid: SRS001\ntext: Source text\nlinks:\n  - SYS001: stale_link_hash\n"
+            f"uid: SRS001\ntext: Source text\nlinks:\n  - SYS001: {stale_link_hash}\n"
         )
 
         issues = validate(

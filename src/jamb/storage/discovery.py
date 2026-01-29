@@ -1,6 +1,7 @@
 """Filesystem discovery for jamb document trees."""
 
 import logging
+import os
 from pathlib import Path
 
 import yaml
@@ -59,5 +60,18 @@ def _find_config_files(root: Path) -> list[Path]:
 
     Returns:
         A list of config file paths sorted alphabetically.
+
+    Raises:
+        PermissionError: If root is not readable.
     """
-    return sorted(root.rglob(".jamb.yml"))
+    # Check read permission before traversal to fail fast
+    if not os.access(root, os.R_OK):
+        raise PermissionError(f"Cannot read directory: {root}")
+
+    # Use os.walk with followlinks=False to avoid symlink cycles
+    config_files = []
+    for dirpath, _dirnames, filenames in os.walk(root, followlinks=False):
+        if ".jamb.yml" in filenames:
+            config_files.append(Path(dirpath) / ".jamb.yml")
+
+    return sorted(config_files)

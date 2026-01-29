@@ -476,7 +476,7 @@ class TestRenderFullChainXlsx:
         output = render_full_chain_xlsx(sample_full_chain_matrices)
 
         wb = load_workbook(io.BytesIO(output))
-        assert wb.active.title == "Traceability Matrix"
+        assert wb.active.title == "Trace Matrix"
 
     def test_multiple_matrices_create_sheets(self):
         """Test that multiple matrices create separate sheets."""

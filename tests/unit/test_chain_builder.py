@@ -858,8 +858,8 @@ class TestCalculateRollupStatusEdgeCases:
 
         assert status == "Failed"
 
-    def test_skipped_only_returns_partial(self):
-        """Test that only skipped tests returns Partial."""
+    def test_skipped_only_returns_skipped(self):
+        """Test that only skipped tests returns Skipped status."""
         graph = TraceabilityGraph()
         item = Item(uid="SRS001", text="Test", document_prefix="SRS")
         graph.add_item(item)
@@ -879,7 +879,7 @@ class TestCalculateRollupStatusEdgeCases:
 
         status, _tests = calculate_rollup_status(graph, item, coverage)
 
-        assert status == "Partial"
+        assert status == "Skipped"
 
     def test_descendant_tests_collected(self):
         """Test that tests from descendants are collected."""
@@ -1021,9 +1021,13 @@ class TestEmptyHierarchyAfterFiltering:
                 graph, coverage, "SRS", trace_to_ignore={"SRS"}
             )
 
-            # Should emit warning about filtered path
-            assert len(w) == 1
-            assert "All documents filtered" in str(w[0].message)
+            # Should emit warning about filtered path and empty result
+            assert len(w) == 2
+            warning_messages = [str(warning.message) for warning in w]
+            assert any("All documents filtered" in msg for msg in warning_messages)
+            assert any(
+                "No traceability matrices generated" in msg for msg in warning_messages
+            )
 
         # Should return empty list since all paths are filtered
         assert len(matrices) == 0

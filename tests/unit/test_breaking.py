@@ -105,27 +105,38 @@ class TestMalformedYaml:
         assert result["links"] == []
 
     def test_read_item_links_contains_numbers(self, tmp_path: Path) -> None:
-        """links: [1, 2, 3] — numbers coerced to strings via str()."""
+        """links: [1, 2, 3] — non-string entries are skipped with warning."""
+        from conftest import suppress_expected_warnings
+
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text("text: hello\nlinks:\n  - 1\n  - 2\n  - 3\n")
-        result = read_item(item_file, "SRS")
-        assert result["links"] == ["1", "2", "3"]
+        with suppress_expected_warnings():  # warns about non-string link entries
+            result = read_item(item_file, "SRS")
+        assert result["links"] == []
 
     def test_read_item_links_contains_nested_lists(self, tmp_path: Path) -> None:
-        """links: [[a, b], [c]] — nested lists coerced to strings."""
+        """links: [[a, b], [c]] — nested lists are skipped with warning."""
+        from conftest import suppress_expected_warnings
+
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text("text: hello\nlinks:\n  - [a, b]\n  - [c]\n")
-        result = read_item(item_file, "SRS")
-        # Nested lists are not dicts and not strings, so str() is called
-        assert result["links"] == ["['a', 'b']", "['c']"]
+        with suppress_expected_warnings():  # warns about non-string link entries
+            result = read_item(item_file, "SRS")
+        # Non-string entries (nested lists) are rejected with warning
+        assert result["links"] == []
 
     def test_read_item_links_dict_with_null_key(self, tmp_path: Path) -> None:
         """links: [{null: hash}] — str(None) becomes 'None' as UID."""
+        from conftest import suppress_expected_warnings
+
         item_file = tmp_path / "SRS001.yml"
-        item_file.write_text("text: hello\nlinks:\n  - null: abc123\n")
-        result = read_item(item_file, "SRS")
+        # Use a valid-length hash (>= 20 chars, base64 characters)
+        valid_hash = "abcdefghijklmnopqrstuvwxyz"
+        item_file.write_text(f"text: hello\nlinks:\n  - null: {valid_hash}\n")
+        with suppress_expected_warnings():  # may warn about null key
+            result = read_item(item_file, "SRS")
         assert "None" in result["links"]
-        assert result["link_hashes"]["None"] == "abc123"
+        assert result["link_hashes"]["None"] == valid_hash
 
     def test_read_item_text_is_number(self, tmp_path: Path) -> None:
         """text: 12345 is coerced to '12345' via str()."""
@@ -209,9 +220,11 @@ class TestBoundaryConditions:
         assert result == "SRS1000000000000"
 
     def test_next_uid_digits_zero(self) -> None:
-        """digits=0 produces UID with no zero-padding."""
-        result = next_uid("SRS", 0, [])
-        assert result == "SRS1"
+        """digits=0 raises ValueError since digits must be >= 1."""
+        import pytest
+
+        with pytest.raises(ValueError, match="digits must be >= 1"):
+            next_uid("SRS", 0, [])
 
     def test_next_uid_digits_very_large(self) -> None:
         """digits=100 produces UID with 100-digit zero-padded number."""
@@ -606,10 +619,11 @@ class TestValidationEdgeCases:
         """Stored hash differs from computed — warning: suspect link."""
         doc_path = tmp_path / "srs"
         doc_path.mkdir()
-        # Write item with a stale link hash
+        # Write item with a stale link hash (must be >= 20 chars for valid format)
+        stale_hash = "STALEHASH_0123456789abcdef"  # Valid format, wrong value
         item_data = {
             "text": "test",
-            "links": [{"SYS001": "STALE_HASH"}],
+            "links": [{"SYS001": stale_hash}],
             "active": True,
             "type": "requirement",
         }
@@ -1099,18 +1113,20 @@ class TestRoundTrip:
 
     def test_write_read_roundtrip_links_with_hashes(self, tmp_path: Path) -> None:
         """Links with content hashes preserved."""
+        # Hash must be >= 20 chars and contain only URL-safe base64 chars
+        valid_hash = "abcdefghijklmnopqrstuvwxyz012345"
         data = {
             "header": "",
             "active": True,
             "type": "requirement",
             "links": ["SYS001"],
-            "link_hashes": {"SYS001": "abc123hash"},
+            "link_hashes": {"SYS001": valid_hash},
             "text": "test",
             "reviewed": None,
         }
         result = self._roundtrip(tmp_path, data)
         assert "SYS001" in result["links"]
-        assert result["link_hashes"]["SYS001"] == "abc123hash"
+        assert result["link_hashes"]["SYS001"] == valid_hash
 
     def test_write_read_roundtrip_empty_fields(self, tmp_path: Path) -> None:
         """All optional fields empty/None reads back with defaults."""
@@ -1350,11 +1366,11 @@ class TestContentHashEdgeCases:
         assert compute_content_hash(data1) == compute_content_hash(data2)
 
     def test_hash_unicode_normalization(self) -> None:
-        """é as single char vs e+combining — different hashes (no normalization)."""
+        """é as single char vs e+combining — same hash (NFC normalization applied)."""
         data1 = {"text": "\u00e9", "header": "", "links": [], "type": "requirement"}
         data2 = {"text": "e\u0301", "header": "", "links": [], "type": "requirement"}
-        # These look the same but are different bytes — no normalization
-        assert compute_content_hash(data1) != compute_content_hash(data2)
+        # These look the same and should produce identical hashes after NFC norm
+        assert compute_content_hash(data1) == compute_content_hash(data2)
 
     def test_hash_very_long_text(self) -> None:
         """1MB text field — produces valid hash without crash."""

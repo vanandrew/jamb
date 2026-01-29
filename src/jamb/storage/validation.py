@@ -1,11 +1,14 @@
 """Validation module for jamb's native storage layer."""
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
 from jamb.core.models import TraceabilityGraph
 from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.items import compute_content_hash, read_item
+
+logger = logging.getLogger("jamb")
 
 
 @dataclass
@@ -279,10 +282,14 @@ def _check_suspect_links(
         # Read raw item to get link hashes
         doc_path = dag.document_paths.get(item.document_prefix)
         if doc_path is None:
+            logger.warning(
+                "Document path not found for prefix: %s", item.document_prefix
+            )
             continue
 
         item_path = doc_path / f"{uid}.yml"
         if not item_path.exists():
+            logger.warning("Item file not found: %s", item_path)
             continue
 
         raw_item = read_item(item_path, item.document_prefix)
@@ -597,13 +604,16 @@ def _check_item_link_cycles(
                     if cycle_members not in reported_cycles:
                         reported_cycles.add(cycle_members)
                         cycle_uids = path[cycle_start:]
+                        # Report all UIDs involved in the cycle for clarity
+                        affected_uids = ", ".join(sorted(cycle_members))
                         issues.append(
                             ValidationIssue(
                                 "error",
                                 link,
                                 graph.items[link].document_prefix,
                                 f"cycle in item links: "
-                                f"{' -> '.join(cycle_uids)} -> {link}",
+                                f"{' -> '.join(cycle_uids)} -> {link} "
+                                f"(affects: {affected_uids})",
                             )
                         )
                 elif color[link] == WHITE:

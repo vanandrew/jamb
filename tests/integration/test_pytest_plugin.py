@@ -224,7 +224,7 @@ class TestMatrixGeneration:
         # Verify it's a valid Excel file
         wb = load_workbook(matrix_path)
         assert wb.active is not None
-        assert wb.active.title == "Traceability Matrix"
+        assert wb.active.title == "Trace Matrix"
 
 
 class TestUnknownItems:

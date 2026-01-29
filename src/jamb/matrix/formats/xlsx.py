@@ -276,7 +276,9 @@ def render_full_chain_xlsx(
             ws = wb.create_sheet()
 
         # Sheet title (limited to 31 chars for Excel)
-        ws.title = "Traceability Matrix" if i == 0 else f"Traceability Matrix {i + 1}"
+        # "Trace Matrix" = 12 chars, "Trace Matrix 999" = 16 chars, well under 31
+        base_title = "Trace Matrix"
+        ws.title = base_title if i == 0 else f"{base_title} {i + 1}"
 
         # Title
         ws["A1"] = "Traceability Matrix"
@@ -366,9 +368,17 @@ def render_full_chain_xlsx(
 
             row += 1
 
-        # Auto-adjust column widths
-        for col_idx in range(1, len(headers) + 1):
-            ws.column_dimensions[get_column_letter(col_idx)].width = 30
+        # Set variable column widths based on content type
+        col_widths = {
+            "Traces To": 25,
+            "Tests": 50,
+            "Status": 12,
+        }
+        default_width = 35  # For document columns
+
+        for col_idx, header in enumerate(headers, start=1):
+            width = col_widths.get(header, default_width)
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
 
     # Save to bytes
     output = io.BytesIO()

@@ -30,8 +30,16 @@ def _cli_error_handler(f: F) -> F:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return f(*args, **kwargs)
+        except click.Abort:
+            # User aborted (e.g., answered "n" to confirmation)
+            click.echo("Aborted.")
+            sys.exit(1)
         except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as e:
             click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        except Exception as e:
+            # Catch-all for unexpected errors with type info for debugging
+            click.echo(f"Unexpected error: {type(e).__name__}: {e}", err=True)
             sys.exit(1)
 
     return wrapper  # type: ignore[return-value]
@@ -177,17 +185,17 @@ def _create_initial_prj_item(prj_path: Path) -> None:
     project_name = Path.cwd().name  # fallback
     pyproject_path = Path.cwd() / "pyproject.toml"
     if pyproject_path.exists():
-        try:
-            import tomlkit
-            from tomlkit.items import Table
+        import tomlkit
+        from tomlkit.items import Table
 
+        try:
             content = pyproject_path.read_text()
             doc = tomlkit.parse(content)
             if "project" in doc:
                 project_table = cast(Table, doc["project"])
                 if "name" in project_table:
                     project_name = str(project_table["name"])
-        except Exception:
+        except (OSError, KeyError, AttributeError, ValueError):
             pass  # fall back to directory name
 
     item_path = prj_path / "PRJ001.yml"
@@ -214,10 +222,10 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
     """
     from typing import cast
 
-    import tomlkit
-    from tomlkit.items import Table
-
     try:
+        import tomlkit
+        from tomlkit.items import Table
+
         content = pyproject_path.read_text()
         doc = tomlkit.parse(content)
 
@@ -244,7 +252,7 @@ def _add_jamb_config_to_pyproject(pyproject_path: Path) -> None:
         pyproject_path.write_text(tomlkit.dumps(doc))
         click.echo("Added [tool.jamb] configuration to pyproject.toml")
 
-    except (OSError, tomlkit.exceptions.TOMLKitError) as e:
+    except (OSError, KeyError, AttributeError, ValueError) as e:
         click.echo(f"Warning: Could not update pyproject.toml: {e}", err=True)
 
 
@@ -435,8 +443,19 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
                                     kw.value.value, str
                                 ):
                                     linked.add(kw.value.value)
-            except (SyntaxError, OSError, UnicodeDecodeError):
-                continue  # Skip unreadable/unparseable test files
+            except SyntaxError as e:
+                click.echo(
+                    f"Warning: Skipping {test_file} (syntax error: {e})", err=True
+                )
+                continue
+            except OSError as e:
+                click.echo(f"Warning: Skipping {test_file} (read error: {e})", err=True)
+                continue
+            except UnicodeDecodeError as e:
+                click.echo(
+                    f"Warning: Skipping {test_file} (encoding error: {e})", err=True
+                )
+                continue
 
     return linked
 
@@ -539,6 +558,11 @@ def doc_create(
     """
     import re as _re
 
+    # Validate prefix - must be at least 2 characters
+    if len(prefix) < 2:
+        click.echo("Error: prefix must be at least 2 characters", err=True)
+        sys.exit(1)
+
     if not _re.match(r"^[A-Z][A-Z0-9_]*$", prefix):
         click.echo(
             f"Error: Invalid prefix '{prefix}'. "
@@ -548,8 +572,19 @@ def doc_create(
         )
         sys.exit(1)
 
+    # Validate digits range
     if digits < 1:
         click.echo("Error: --digits must be at least 1", err=True)
+        sys.exit(1)
+    if digits > 10:
+        click.echo("Error: --digits cannot exceed 10", err=True)
+        sys.exit(1)
+
+    # Validate separator doesn't start with alphanumeric (ambiguous UIDs)
+    if sep and _re.match(r"^[A-Z0-9]", sep, _re.IGNORECASE):
+        click.echo(
+            "Error: --sep cannot start with alphanumeric (ambiguous UIDs)", err=True
+        )
         sys.exit(1)
 
     from jamb.storage.document_config import DocumentConfig, save_document_config
@@ -959,8 +994,17 @@ def link_add(child: str, parent: str) -> None:
     for entry in links:
         if isinstance(entry, dict) and not entry:
             continue
-        link_uid = entry if isinstance(entry, str) else next(iter(entry))
-        if str(link_uid) == parent:
+        link_uid: str
+        if isinstance(entry, str):
+            link_uid = entry
+        elif isinstance(entry, dict):
+            first_key = next(iter(entry), None)
+            if first_key is None:
+                continue
+            link_uid = str(first_key)
+        else:
+            link_uid = str(entry)
+        if link_uid == parent:
             click.echo(f"Link already exists: {child} -> {parent}")
             return
 
@@ -997,8 +1041,17 @@ def link_remove(child: str, parent: str) -> None:
     for entry in links:
         if isinstance(entry, dict) and not entry:
             continue
-        link_uid = entry if isinstance(entry, str) else next(iter(entry))
-        if str(link_uid) == parent:
+        link_uid: str
+        if isinstance(entry, str):
+            link_uid = entry
+        elif isinstance(entry, dict):
+            first_key = next(iter(entry), None)
+            if first_key is None:
+                continue
+            link_uid = str(first_key)
+        else:
+            link_uid = str(entry)
+        if link_uid == parent:
             removed = True
         else:
             new_links.append(entry)

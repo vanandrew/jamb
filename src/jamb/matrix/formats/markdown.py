@@ -116,12 +116,22 @@ def render_test_records_markdown(
             "",
             "## Test Records",
             "",
-            "| Test Case | Test Name | Outcome "
-            "| Requirements | Test Actions | Expected Results | Actual Results "
-            "| Notes | Timestamp |",
-            "| " + " | ".join(["---"] * 9) + " |",
         ]
     )
+    # Build header row with explicit list for maintainability
+    headers = [
+        "Test Case",
+        "Test Name",
+        "Outcome",
+        "Requirements",
+        "Test Actions",
+        "Expected Results",
+        "Actual Results",
+        "Notes",
+        "Timestamp",
+    ]
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
 
     for rec in records:
         test_name = _escape_markdown(rec.test_name)

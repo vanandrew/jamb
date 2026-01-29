@@ -520,7 +520,8 @@ class TestItemCrud:
 
         item_path = tmp_path / "reqs" / "srs" / "SRS001.yml"
         data = yaml.safe_load(item_path.read_text())
-        assert data["header"] == ""
+        # Header is omitted when empty (consistent with read_item behavior)
+        assert data.get("header", "") == ""
         assert data["text"] == ""
         assert data["links"] == []
 
@@ -1037,6 +1038,43 @@ class TestCheckCommand:
         )
         assert r.exit_code == 0
         assert "all" in r.output.lower()
+
+    def test_check_warns_on_unparseable_file(self, tmp_path):
+        """check warns when a test file has syntax errors."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "the one req"
+        _write_yaml(p, data)
+
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+
+        # Valid test file covering SRS001
+        (tests_dir / "test_valid.py").write_text(
+            "import pytest\n\n"
+            "@pytest.mark.requirement('SRS001')\n"
+            "def test_a():\n"
+            "    pass\n"
+        )
+
+        # Invalid test file with syntax error
+        (tests_dir / "test_broken.py").write_text(
+            "def broken(\n"  # Missing closing paren
+        )
+
+        r = _invoke(
+            runner,
+            ["check", "--documents", "SRS", "--root", str(tmp_path)],
+        )
+        # Should still pass (SRS001 is covered by valid test)
+        assert r.exit_code == 0
+        # But should warn about the broken file
+        assert "warning" in r.output.lower()
+        assert "test_broken.py" in r.output
+        assert "syntax" in r.output.lower()
 
 
 # =========================================================================

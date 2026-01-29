@@ -51,7 +51,7 @@ def get_document_paths(
 
     def traverse(current: str, path: list[str], depth: int = 0) -> None:
         """Recursively traverse document hierarchy to find all paths."""
-        if depth > MAX_RECURSION_DEPTH:
+        if depth >= MAX_RECURSION_DEPTH:
             warnings.warn(
                 f"Maximum recursion depth ({MAX_RECURSION_DEPTH}) exceeded "
                 f"while traversing document hierarchy. Possible cycle at '{current}'.",
@@ -157,32 +157,36 @@ def _calculate_status_from_tests(
         graph: Optional graph for checking descendant testability.
 
     Returns:
-        Status string: "Passed", "Failed", "Partial", "Not Covered", or "N/A".
+        Status: "Passed", "Failed", "Partial", "Skipped", "Not Covered", or "N/A".
     """
     if not tests:
         # Check if item or descendants are testable
         if item and not item.testable:
+            # Item is not testable - check if any descendants are testable
             if graph:
-                has_testable = False
                 for desc in graph.get_descendants(item.uid):
                     if desc.testable:
-                        has_testable = True
-                        break
-                if not has_testable:
-                    return "N/A"
+                        # Found a testable descendant, so item should be covered
+                        return "Not Covered"
+                # No testable descendants found
+                return "N/A"
             else:
+                # No graph to check descendants, assume N/A for non-testable item
                 return "N/A"
         return "Not Covered"
 
     # Check test outcomes
     has_passed = False
     has_failed = False
+    has_skipped = False
 
     for test in tests:
         if test.test_outcome == "passed":
             has_passed = True
         elif test.test_outcome in ("failed", "error"):
             has_failed = True
+        elif test.test_outcome == "skipped":
+            has_skipped = True
 
     if has_failed and has_passed:
         return "Partial"
@@ -190,8 +194,11 @@ def _calculate_status_from_tests(
         return "Failed"
     elif has_passed:
         return "Passed"
+    elif has_skipped:
+        # All tests are skipped (none passed, none failed)
+        return "Skipped"
     else:
-        # All tests are skipped or unknown
+        # All tests have unknown outcome
         return "Partial"
 
 
@@ -397,13 +404,14 @@ def _calculate_summary(rows: list[ChainRow]) -> dict[str, int]:
         rows: List of ChainRow objects.
 
     Returns:
-        Dict with counts for total, passed, failed, partial, not_covered, na.
+        Dict with counts for total, passed, failed, partial, skipped, not_covered, na.
     """
     summary = {
         "total": len(rows),
         "passed": 0,
         "failed": 0,
         "partial": 0,
+        "skipped": 0,
         "not_covered": 0,
         "na": 0,
     }
@@ -416,6 +424,8 @@ def _calculate_summary(rows: list[ChainRow]) -> dict[str, int]:
             summary["failed"] += 1
         elif status == "partial":
             summary["partial"] += 1
+        elif status == "skipped":
+            summary["skipped"] += 1
         elif status == "not_covered":
             summary["not_covered"] += 1
         elif status == "n/a":
@@ -503,6 +513,13 @@ def build_full_chain_matrix(
                 summary=summary,
                 include_ancestors=include_ancestors,
             )
+        )
+
+    if not matrices:
+        warnings.warn(
+            "No traceability matrices generated. All document paths were "
+            "filtered by trace_to_ignore or had no items.",
+            stacklevel=2,
         )
 
     return matrices
