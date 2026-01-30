@@ -6,7 +6,7 @@ Complete reference for all `jamb` CLI commands.
 
 | Group | Commands | Description |
 |-------|----------|-------------|
-| Top-level | `init`, `info`, `check`, `validate`, `publish`, `publish-template`, `export`, `import`, `reorder`, `matrix` | Project setup, validation, publishing, and data exchange |
+| Top-level | `init`, `info`, `check`, `validate`, `publish`, `template`, `export`, `import`, `reorder`, `matrix`, `lock-tc` | Project setup, validation, publishing, and data exchange |
 | Document | `doc create`, `doc delete`, `doc list` | Create, remove, and list requirement documents |
 | Item | `item add`, `item remove`, `item edit`, `item show`, `item list` | Add, remove, edit, inspect, and list requirement items |
 | Link | `link add`, `link remove` | Create and remove traceability links between items |
@@ -21,11 +21,12 @@ Complete reference for all `jamb` CLI commands.
   - [jamb check](#jamb-check)
   - [jamb validate](#jamb-validate)
   - [jamb publish](#jamb-publish)
-  - [jamb publish-template](#jamb-publish-template)
+  - [jamb template](#jamb-template)
   - [jamb export](#jamb-export)
   - [jamb import](#jamb-import)
   - [jamb reorder](#jamb-reorder)
   - [jamb matrix](#jamb-matrix)
+  - [jamb lock-tc](#jamb-lock-tc)
 - [Document Commands](#document-commands)
   - [jamb doc](#jamb-doc)
   - [jamb doc create](#jamb-doc-create)
@@ -72,11 +73,12 @@ Commands:
   init              Initialize a new jamb project with default IEC 62304 documents.
   item              Manage items.
   link              Manage item links.
+  lock-tc           Lock TC IDs by inserting @pytest.mark.tc_id decorators.
   matrix            Generate traceability or test records matrix.
   publish           Publish a document.
-  publish-template  Generate a DOCX template file with jamb styles.
   reorder           Renumber item UIDs sequentially to fill gaps.
   review            Manage item reviews.
+  template          Generate a DOCX template file with jamb styles.
   validate          Validate the requirements tree.
 ```
 
@@ -246,7 +248,7 @@ Usage: jamb publish [OPTIONS] PREFIX [PATH]
   PATH is the output file or directory (optional).
 
   Use --template with a .docx file to apply custom styles.
-  Generate a starter template with: jamb publish-template
+  Generate a starter template with: jamb template
 
   For a traceability matrix with test coverage, use:
   pytest --jamb --jamb-trace-matrix PATH
@@ -286,10 +288,10 @@ jamb publish SRS docs/srs.html
 
 ---
 
-### jamb publish-template
+### jamb template
 
 ```
-Usage: jamb publish-template [OPTIONS] [PATH]
+Usage: jamb template [OPTIONS] [PATH]
 
   Generate a DOCX template file with jamb styles.
 
@@ -308,13 +310,13 @@ Options:
 **Example:**
 ```bash
 # Generate default template
-jamb publish-template
+jamb template
 
 # Generate template with custom name
-jamb publish-template my-company-template.docx
+jamb template my-company-template.docx
 
 # Workflow: generate, customize, then use
-jamb publish-template
+jamb template
 # Open jamb-template.docx in Word, customize styles, save
 jamb publish SRS output.docx --template jamb-template.docx
 ```
@@ -522,6 +524,49 @@ jamb matrix trace.html --include-ancestors
 # Use a specific coverage file
 jamb matrix trace.html --input=.jamb-coverage
 ```
+
+---
+
+### jamb lock-tc
+
+```
+Usage: jamb lock-tc [OPTIONS]
+
+  Lock TC IDs by inserting @pytest.mark.tc_id decorators into test files.
+
+  This command reads the current TC ID assignments from a .jamb file and
+  inserts @pytest.mark.tc_id() decorators into test functions, making the
+  auto-generated IDs permanent.
+
+Options:
+  --test-dir PATH   Test directory (default: auto-detect from pyproject.toml or 'tests/').
+  --dry-run         Show what would be changed without modifying files.
+  --coverage PATH   Path to .jamb coverage file (default: auto-discover).
+  --help            Show this message and exit.
+```
+
+**Example:**
+```bash
+# Lock TC IDs using auto-discovered .jamb file
+jamb lock-tc
+
+# Preview changes without modifying files
+jamb lock-tc --dry-run
+
+# Lock TC IDs for tests in a specific directory
+jamb lock-tc --test-dir tests/unit/
+
+# Use a specific coverage file
+jamb lock-tc --coverage .jamb-backup
+```
+
+**Workflow:**
+
+1. Run tests to generate coverage data: `pytest --jamb`
+2. Preview what would be locked: `jamb lock-tc --dry-run`
+3. Lock the TC IDs: `jamb lock-tc`
+
+After locking, tests will have `@pytest.mark.tc_id("TC001")` decorators that ensure the same TC ID is used in future test runs, even if test order changes.
 
 ---
 
@@ -768,7 +813,6 @@ WARNING: SRS004 is referenced by 3 test(s):
   - tests/test_validation.py::test_boundary_check (line 72)
   - tests/test_integration.py::test_full_workflow (line 23)
 
-These test references will become orphaned.
 Proceed with removal? [y/N]: y
 Removed item: SRS004
 Removed test references from 2 file(s)

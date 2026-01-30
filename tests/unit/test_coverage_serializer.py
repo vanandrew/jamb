@@ -53,7 +53,7 @@ class TestSaveCoverage:
         content = output_path.read_text()
         data = json.loads(content)
         assert "version" in data
-        assert data["version"] == 1
+        assert data["version"] == 2
 
     def test_save_includes_coverage_data(self, tmp_path: Path):
         """Test that coverage data is serialized correctly."""
@@ -116,6 +116,20 @@ class TestSaveCoverage:
         assert "SRS" in data["graph"]["document_parents"]
         assert "SYS" in data["graph"]["document_parents"]["SRS"]
 
+    def test_save_includes_manual_tc_ids(self, tmp_path: Path):
+        """manual_tc_ids are serialized to JSON."""
+        output_path = tmp_path / ".jamb"
+        graph = TraceabilityGraph()
+        coverage: dict[str, ItemCoverage] = {}
+
+        manual_tc_ids = {"test::foo": "TC001", "test::bar": "TC-AUTH-002"}
+
+        save_coverage(coverage, graph, str(output_path), manual_tc_ids=manual_tc_ids)
+
+        data = json.loads(output_path.read_text())
+        assert "manual_tc_ids" in data
+        assert data["manual_tc_ids"] == manual_tc_ids
+
 
 class TestLoadCoverage:
     """Tests for the load_coverage function."""
@@ -167,7 +181,7 @@ class TestLoadCoverage:
         save_coverage(original_coverage, graph, str(output_path), metadata=metadata)
 
         # Load and verify
-        loaded_coverage, loaded_graph, loaded_metadata = load_coverage(str(output_path))
+        loaded_coverage, loaded_graph, loaded_metadata, _ = load_coverage(str(output_path))
 
         assert "SRS001" in loaded_coverage
         assert loaded_coverage["SRS001"].item.uid == "SRS001"
@@ -208,13 +222,78 @@ class TestLoadCoverage:
 
         save_coverage(coverage, graph, str(output_path), metadata=metadata)
 
-        _, _, loaded_metadata = load_coverage(str(output_path))
+        _, _, loaded_metadata, _ = load_coverage(str(output_path))
 
         assert loaded_metadata is not None
         assert loaded_metadata.environment is not None
         assert loaded_metadata.environment.os_name == "Linux"
         assert loaded_metadata.environment.cpu_count == 4
         assert loaded_metadata.environment.test_tools == {"pytest": "7.0.0"}
+
+    def test_load_returns_manual_tc_ids(self, tmp_path: Path):
+        """Load returns 4-tuple with manual_tc_ids."""
+        output_path = tmp_path / ".jamb"
+        graph = TraceabilityGraph()
+        coverage: dict[str, ItemCoverage] = {}
+
+        manual_tc_ids = {"test::foo": "TC001", "test::bar": "TC-CUSTOM"}
+
+        save_coverage(coverage, graph, str(output_path), manual_tc_ids=manual_tc_ids)
+
+        _, _, _, loaded_manual_tc_ids = load_coverage(str(output_path))
+
+        assert loaded_manual_tc_ids == manual_tc_ids
+
+    def test_load_v1_file_returns_empty_manual_tc_ids(self, tmp_path: Path):
+        """Loading v1 file returns empty manual_tc_ids dict."""
+        output_path = tmp_path / ".jamb"
+
+        # Create a v1 format file (no manual_tc_ids key)
+        v1_data = {
+            "version": 1,
+            "coverage": {},
+            "graph": {
+                "items": {},
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+        }
+        output_path.write_text(json.dumps(v1_data))
+
+        _, _, _, loaded_manual_tc_ids = load_coverage(str(output_path))
+
+        assert loaded_manual_tc_ids == {}
+
+    def test_roundtrip_with_manual_tc_ids(self, tmp_path: Path):
+        """Save then load preserves manual_tc_ids."""
+        output_path = tmp_path / ".jamb"
+        graph = TraceabilityGraph()
+
+        item = Item(uid="SRS001", text="Test item", document_prefix="SRS")
+        graph.add_item(item)
+
+        linked_test = LinkedTest(
+            test_nodeid="test_foo.py::test_bar",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+
+        coverage = {
+            "SRS001": ItemCoverage(item=item, linked_tests=[linked_test]),
+        }
+
+        manual_tc_ids = {"test_foo.py::test_bar": "TC-AUTH-001"}
+
+        # Save
+        save_coverage(coverage, graph, str(output_path), manual_tc_ids=manual_tc_ids)
+
+        # Load
+        loaded_coverage, _, _, loaded_manual_tc_ids = load_coverage(str(output_path))
+
+        # Verify roundtrip
+        assert loaded_manual_tc_ids == manual_tc_ids
+        assert "SRS001" in loaded_coverage
 
     def test_load_raises_on_unsupported_version(self, tmp_path: Path):
         """Test that ValueError is raised for unsupported version."""
@@ -286,7 +365,7 @@ class TestLoadCoverage:
         # Two warnings are emitted: malformed entry and orphaned items
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            coverage, _, _ = load_coverage(str(output_path))
+            coverage, _, _, _ = load_coverage(str(output_path))
             # The malformed entry should be skipped
             assert "SRS001" not in coverage
             # Verify the malformed entry warning was emitted
@@ -355,7 +434,7 @@ class TestLoadCoverage:
         output_path.write_text(json.dumps(data))
 
         with pytest.warns(UserWarning, match="Invalid item type"):
-            coverage, _, _ = load_coverage(str(output_path))
+            coverage, _, _, _ = load_coverage(str(output_path))
             # Item should default to 'requirement' type
             assert coverage["SRS001"].item.type == "requirement"
 
@@ -397,7 +476,7 @@ class TestLoadCoverage:
         output_path.write_text(json.dumps(data))
 
         with pytest.warns(UserWarning, match="Invalid timestamp format"):
-            coverage, _, _ = load_coverage(str(output_path))
+            coverage, _, _, _ = load_coverage(str(output_path))
             # Timestamp should be None due to invalid format
             assert coverage["SRS001"].linked_tests[0].execution_timestamp is None
 
@@ -422,4 +501,4 @@ class TestSaveCoverageAtomicWrite:
         # File should still be created via fallback
         assert output_path.exists()
         data = json.loads(output_path.read_text())
-        assert data["version"] == 1
+        assert data["version"] == 2
