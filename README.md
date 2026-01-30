@@ -39,7 +39,7 @@ def test_valid_credentials():
 
 ```bash
 # Generate traceability matrix
-pytest --jamb --jamb-matrix matrix.html
+pytest --jamb --jamb-trace-matrix matrix.html
 ```
 
 ## Documentation

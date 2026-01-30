@@ -362,13 +362,25 @@ def check(documents: str | None, root: Path | None) -> None:
 
     # Scan test files for requirement markers
     linked_items = _scan_tests_for_requirements(root or Path.cwd())
+
+    # Detect unknown UIDs (UIDs in tests that don't exist in graph)
+    unknown_items = {uid for uid in linked_items if uid not in graph.items}
+    valid_linked_items = linked_items - unknown_items
+
     click.echo(f"Found {len(linked_items)} unique item references in test files")
 
-    # Check coverage
+    # Warn about unknown items
+    if unknown_items:
+        click.echo("")
+        click.echo(click.style("Unknown items referenced in tests:", fg="yellow", bold=True))
+        for uid in sorted(unknown_items):
+            click.echo(click.style(f"  - {uid}", fg="yellow"))
+
+    # Check coverage (use valid_linked_items to avoid false positives)
     uncovered = []
     for prefix in test_docs:
         for item in graph.get_items_by_document(prefix):
-            if item.type == "requirement" and item.active and item.testable and item.uid not in linked_items:
+            if item.type == "requirement" and item.active and item.testable and item.uid not in valid_linked_items:
                 uncovered.append(item)
 
     if uncovered:
@@ -384,16 +396,22 @@ def check(documents: str | None, root: Path | None) -> None:
             if item.type == "requirement" and item.active and item.testable
         )
         click.echo(f"\nAll {total} items in test documents have linked tests.")
+        # Exit with error if unknown items exist (even with full coverage)
+        if unknown_items:
+            click.echo(click.style("\nWarning: Some test files reference unknown requirement UIDs.", fg="yellow"))
+            sys.exit(1)
 
 
 def _scan_tests_for_requirements(root: Path) -> set[str]:
     """Scan test files for requirement markers.
 
     Walks all ``test_*.py`` files under *root*, parses them into ASTs,
-    and collects string arguments from ``@pytest.mark.requirement`` calls.
+    and collects string arguments from requirement marker calls.
 
-    Note: Only matches the fully-qualified form ``pytest.mark.requirement()``.
-    Other import styles (e.g., ``from pytest import mark``) are not detected.
+    Handles multiple import styles:
+    - ``@pytest.mark.requirement(...)``
+    - ``@mark.requirement(...)``
+    - ``@requirement(...)``
 
     Args:
         root: Project root directory to search for test files.
@@ -434,14 +452,19 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
 
 
 def _is_requirement_marker(node: ast.Call) -> bool:
-    """Check if an AST Call node is a pytest.mark.requirement call.
+    """Check if an AST Call node is a requirement marker.
+
+    Handles multiple import styles:
+    - pytest.mark.requirement(...)
+    - mark.requirement(...)
+    - requirement(...)
 
     Args:
         node: An ``ast.Call`` node to inspect.
 
     Returns:
-        ``True`` if the node represents a ``pytest.mark.requirement(...)``
-        call, ``False`` otherwise.
+        ``True`` if the node represents a requirement marker call,
+        ``False`` otherwise.
     """
     func = node.func
 
@@ -450,6 +473,13 @@ def _is_requirement_marker(node: ast.Call) -> bool:
         if isinstance(func.value, ast.Attribute) and func.value.attr == "mark":
             if isinstance(func.value.value, ast.Name) and func.value.value.id == "pytest":
                 return True
+        # @mark.requirement(...)
+        if isinstance(func.value, ast.Name) and func.value.id == "mark":
+            return True
+
+    # @requirement(...)
+    if isinstance(func, ast.Name) and func.id == "requirement":
+        return True
 
     return False
 
@@ -461,8 +491,19 @@ def _is_requirement_marker(node: ast.Call) -> bool:
 
 @cli.command("reorder")
 @click.argument("prefix")
+@click.option(
+    "--no-update-tests",
+    is_flag=True,
+    default=False,
+    help="Skip updating test file references",
+)
+@click.option(
+    "--root",
+    type=click.Path(exists=True, path_type=Path),
+    help="Project root directory",
+)
 @_cli_error_handler
-def reorder(prefix: str) -> None:
+def reorder(prefix: str, no_update_tests: bool, root: Path | None) -> None:
     """Renumber item UIDs sequentially to fill gaps.
 
     PREFIX is the document identifier (e.g., SRS, UT).
@@ -470,11 +511,16 @@ def reorder(prefix: str) -> None:
     Items are sorted by current UID and renumbered to form a contiguous
     sequence (e.g., SRS001, SRS002, ...).  All cross-document links that
     reference renamed UIDs are updated automatically.
+
+    By default, test files with @pytest.mark.requirement() decorators are
+    also updated. Use --no-update-tests to skip this.
     """
     from jamb.storage import discover_documents
     from jamb.storage.reorder import reorder_document
+    from jamb.storage.test_references import update_test_references
 
-    dag = discover_documents()
+    project_root = root or Path.cwd()
+    dag = discover_documents(project_root)
     if prefix not in dag.document_paths:
         click.echo(f"Error: Document '{prefix}' not found", err=True)
         sys.exit(1)
@@ -485,6 +531,18 @@ def reorder(prefix: str) -> None:
 
     stats = reorder_document(doc_path, prefix, config.digits, config.sep, all_doc_paths)
     click.echo(f"Reordered {prefix}: {stats['renamed']} renamed, {stats['unchanged']} unchanged")
+
+    # Update test files unless --no-update-tests is set
+    rename_map = stats.get("rename_map", {})
+    if rename_map and not no_update_tests:
+        # Cast to dict[str, str] since we know rename_map contains strings
+        rename_map_dict = {str(k): str(v) for k, v in rename_map.items()}  # type: ignore[union-attr]
+        test_changes = update_test_references(rename_map_dict, project_root)
+        if test_changes:
+            click.echo(f"Updated test references in {len(test_changes)} files:")
+            for test_file, changes in test_changes.items():
+                rel_path = test_file.relative_to(project_root) if test_file.is_relative_to(project_root) else test_file
+                click.echo(f"  {rel_path}: {', '.join(changes)}")
 
 
 # =============================================================================
@@ -808,14 +866,30 @@ def item_list(prefix: str | None, root: Path | None) -> None:
 
 @item.command("remove")
 @click.argument("uid")
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Skip confirmation prompts for test references",
+)
+@click.option(
+    "--root",
+    type=click.Path(exists=True, path_type=Path),
+    help="Project root directory",
+)
 @_cli_error_handler
-def item_remove(uid: str) -> None:
+def item_remove(uid: str, force: bool, root: Path | None) -> None:
     """Remove an item by UID.
 
     UID is the item identifier (e.g., SRS001, UT002).
+
+    If the item is referenced by tests, displays a warning and prompts
+    for confirmation. Use --force to skip the confirmation prompt.
     """
     from jamb.storage import build_traceability_graph, discover_documents
+    from jamb.storage.test_references import find_test_references
 
+    project_root = root or Path.cwd()
     item_path, _ = _find_item_path(uid)
     if item_path is None:
         click.echo(f"Error: Item '{uid}' not found", err=True)
@@ -823,7 +897,7 @@ def item_remove(uid: str) -> None:
 
     # Warn about items that link to this one
     try:
-        dag = discover_documents()
+        dag = discover_documents(project_root)
         graph = build_traceability_graph(dag)
         children = graph.item_children.get(uid, [])
         if children:
@@ -834,8 +908,25 @@ def item_remove(uid: str) -> None:
     except (ValueError, FileNotFoundError, KeyError, OSError):
         pass  # Best-effort warning
 
+    # Check for test references
+    test_refs = find_test_references(project_root, uid)
+    has_test_refs = len(test_refs) > 0
+
+    if test_refs and not force:
+        click.echo(f"\nWARNING: {uid} is referenced by {len(test_refs)} test(s):")
+        for ref in test_refs:
+            rel_path = ref.file.relative_to(project_root) if ref.file.is_relative_to(project_root) else ref.file
+            test_info = f"::{ref.test_name}" if ref.test_name else ""
+            click.echo(f"  - {rel_path}{test_info} (line {ref.line})")
+        click.echo("\nThese test references will become orphaned.")
+        if not click.confirm("Proceed with removal?", default=False):
+            raise click.Abort()
+
     item_path.unlink()
     click.echo(f"Removed item: {uid}")
+
+    if has_test_refs:
+        click.echo("Note: Update test files to remove orphaned references.")
 
 
 @item.command("edit")
@@ -1296,7 +1387,7 @@ def publish(
     Use --template with a .docx file to apply custom styles.
     Generate a starter template with: jamb publish-template
 
-    For a traceability matrix with test coverage, use: pytest --jamb --jamb-matrix PATH
+    For a traceability matrix with test coverage, use: pytest --jamb --jamb-trace-matrix PATH
     """
     include_links = not no_links
 

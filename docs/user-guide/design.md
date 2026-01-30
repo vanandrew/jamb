@@ -112,14 +112,14 @@ sequenceDiagram
         C->>C: record outcome, notes, actions
     end
     P->>Pl: pytest_sessionfinish()
-    Pl->>Mx: generate_matrix() (if --jamb-matrix)
+    Pl->>Mx: generate_matrix() (if --jamb-trace-matrix or --jamb-test-matrix)
     P->>Pl: pytest_terminal_summary()
     Pl->>U: coverage report
 ```
 
 Key hooks in order:
 
-1. **`pytest_addoption`** -- Registers `--jamb`, `--jamb-matrix`, `--jamb-matrix-format`, `--jamb-fail-uncovered`, `--jamb-documents`, `--jamb-tester-id`, `--jamb-software-version`.
+1. **`pytest_addoption`** -- Registers `--jamb`, `--jamb-test-matrix`, `--jamb-trace-matrix`, `--jamb-fail-uncovered`, `--jamb-documents`, `--jamb-tester-id`, `--jamb-software-version`, `--trace-from`, `--include-ancestors`.
 2. **`pytest_configure`** -- Creates a `RequirementCollector` that discovers documents and builds the graph.
 3. **`pytest_collection_modifyitems`** -- Scans collected tests for `@pytest.mark.requirement` markers and creates `LinkedTest` entries.
 4. **`pytest_runtest_makereport`** -- After each test's call phase, records the outcome and any data from `jamb_log`.

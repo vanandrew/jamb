@@ -231,19 +231,44 @@ def pytest_terminal_summary(
 
     terminalreporter.write_sep("=", "Requirements Coverage Summary")
 
-    # Count statistics
-    total = len(coverage)
-    covered = sum(1 for c in coverage.values() if c.is_covered)
-    passed = sum(1 for c in coverage.values() if c.all_tests_passed)
+    # Count statistics - separate testable from non-testable
+    testable_items = [
+        c for c in coverage.values() if c.item.type == "requirement" and c.item.active and c.item.testable
+    ]
+    non_testable = [c for c in coverage.values() if c not in testable_items]
 
-    terminalreporter.write_line(f"Total test spec items: {total}")
-    if total > 0:
-        terminalreporter.write_line(f"Covered by pytest tests: {covered} ({100 * covered / total:.1f}%)")
+    total_testable = len(testable_items)
+    covered = sum(1 for c in testable_items if c.is_covered)
+    passed = sum(1 for c in testable_items if c.all_tests_passed)
+
+    terminalreporter.write_line(f"Total testable items: {total_testable}")
+    if total_testable > 0:
+        terminalreporter.write_line(f"Covered by pytest tests: {covered} ({100 * covered / total_testable:.1f}%)")
         terminalreporter.write_line(f"All tests passing: {passed}")
 
-    # Report uncovered items
+    # Report non-testable breakdown if any exist
+    if non_testable:
+        heading_count = sum(1 for c in non_testable if c.item.type == "heading")
+        info_count = sum(1 for c in non_testable if c.item.type == "info")
+        inactive_count = sum(1 for c in non_testable if not c.item.active)
+        untestable_count = sum(1 for c in non_testable if c.item.type == "requirement" and not c.item.testable)
+        parts = []
+        if heading_count:
+            parts.append(f"heading: {heading_count}")
+        if info_count:
+            parts.append(f"info: {info_count}")
+        if inactive_count:
+            parts.append(f"inactive: {inactive_count}")
+        if untestable_count:
+            parts.append(f"non-testable: {untestable_count}")
+        if parts:
+            terminalreporter.write_line(f"Non-testable items: {len(non_testable)} ({', '.join(parts)})")
+
+    # Report uncovered items - only testable items
     uncovered = [
-        uid for uid, c in coverage.items() if not c.is_covered and c.item.type == "requirement" and c.item.active
+        uid
+        for uid, c in coverage.items()
+        if not c.is_covered and c.item.type == "requirement" and c.item.active and c.item.testable
     ]
     if uncovered:
         terminalreporter.write_line("")

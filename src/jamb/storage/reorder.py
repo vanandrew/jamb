@@ -65,7 +65,7 @@ def reorder_document(
     digits: int,
     sep: str,
     all_doc_paths: dict[str, Path],
-) -> dict[str, int]:
+) -> dict[str, int | dict[str, str]]:
     """Renumber items sequentially and update all cross-document links.
 
     Items are sorted by current UID and assigned new sequential UIDs
@@ -77,7 +77,7 @@ def reorder_document(
     an inconsistent state. Consider committing to version control before
     reordering.
 
-    Returns {"renamed": int, "unchanged": int}.
+    Returns {"renamed": int, "unchanged": int, "rename_map": dict[str, str]}.
 
     Raises:
         ValueError: If digits < 1.
@@ -88,7 +88,7 @@ def reorder_document(
     item_files = sorted(p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml")
 
     if not item_files:
-        return {"renamed": 0, "unchanged": 0}
+        return {"renamed": 0, "unchanged": 0, "rename_map": {}}
 
     # 1b. Verify all links resolve to existing UIDs
     _check_broken_links(item_files, all_doc_paths)
@@ -101,9 +101,10 @@ def reorder_document(
         if old_uid != new_uid:
             rename_map[old_uid] = new_uid
 
-    stats = {
+    stats: dict[str, int | dict[str, str]] = {
         "renamed": len(rename_map),
         "unchanged": len(item_files) - len(rename_map),
+        "rename_map": rename_map,
     }
 
     if not rename_map:
