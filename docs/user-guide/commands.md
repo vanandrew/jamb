@@ -249,7 +249,7 @@ Usage: jamb publish [OPTIONS] PREFIX [PATH]
   Generate a starter template with: jamb publish-template
 
   For a traceability matrix with test coverage, use:
-  pytest --jamb --jamb-matrix PATH
+  pytest --jamb --jamb-trace-matrix PATH
 
 Options:
   -H, --html            Output HTML (standalone document with inline CSS and hyperlinks)
@@ -422,18 +422,46 @@ Usage: jamb reorder [OPTIONS] PREFIX
   (e.g., SRS001, SRS002, ...).  All cross-document links that reference
   renamed UIDs are updated automatically.
 
+  By default, test files with @pytest.mark.requirement() decorators are also
+  updated to reflect the new UIDs. Use --no-update-tests to skip this.
+
 Options:
-  --help  Show this message and exit.
+  --no-update-tests   Skip updating test file references
+  --root PATH         Project root directory
+  --help              Show this message and exit.
 ```
 
 **Example:**
 ```bash
-# Renumber SRS items to fill gaps
+# Renumber SRS items to fill gaps (updates requirement YAML and test files)
 jamb reorder SRS
 
 # Renumber UT items
 jamb reorder UT
+
+# Reorder without updating test files
+jamb reorder SRS --no-update-tests
+
+# Reorder in a specific project directory
+jamb reorder SRS --root /path/to/project
 ```
+
+**Output:**
+```
+Reordered SRS: 3 renamed, 1 unchanged
+Updated test references in 2 files:
+  tests/test_feature.py: SRS003->SRS002, SRS005->SRS004
+  tests/test_integration.py: SRS003->SRS002
+```
+
+**Test File Updates:**
+
+When reordering, jamb automatically updates `@pytest.mark.requirement()` decorators in test files to match the new UIDs. This maintains traceability between tests and requirements.
+
+Supported decorator styles:
+- `@pytest.mark.requirement("SRS001")` — fully qualified
+- `@mark.requirement("SRS001")` — with `from pytest import mark`
+- `@requirement("SRS001")` — with `from pytest.mark import requirement`
 
 ---
 
@@ -668,15 +696,45 @@ Usage: jamb item remove [OPTIONS] UID
 
   UID is the item identifier (e.g., SRS001, UT002).
 
+  If the item is referenced by tests (via @pytest.mark.requirement), jamb
+  displays a warning and prompts for confirmation. Use --force to skip the
+  confirmation prompt.
+
 Options:
-  --help  Show this message and exit.
+  --force       Skip confirmation prompts for test references
+  --root PATH   Project root directory
+  --help        Show this message and exit.
 ```
 
 **Example:**
 ```bash
-# Remove an item
+# Remove an item (prompts if tests reference it)
 jamb item remove SRS005
+
+# Force removal without confirmation
+jamb item remove SRS005 --force
+
+# Remove from a specific project directory
+jamb item remove SRS005 --root /path/to/project
 ```
+
+**Test Reference Warning:**
+
+When removing an item that is referenced by tests, jamb warns you before deletion:
+
+```
+WARNING: SRS004 is referenced by 3 test(s):
+  - tests/test_validation.py::test_range_validation (line 45)
+  - tests/test_validation.py::test_boundary_check (line 72)
+  - tests/test_integration.py::test_full_workflow (line 23)
+
+These test references will become orphaned.
+Proceed with removal? [y/N]: y
+Removed item: SRS004
+Note: Update test files to remove orphaned references.
+```
+
+Use `--force` to skip the confirmation prompt (useful in scripts), but remember to update your test files afterward to remove orphaned references.
 
 ---
 

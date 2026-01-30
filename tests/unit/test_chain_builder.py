@@ -465,8 +465,12 @@ class TestTraceToIgnore:
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        # Ignore PRJ document
-        matrices = build_full_chain_matrix(prj_un_sys_srs_graph, coverage, "PRJ", trace_to_ignore={"PRJ"})
+        # Ignore PRJ document - suppress expected warning about incomplete trace chains
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(prj_un_sys_srs_graph, coverage, "PRJ", trace_to_ignore={"PRJ"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -520,8 +524,12 @@ class TestTraceToIgnore:
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        # Ignore UN document
-        matrices = build_full_chain_matrix(graph, coverage, "UN", trace_to_ignore={"UN"})
+        # Ignore UN document - suppress expected warning about incomplete trace chains
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "UN", trace_to_ignore={"UN"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -943,11 +951,12 @@ class TestEmptyHierarchyAfterFiltering:
             warnings.simplefilter("always")
             matrices = build_full_chain_matrix(graph, coverage, "SRS", trace_to_ignore={"SRS"})
 
-            # Should emit warning about filtered path and empty result
-            assert len(w) == 2
+            # Should emit warnings about filtered path, empty result, and incomplete chains
+            assert len(w) == 3
             warning_messages = [str(warning.message) for warning in w]
             assert any("All documents filtered" in msg for msg in warning_messages)
             assert any("No traceability matrices generated" in msg for msg in warning_messages)
+            assert any("incomplete trace chains" in msg for msg in warning_messages)
 
         # Should return empty list since all paths are filtered
         assert len(matrices) == 0
@@ -966,8 +975,12 @@ class TestEmptyHierarchyAfterFiltering:
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        # Filter only SYS (keep SRS)
-        matrices = build_full_chain_matrix(graph, coverage, "SYS", trace_to_ignore={"SYS"})
+        # Filter only SYS (keep SRS) - suppress expected warning about incomplete trace chains
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SYS", trace_to_ignore={"SYS"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -1136,3 +1149,130 @@ class TestGapRowCreationWithAllTestLinks:
         # Should only have 1 row (for SRS001), no gap row
         assert len(matrix.rows) == 1
         assert matrix.rows[0].chain.get("SRS") is not None
+
+
+class TestCollectTestsNoneItem:
+    """Tests for _collect_tests with None item."""
+
+    def test_collect_tests_returns_empty_for_none_item(self):
+        """Test that _collect_tests returns empty list when item is None."""
+        from jamb.matrix.chain_builder import _collect_tests
+
+        graph = TraceabilityGraph()
+        coverage: dict[str, ItemCoverage] = {}
+
+        result = _collect_tests(graph, None, coverage)
+
+        assert result == []
+
+
+class TestCalculateStatusNoGraph:
+    """Tests for _calculate_status_from_tests with no graph."""
+
+    def test_na_status_when_not_testable_without_graph(self):
+        """Test N/A status when item not testable and no graph provided."""
+        from jamb.matrix.chain_builder import _calculate_status_from_tests
+
+        item = Item(uid="SRS001", text="Test", document_prefix="SRS", testable=False)
+
+        # No tests and no graph to check descendants
+        status = _calculate_status_from_tests([], item=item, graph=None)
+
+        assert status == "N/A"
+
+
+class TestSummarySkippedStatus:
+    """Tests for summary calculation with skipped status."""
+
+    def test_summary_counts_skipped_status(self):
+        """Test that summary correctly counts skipped status."""
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+
+        item1 = Item(uid="SRS001", text="Passed item", document_prefix="SRS")
+        item2 = Item(uid="SRS002", text="Skipped item", document_prefix="SRS")
+
+        graph.add_item(item1)
+        graph.add_item(item2)
+
+        coverage = {
+            "SRS001": ItemCoverage(
+                item=item1,
+                linked_tests=[
+                    LinkedTest(
+                        test_nodeid="test::pass",
+                        item_uid="SRS001",
+                        test_outcome="passed",
+                    ),
+                ],
+            ),
+            "SRS002": ItemCoverage(
+                item=item2,
+                linked_tests=[
+                    LinkedTest(
+                        test_nodeid="test::skip",
+                        item_uid="SRS002",
+                        test_outcome="skipped",
+                    ),
+                ],
+            ),
+        }
+
+        matrices = build_full_chain_matrix(graph, coverage, "SRS")
+
+        assert len(matrices) == 1
+        summary = matrices[0].summary
+        assert summary["total"] == 2
+        assert summary["passed"] == 1
+        assert summary["skipped"] == 1
+
+
+class TestOrphanedItemsWarning:
+    """Tests for orphaned items detection and warning."""
+
+    def test_orphaned_items_warning_with_many_items(self):
+        """Test orphaned items warning when more than 5 items are orphaned."""
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", ["SYS"])
+        graph.set_document_parents("SYS", [])
+
+        # Create a SYS item with only one SRS child
+        sys_item = Item(uid="SYS001", text="System", document_prefix="SYS")
+        srs_linked = Item(uid="SRS001", text="Linked", document_prefix="SRS", links=["SYS001"])
+
+        graph.add_item(sys_item)
+        graph.add_item(srs_linked)
+
+        # Create multiple orphaned SRS items (no links to SYS)
+        for i in range(2, 10):  # SRS002-SRS009 (8 orphaned items)
+            orphan = Item(uid=f"SRS00{i}", text=f"Orphan {i}", document_prefix="SRS")
+            graph.add_item(orphan)
+
+        coverage = {
+            "SRS001": ItemCoverage(item=srs_linked, linked_tests=[]),
+        }
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            build_full_chain_matrix(graph, coverage, "SYS")
+
+            # Should emit warning about orphaned items
+            orphan_warnings = [x for x in w if "incomplete trace chains" in str(x.message)]
+            assert len(orphan_warnings) == 1
+            # Should mention "and X more"
+            assert "and" in str(orphan_warnings[0].message) and "more" in str(orphan_warnings[0].message)
+
+
+class TestBuildChainRowsEmptyPath:
+    """Tests for _build_chain_rows with empty document path."""
+
+    def test_empty_doc_path_returns_empty_list(self):
+        """Test that _build_chain_rows returns empty list for empty path."""
+        from jamb.matrix.chain_builder import _build_chain_rows
+
+        graph = TraceabilityGraph()
+        coverage: dict[str, ItemCoverage] = {}
+
+        result = _build_chain_rows(graph, coverage, [], include_ancestors=False)
+
+        assert result == []

@@ -885,6 +885,153 @@ class TestReorderCommand:
         assert result.exit_code == 1
         assert "Broken links" in result.output or "broken link" in result.output.lower()
 
+    def test_reorder_updates_test_files(self, runner, tmp_path, monkeypatch):
+        """Test reorder updates @pytest.mark.requirement decorators in test files."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
+        (srs_dir / "SRS003.yml").write_text("active: true\ntext: req3\n")
+
+        # Create test file with reference to SRS003
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text("""
+import pytest
+
+@pytest.mark.requirement("SRS003")
+def test_feature():
+    pass
+""")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["reorder", "SRS"])
+
+        assert result.exit_code == 0
+        assert "1 renamed" in result.output
+        assert "Updated test references" in result.output
+        assert "SRS003->SRS002" in result.output
+
+        # Verify test file was updated
+        content = test_file.read_text()
+        assert '"SRS002"' in content
+        assert '"SRS003"' not in content
+
+    def test_reorder_no_update_tests_flag(self, runner, tmp_path, monkeypatch):
+        """Test reorder --no-update-tests skips test file updates."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
+        (srs_dir / "SRS003.yml").write_text("active: true\ntext: req3\n")
+
+        # Create test file with reference to SRS003
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text("""
+import pytest
+
+@pytest.mark.requirement("SRS003")
+def test_feature():
+    pass
+""")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["reorder", "SRS", "--no-update-tests"])
+
+        assert result.exit_code == 0
+        assert "1 renamed" in result.output
+        assert "Updated test references" not in result.output
+
+        # Verify test file was NOT updated
+        content = test_file.read_text()
+        assert '"SRS003"' in content
+        assert '"SRS002"' not in content
+
+
+class TestItemRemoveTestRefs:
+    """Tests for item remove command with test reference handling."""
+
+    def test_item_remove_warns_about_test_refs(self, runner, tmp_path, monkeypatch):
+        """Test item remove warns about test references and prompts."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
+
+        # Create test file with reference to SRS001
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text("""
+import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_feature():
+    pass
+""")
+
+        monkeypatch.chdir(tmp_path)
+        # Answer 'n' to confirmation
+        result = runner.invoke(cli, ["item", "remove", "SRS001"], input="n\n")
+
+        assert result.exit_code == 1
+        assert "WARNING" in result.output
+        assert "SRS001" in result.output
+        assert "referenced by" in result.output
+        assert "test_feature.py" in result.output
+
+        # Verify item was NOT removed
+        assert (srs_dir / "SRS001.yml").exists()
+
+    def test_item_remove_force_skips_confirmation(self, runner, tmp_path, monkeypatch):
+        """Test item remove --force skips test reference confirmation."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
+
+        # Create test file with reference to SRS001
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text("""
+import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_feature():
+    pass
+""")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["item", "remove", "SRS001", "--force"])
+
+        assert result.exit_code == 0
+        assert "Removed item: SRS001" in result.output
+        assert "Note: Update test files" in result.output
+
+        # Verify item was removed
+        assert not (srs_dir / "SRS001.yml").exists()
+
+    def test_item_remove_no_test_refs_no_prompt(self, runner, tmp_path, monkeypatch):
+        """Test item remove without test references doesn't prompt."""
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: req1\n")
+
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["item", "remove", "SRS001"])
+
+        assert result.exit_code == 0
+        assert "Removed item: SRS001" in result.output
+        assert "WARNING" not in result.output
+
+        # Verify item was removed
+        assert not (srs_dir / "SRS001.yml").exists()
+
 
 class TestItemAddWithMock:
     """Tests for item add command (native, no subprocess)."""
@@ -1257,11 +1404,13 @@ class TestCheckWithConfigDocuments:
         mock_graph = MagicMock()
         mock_graph.get_leaf_documents.return_value = ["SRS"]
         mock_graph.get_items_by_document.return_value = []
+        mock_graph.items = {}  # Empty dict for unknown UID detection
 
         with (
             patch("jamb.storage.discover_documents", return_value=mock_dag),
             patch("jamb.storage.build_traceability_graph", return_value=mock_graph),
             patch("jamb.config.loader.load_config", return_value=mock_config),
+            patch("jamb.cli.commands._scan_tests_for_requirements", return_value=set()),
         ):
             result = runner.invoke(cli, ["check"])
 
@@ -1280,11 +1429,13 @@ class TestCheckWithConfigDocuments:
         mock_graph = MagicMock()
         mock_graph.get_leaf_documents.return_value = ["UT"]
         mock_graph.get_items_by_document.return_value = []
+        mock_graph.items = {}  # Empty dict for unknown UID detection
 
         with (
             patch("jamb.storage.discover_documents", return_value=mock_dag),
             patch("jamb.storage.build_traceability_graph", return_value=mock_graph),
             patch("jamb.config.loader.load_config", return_value=mock_config),
+            patch("jamb.cli.commands._scan_tests_for_requirements", return_value=set()),
         ):
             result = runner.invoke(cli, ["check"])
 

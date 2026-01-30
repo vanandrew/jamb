@@ -6,5 +6,4 @@ requires-python = ">=3.10"
 [tool.jamb]
 test_documents = ["SRS", "SYS"]
 fail_uncovered = false
-matrix_output = "matrix.html"
-matrix_format = "html"
+trace_matrix_output = "matrix.html"

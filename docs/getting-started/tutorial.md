@@ -74,12 +74,12 @@ There are two ways to verify coverage. `jamb check` is static — it scans test 
 
 ```bash
 jamb check
-pytest --jamb --jamb-matrix matrix.html
+pytest --jamb --jamb-trace-matrix matrix.html
 ```
 
 ### Configuration
 
-The `test_documents` setting tells jamb which documents require test coverage (usually the leaf documents like SRS). Setting `fail_uncovered` to true makes CI fail if any requirement lacks a test. The matrix options control where the traceability matrix is written and in what format.
+The `test_documents` setting tells jamb which documents require test coverage (usually the leaf documents like SRS). Setting `fail_uncovered` to true makes CI fail if any requirement lacks a test. The matrix options control where the matrices are written.
 
 Add to `pyproject.toml`:
 
@@ -87,11 +87,11 @@ Add to `pyproject.toml`:
 [tool.jamb]
 test_documents = ["SRS", "SYS"]
 fail_uncovered = false
-matrix_output = "matrix.html"
-matrix_format = "html"
+trace_matrix_output = "traceability.html"
+test_matrix_output = "test-records.html"
 ```
 
-> **Tip:** When `matrix_output` is set in `[tool.jamb]`, the traceability matrix is automatically generated at the specified path on each `pytest --jamb` run, without needing to pass `--jamb-matrix` on the command line. This is useful for ensuring the matrix is always up to date.
+> **Tip:** When `trace_matrix_output` or `test_matrix_output` is set in `[tool.jamb]`, the matrices are automatically generated at the specified paths on each `pytest --jamb` run, without needing to pass `--jamb-trace-matrix` or `--jamb-test-matrix` on the command line. This is useful for ensuring the matrices are always up to date.
 
 ## What You'll Learn
 
@@ -410,23 +410,23 @@ jamb publish UN
 The traceability matrix is the central audit artifact — it shows every requirement, its parent chain, the tests that verify it, and whether those tests passed. Auditors use this to confirm that every requirement is implemented and verified. The matrix is generated from a live test run, so it reflects the actual state of the codebase.
 
 ```bash
-pytest tests/ --jamb --jamb-matrix ./docs/matrix.html
+pytest tests/ --jamb --jamb-trace-matrix ./docs/matrix.html
 ```
 
-For different formats:
+For different formats (inferred from file extension):
 
 ```bash
 # JSON for tooling integration
-pytest tests/ --jamb --jamb-matrix matrix.json --jamb-matrix-format json
+pytest tests/ --jamb --jamb-trace-matrix matrix.json
 
 # Markdown for GitHub
-pytest tests/ --jamb --jamb-matrix matrix.md --jamb-matrix-format markdown
+pytest tests/ --jamb --jamb-trace-matrix matrix.md
 ```
 
 For IEC 62304 compliant test records, include tester and version metadata:
 
 ```bash
-pytest tests/ --jamb --jamb-matrix matrix.html \
+pytest tests/ --jamb --jamb-trace-matrix matrix.html \
     --jamb-tester-id "QA Team" \
     --jamb-software-version "1.0.0"
 ```
@@ -519,7 +519,7 @@ jobs:
         run: jamb check
 
       - name: Run tests with traceability
-        run: pytest --jamb --jamb-fail-uncovered --jamb-matrix matrix.html
+        run: pytest --jamb --jamb-fail-uncovered --jamb-trace-matrix matrix.html
 
       - name: Upload traceability matrix
         uses: actions/upload-artifact@v4
@@ -673,7 +673,7 @@ def test_data_encryption(jamb_log):
 When you generate the traceability matrix, all four fields appear in their own columns:
 
 ```bash
-pytest tests/ --jamb --jamb-matrix matrix.html
+pytest tests/ --jamb --jamb-trace-matrix matrix.html
 ```
 
 The HTML matrix will show each test's name with its pass/fail status, a Test Actions column listing the steps performed, an Expected Results column with the acceptance criteria, an Actual Results column with observed behavior, a Notes column with free-form observations, and automatically captured failure messages if the test fails.

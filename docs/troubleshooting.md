@@ -115,6 +115,27 @@ These errors are printed by `jamb` commands.
 : The `--neighbors` flag was used with `jamb export` without specifying `--items`.
 : **Fix:** Add `--items` to specify which items to include neighbors for.
 
+## Test Reference Issues
+
+These issues relate to `@pytest.mark.requirement()` decorators in test files.
+
+**"Unknown items referenced in tests: SRS001, SRS002"**
+: Test files reference requirement UIDs that don't exist in your documents. This can happen when:
+  - Requirements were deleted but tests weren't updated
+  - Typos in requirement UIDs
+  - Requirements were reordered without updating tests
+: **Fix:** Update your test files to use valid UIDs. Run `jamb check` to see which UIDs are referenced.
+
+**"WARNING: SRS001 is referenced by N test(s)"**
+: When removing an item with `jamb item remove`, jamb warns you that tests reference this item.
+: **Fix:** Proceed with removal if intended, then update your test files to remove the orphaned references. Use `--force` to skip the confirmation prompt.
+
+**Orphaned test references after reorder**
+: If you used `jamb reorder --no-update-tests`, test files may reference old UIDs that no longer exist.
+: **Fix:** Either:
+  - Re-run reorder without `--no-update-tests` to let jamb update test files automatically
+  - Manually update the `@pytest.mark.requirement()` decorators in your test files
+
 ## pytest Integration Errors
 
 These errors occur when running `pytest --jamb`.
@@ -185,4 +206,4 @@ These warnings are reported when generating traceability or test records matrice
 
 **"Large dataset warning: N rows. Consider using CSV format for better performance."**
 : The matrix being generated contains more than 5,000 rows. HTML and XLSX formats may be slow to generate and consume significant memory for large datasets.
-: **Fix:** Use `--jamb-matrix-format csv` for large matrices, or use `jamb matrix output.csv` to generate CSV format.
+: **Fix:** Use a `.csv` extension for large matrices (e.g., `--jamb-trace-matrix matrix.csv`), or use `jamb matrix output.csv` to generate CSV format.

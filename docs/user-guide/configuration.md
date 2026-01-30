@@ -11,13 +11,11 @@ jamb is configured in `pyproject.toml` under the `[tool.jamb]` section:
 test_documents = ["SRS"]
 fail_uncovered = false
 require_all_pass = true
-matrix_output = "matrix.html"
-matrix_format = "html"
 software_version = "1.0.0"
 exclude_patterns = []
 trace_to_ignore = []
 
-# Dual-matrix output options
+# Matrix output options (format inferred from extension)
 test_matrix_output = "test-records.html"
 trace_matrix_output = "traceability.html"
 trace_from = "UN"
@@ -41,16 +39,15 @@ include_ancestors = true
 : **Type:** `bool`
 : **Default:** `true`
 
-`matrix_output`
-: Default output path for the traceability matrix. Can be overridden with `--jamb-matrix`.
+`test_matrix_output`
+: Output path for the test records matrix (test-centric view). Can be overridden with `--jamb-test-matrix`. Format is inferred from the file extension.
 : **Type:** `str | null`
 : **Default:** `null`
 
-`matrix_format`
-: Format for the traceability matrix output.
-: **Type:** `str`
-: **Default:** `"html"`
-: **Choices:** `"html"`, `"markdown"`, `"json"`, `"csv"`, `"xlsx"`
+`trace_matrix_output`
+: Output path for the traceability matrix (requirement-centric view). Can be overridden with `--jamb-trace-matrix`. Format is inferred from the file extension.
+: **Type:** `str | null`
+: **Default:** `null`
 
 `exclude_patterns`
 : Glob patterns for documents or items to exclude from processing.
@@ -66,16 +63,6 @@ include_ancestors = true
 : Software version to display in the traceability matrix metadata. If not set, jamb auto-detects the version from `[project].version` in pyproject.toml, or from dynamic version files (hatch-vcs, setuptools_scm). Can be overridden at runtime with `--jamb-software-version`.
 : **Type:** `str | null`
 : **Default:** `null` (auto-detected)
-
-`test_matrix_output`
-: Output path for the test records matrix (separate from trace matrix). Contains test-centric view with test actions, expected/actual results.
-: **Type:** `str | null`
-: **Default:** `null`
-
-`trace_matrix_output`
-: Output path for the trace matrix. Contains requirement-centric view with traceability chains.
-: **Type:** `str | null`
-: **Default:** `null`
 
 `trace_from`
 : Starting document prefix for full chain trace matrix. When set, the trace matrix starts from this document and traces down through the hierarchy.
@@ -103,8 +90,7 @@ test_documents = ["SRS"]
 test_documents = ["SRS", "SYS"]
 fail_uncovered = true
 require_all_pass = true
-matrix_output = "matrix.html"
-matrix_format = "html"
+trace_matrix_output = "matrix.html"
 trace_to_ignore = ["PRJ"]
 ```
 

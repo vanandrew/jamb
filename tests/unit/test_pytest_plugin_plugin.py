@@ -618,3 +618,372 @@ class TestPytestTerminalSummaryCoverage:
         # Should not show "Uncovered" in bold/red
         red_bold_calls = [call for call in calls if call.kwargs and call.kwargs.get("red") and call.kwargs.get("bold")]
         assert len(red_bold_calls) == 0
+
+
+class TestPytestTerminalSummaryNonTestable:
+    """Tests for terminal summary with non-testable items."""
+
+    def test_terminal_summary_with_testable_attribute(self):
+        """Test terminal summary correctly handles testable attribute."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        # Testable requirement item
+        item1 = MagicMock()
+        item1.type = "requirement"
+        item1.active = True
+        item1.testable = True
+        item1.display_text = "Testable requirement"
+        item1.uid = "SRS001"
+
+        # Non-testable requirement item
+        item2 = MagicMock()
+        item2.type = "requirement"
+        item2.active = True
+        item2.testable = False
+        item2.display_text = "Non-testable requirement"
+        item2.uid = "SRS002"
+
+        cov1 = MagicMock()
+        cov1.is_covered = True
+        cov1.all_tests_passed = True
+        cov1.item = item1
+
+        cov2 = MagicMock()
+        cov2.is_covered = False
+        cov2.all_tests_passed = False
+        cov2.item = item2
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1, "SRS002": cov2}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        # Verify write_line was called
+        assert mock_terminal.write_line.call_count > 0
+        calls = mock_terminal.write_line.call_args_list
+        call_texts = [str(call[0][0]) if call[0] else "" for call in calls]
+
+        # Should show non-testable in breakdown
+        assert any("non-testable" in text.lower() for text in call_texts)
+
+    def test_terminal_summary_with_heading_items(self):
+        """Test terminal summary handles heading type items."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        # Heading item
+        item1 = MagicMock()
+        item1.type = "heading"
+        item1.active = True
+        item1.testable = True
+        item1.display_text = "Section Header"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = False
+        cov1.all_tests_passed = False
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        calls = mock_terminal.write_line.call_args_list
+        call_texts = [str(call[0][0]) if call[0] else "" for call in calls]
+
+        # Should mention heading in breakdown
+        assert any("heading" in text.lower() for text in call_texts)
+
+    def test_terminal_summary_with_info_items(self):
+        """Test terminal summary handles info type items."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        # Info item
+        item1 = MagicMock()
+        item1.type = "info"
+        item1.active = True
+        item1.testable = True
+        item1.display_text = "Informational text"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = False
+        cov1.all_tests_passed = False
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        calls = mock_terminal.write_line.call_args_list
+        call_texts = [str(call[0][0]) if call[0] else "" for call in calls]
+
+        # Should mention info in breakdown
+        assert any("info" in text.lower() for text in call_texts)
+
+    def test_terminal_summary_with_inactive_items(self):
+        """Test terminal summary handles inactive items."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        # Inactive item
+        item1 = MagicMock()
+        item1.type = "requirement"
+        item1.active = False
+        item1.testable = True
+        item1.display_text = "Inactive requirement"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = False
+        cov1.all_tests_passed = False
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        calls = mock_terminal.write_line.call_args_list
+        call_texts = [str(call[0][0]) if call[0] else "" for call in calls]
+
+        # Should mention inactive in breakdown
+        assert any("inactive" in text.lower() for text in call_texts)
+
+    def test_terminal_summary_zero_testable_items(self):
+        """Test terminal summary when total_testable is 0."""
+        from jamb.pytest_plugin.plugin import pytest_terminal_summary
+
+        mock_terminal = MagicMock()
+        mock_config = MagicMock()
+        mock_config.option.jamb = True
+
+        # Only heading items (no testable requirement items)
+        item1 = MagicMock()
+        item1.type = "heading"
+        item1.active = True
+        item1.testable = True
+        item1.display_text = "Header"
+        item1.uid = "SRS001"
+
+        cov1 = MagicMock()
+        cov1.is_covered = False
+        cov1.all_tests_passed = False
+        cov1.item = item1
+
+        mock_collector = MagicMock()
+        mock_collector.get_coverage.return_value = {"SRS001": cov1}
+        mock_collector.unknown_items = set()
+        mock_config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_terminal_summary(mock_terminal, 0, mock_config)
+
+        # Should not crash even with 0 testable items
+        calls = mock_terminal.write_line.call_args_list
+        call_texts = [str(call[0][0]) if call[0] else "" for call in calls]
+        # Should show "Total testable items: 0"
+        assert any("0" in text for text in call_texts)
+
+
+class TestSessionFinishTraceMatrixOptions:
+    """Tests for trace matrix options in pytest_sessionfinish."""
+
+    def test_trace_from_cli_option(self, mock_session, mock_collector):
+        """Test --trace-from CLI option is passed to generate_trace_matrix."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.option.jamb_trace_matrix = "trace.html"
+        mock_session.config.option.trace_from = "UN"
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.html",
+            output_format="html",
+            trace_from="UN",
+            include_ancestors=False,
+        )
+
+    def test_trace_from_config_fallback(self):
+        """Test trace_from falls back to config when CLI is None."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session = MagicMock()
+        mock_session.config.option.jamb = True
+        mock_session.config.option.jamb_test_matrix = None
+        mock_session.config.option.jamb_trace_matrix = "trace.html"
+        mock_session.config.option.jamb_fail_uncovered = False
+        mock_session.config.option.jamb_tester_id = "tester"
+        mock_session.config.option.jamb_software_version = None
+        mock_session.config.option.trace_from = None
+        mock_session.config.option.include_ancestors = False
+
+        mock_collector = MagicMock()
+        mock_collector.jamb_config.test_matrix_output = None
+        mock_collector.jamb_config.trace_matrix_output = None
+        mock_collector.jamb_config.fail_uncovered = False
+        mock_collector.jamb_config.trace_from = "SYS"
+        mock_collector.jamb_config.include_ancestors = False
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.html",
+            output_format="html",
+            trace_from="SYS",
+            include_ancestors=False,
+        )
+
+    def test_include_ancestors_cli_option(self, mock_session, mock_collector):
+        """Test --include-ancestors CLI option is passed to generate_trace_matrix."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.option.jamb_trace_matrix = "trace.html"
+        mock_session.config.option.include_ancestors = True
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.html",
+            output_format="html",
+            trace_from=None,
+            include_ancestors=True,
+        )
+
+    def test_include_ancestors_config_fallback(self):
+        """Test include_ancestors falls back to config when CLI is False."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session = MagicMock()
+        mock_session.config.option.jamb = True
+        mock_session.config.option.jamb_test_matrix = None
+        mock_session.config.option.jamb_trace_matrix = "trace.html"
+        mock_session.config.option.jamb_fail_uncovered = False
+        mock_session.config.option.jamb_tester_id = "tester"
+        mock_session.config.option.jamb_software_version = None
+        mock_session.config.option.trace_from = None
+        mock_session.config.option.include_ancestors = False
+
+        mock_collector = MagicMock()
+        mock_collector.jamb_config.test_matrix_output = None
+        mock_collector.jamb_config.trace_matrix_output = None
+        mock_collector.jamb_config.fail_uncovered = False
+        mock_collector.jamb_config.trace_from = None
+        mock_collector.jamb_config.include_ancestors = True
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "trace.html",
+            output_format="html",
+            trace_from=None,
+            include_ancestors=True,
+        )
+
+    def test_trace_matrix_from_config_fallback(self):
+        """Test trace_matrix_output falls back to config when CLI is None."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session = MagicMock()
+        mock_session.config.option.jamb = True
+        mock_session.config.option.jamb_test_matrix = None
+        mock_session.config.option.jamb_trace_matrix = None
+        mock_session.config.option.jamb_fail_uncovered = False
+        mock_session.config.option.jamb_tester_id = "tester"
+        mock_session.config.option.jamb_software_version = None
+        mock_session.config.option.trace_from = None
+        mock_session.config.option.include_ancestors = False
+
+        mock_collector = MagicMock()
+        mock_collector.jamb_config.test_matrix_output = None
+        mock_collector.jamb_config.trace_matrix_output = "config-trace.json"
+        mock_collector.jamb_config.fail_uncovered = False
+        mock_collector.jamb_config.trace_from = None
+        mock_collector.jamb_config.include_ancestors = False
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.generate_trace_matrix.assert_called_once_with(
+            "config-trace.json",
+            output_format="json",
+            trace_from=None,
+            include_ancestors=False,
+        )
+
+
+class TestSessionFinishSavesCoverageFile:
+    """Tests for coverage file saving in pytest_sessionfinish."""
+
+    def test_always_saves_coverage_file(self, mock_session, mock_collector):
+        """Test that save_coverage_file is always called."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.save_coverage_file.assert_called_once_with(
+            tester_id="tester",
+            software_version=None,
+        )
+
+    def test_coverage_file_with_software_version(self, mock_session, mock_collector):
+        """Test that software_version is passed to save_coverage_file."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.option.jamb_software_version = "2.0.0"
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 0)
+
+        mock_collector.save_coverage_file.assert_called_once_with(
+            tester_id="tester",
+            software_version="2.0.0",
+        )
+
+
+class TestSessionFinishExitStatusPreservation:
+    """Tests for exit status handling in pytest_sessionfinish."""
+
+    def test_no_change_when_exit_already_nonzero(self, mock_session, mock_collector):
+        """Test that exit status is not changed if already non-zero."""
+        from jamb.pytest_plugin.plugin import pytest_sessionfinish
+
+        mock_session.config.option.jamb_fail_uncovered = True
+        mock_session.exitstatus = 2  # Already failed
+        mock_collector.all_test_items_covered.return_value = False
+        mock_session.config.pluginmanager.get_plugin.return_value = mock_collector
+
+        pytest_sessionfinish(mock_session, 2)
+
+        # Should remain 2, not change to 1
+        assert mock_session.exitstatus == 2
