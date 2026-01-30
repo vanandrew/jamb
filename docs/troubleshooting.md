@@ -136,6 +136,10 @@ These issues relate to `@pytest.mark.requirement()` decorators in test files.
   - Re-run reorder without `--no-update-tests` to let jamb update test files automatically
   - Manually update the `@pytest.mark.requirement()` decorators in your test files
 
+**"Cannot reorder - orphaned test references would collide with renamed UIDs"**
+: When running `jamb reorder`, orphaned test references (references to deleted items) would collide with renamed UIDs. For example, if you deleted SRS003 but left orphaned test references, then reordering would rename SRS004 → SRS003, creating ambiguity.
+: **Fix:** Run `jamb reorder <PREFIX> --clean-orphans` to automatically remove orphaned references before reordering. Alternatively, manually update test files to remove orphaned references, then re-run the reorder.
+
 ## pytest Integration Errors
 
 These errors occur when running `pytest --jamb`.

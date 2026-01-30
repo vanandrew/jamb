@@ -7,6 +7,8 @@ from jamb.storage.test_references import (
     _find_enclosing_function,
     _find_uid_positions_in_source,
     _is_requirement_marker,
+    detect_reference_collisions,
+    find_orphaned_references,
     find_test_references,
     remove_test_reference,
     update_test_references,
@@ -624,3 +626,149 @@ class TestFindTestReferencesExceptionHandling:
             assert refs[0].file == good_file
         finally:
             os.chmod(bad_file, original_mode)
+
+
+class TestFindOrphanedReferences:
+    """Tests for find_orphaned_references function."""
+
+    def test_finds_orphaned_reference(self, tmp_path):
+        """Finds references to UIDs that don't exist in valid_uids."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""
+@pytest.mark.requirement("SRS001")
+def test_one(): pass
+
+@pytest.mark.requirement("SRS002")
+def test_two(): pass
+
+@pytest.mark.requirement("SRS003")
+def test_three(): pass
+""")
+        # Only SRS001 and SRS003 exist - SRS002 is orphaned
+        valid_uids = {"SRS001", "SRS003"}
+        orphans = find_orphaned_references(tmp_path, valid_uids)
+        assert len(orphans) == 1
+        assert orphans[0].uid == "SRS002"
+
+    def test_no_orphans_when_all_valid(self, tmp_path):
+        """Returns empty list when all references are valid."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""
+@pytest.mark.requirement("SRS001")
+def test_one(): pass
+
+@pytest.mark.requirement("SRS002")
+def test_two(): pass
+""")
+        valid_uids = {"SRS001", "SRS002", "SRS003"}
+        orphans = find_orphaned_references(tmp_path, valid_uids)
+        assert len(orphans) == 0
+
+    def test_all_orphans_when_none_valid(self, tmp_path):
+        """Returns all references when none are valid."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""
+@pytest.mark.requirement("SRS001")
+def test_one(): pass
+
+@pytest.mark.requirement("SRS002")
+def test_two(): pass
+""")
+        valid_uids: set[str] = set()  # No valid UIDs
+        orphans = find_orphaned_references(tmp_path, valid_uids)
+        assert len(orphans) == 2
+        orphan_uids = {o.uid for o in orphans}
+        assert orphan_uids == {"SRS001", "SRS002"}
+
+    def test_multiple_orphans_in_multiple_files(self, tmp_path):
+        """Finds orphans across multiple test files."""
+        test_file1 = tmp_path / "test_one.py"
+        test_file1.write_text('@pytest.mark.requirement("SRS001")\ndef test_a(): pass')
+        test_file2 = tmp_path / "test_two.py"
+        test_file2.write_text('@pytest.mark.requirement("SRS002")\ndef test_b(): pass')
+
+        valid_uids = {"SRS003"}  # Neither SRS001 nor SRS002 exist
+        orphans = find_orphaned_references(tmp_path, valid_uids)
+        assert len(orphans) == 2
+        orphan_uids = {o.uid for o in orphans}
+        assert orphan_uids == {"SRS001", "SRS002"}
+
+
+class TestDetectReferenceCollisions:
+    """Tests for detect_reference_collisions function."""
+
+    def test_detects_collision(self, tmp_path):
+        """Detects when orphan UID matches a rename target."""
+        test_file = tmp_path / "test_feature.py"
+        # SRS002 is an orphan (deleted item), but reorder wants to rename SRS003 -> SRS002
+        test_file.write_text("""
+@pytest.mark.requirement("SRS002")
+def test_orphaned(): pass
+""")
+        rename_map = {"SRS003": "SRS002"}  # SRS003 will become SRS002
+        valid_uids = {"SRS001", "SRS003"}  # SRS002 doesn't exist (orphan)
+
+        collisions = detect_reference_collisions(rename_map, tmp_path, valid_uids)
+        assert len(collisions) == 1
+        target_uid, ref = collisions[0]
+        assert target_uid == "SRS002"
+        assert ref.uid == "SRS002"
+
+    def test_no_collision_when_orphan_not_target(self, tmp_path):
+        """No collision when orphan UID doesn't match any rename target."""
+        test_file = tmp_path / "test_feature.py"
+        # SRS099 is an orphan but not a target of any rename
+        test_file.write_text("""
+@pytest.mark.requirement("SRS099")
+def test_orphaned(): pass
+""")
+        rename_map = {"SRS003": "SRS002"}  # SRS003 will become SRS002
+        valid_uids = {"SRS001", "SRS002", "SRS003"}  # SRS099 is orphan
+
+        collisions = detect_reference_collisions(rename_map, tmp_path, valid_uids)
+        assert len(collisions) == 0
+
+    def test_no_collision_when_no_orphans(self, tmp_path):
+        """No collision when there are no orphaned references."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""
+@pytest.mark.requirement("SRS001")
+def test_valid(): pass
+""")
+        rename_map = {"SRS003": "SRS002"}
+        valid_uids = {"SRS001", "SRS002", "SRS003"}
+
+        collisions = detect_reference_collisions(rename_map, tmp_path, valid_uids)
+        assert len(collisions) == 0
+
+    def test_multiple_collisions(self, tmp_path):
+        """Detects multiple collisions when multiple orphans match targets."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""
+@pytest.mark.requirement("SRS002")
+def test_orphan_one(): pass
+
+@pytest.mark.requirement("SRS003")
+def test_orphan_two(): pass
+""")
+        # Both SRS002 and SRS003 are orphans and both are rename targets
+        rename_map = {"SRS004": "SRS002", "SRS005": "SRS003"}
+        valid_uids = {"SRS001", "SRS004", "SRS005"}  # SRS002, SRS003 are orphans
+
+        collisions = detect_reference_collisions(rename_map, tmp_path, valid_uids)
+        assert len(collisions) == 2
+        collision_uids = {ref.uid for _, ref in collisions}
+        assert collision_uids == {"SRS002", "SRS003"}
+
+    def test_empty_rename_map(self, tmp_path):
+        """No collisions when rename_map is empty."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""
+@pytest.mark.requirement("SRS002")
+def test_orphaned(): pass
+""")
+        rename_map: dict[str, str] = {}
+        valid_uids = {"SRS001"}
+
+        collisions = detect_reference_collisions(rename_map, tmp_path, valid_uids)
+        assert len(collisions) == 0

@@ -1010,10 +1010,14 @@ def test_feature():
 
         assert result.exit_code == 0
         assert "Removed item: SRS001" in result.output
-        assert "Note: Update test files" in result.output
+        assert "Removed test references from 1 file(s)" in result.output
 
         # Verify item was removed
         assert not (srs_dir / "SRS001.yml").exists()
+
+        # Verify test file was updated (decorator removed)
+        updated_content = test_file.read_text()
+        assert "@pytest.mark.requirement" not in updated_content
 
     def test_item_remove_no_test_refs_no_prompt(self, runner, tmp_path, monkeypatch):
         """Test item remove without test references doesn't prompt."""

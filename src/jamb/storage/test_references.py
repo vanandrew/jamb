@@ -351,3 +351,45 @@ def remove_test_reference(
             continue
 
     return changes
+
+
+def find_orphaned_references(
+    test_dir: Path,
+    valid_uids: set[str],
+) -> list[RequirementReference]:
+    """Find test references to UIDs that don't exist in requirements.
+
+    Args:
+        test_dir: Directory containing test files.
+        valid_uids: Set of UIDs that currently exist in requirements.
+
+    Returns:
+        List of RequirementReference objects for references to non-existent UIDs.
+    """
+    all_refs = find_test_references(test_dir)
+    return [ref for ref in all_refs if ref.uid not in valid_uids]
+
+
+def detect_reference_collisions(
+    rename_map: dict[str, str],
+    test_dir: Path,
+    valid_uids: set[str],
+) -> list[tuple[str, RequirementReference]]:
+    """Detect when renaming would create duplicate test references.
+
+    When reordering items, some UIDs become targets of renames (e.g., SRS003 -> SRS002).
+    If there are orphaned test references (refs to deleted items) that already use
+    a target UID, the reorder would create ambiguity.
+
+    Args:
+        rename_map: Mapping of old UIDs to new UIDs from reorder operation.
+        test_dir: Directory containing test files.
+        valid_uids: Set of UIDs that currently exist in requirements.
+
+    Returns:
+        List of (target_uid, orphan_ref) tuples where an orphaned reference
+        already uses a UID that would become the target of a rename.
+    """
+    target_uids = set(rename_map.values())
+    orphans = find_orphaned_references(test_dir, valid_uids)
+    return [(ref.uid, ref) for ref in orphans if ref.uid in target_uids]
