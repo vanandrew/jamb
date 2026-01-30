@@ -18,10 +18,18 @@ from jamb.core.models import (
     TraceabilityGraph,
 )
 from jamb.pytest_plugin.log import JAMB_LOG_KEY
-from jamb.pytest_plugin.markers import get_requirement_markers
+from jamb.pytest_plugin.markers import get_requirement_markers, get_tc_id_marker
 
 # Valid test outcomes for type validation
 VALID_OUTCOMES = {"passed", "failed", "skipped", "error"}
+
+
+def _get_base_nodeid(nodeid: str) -> str:
+    """Extract base test function nodeid without parametrize suffix."""
+    bracket_idx = nodeid.find("[")
+    if bracket_idx == -1:
+        return nodeid
+    return nodeid[:bracket_idx]
 
 
 class RequirementCollector:
@@ -55,6 +63,7 @@ class RequirementCollector:
         self.test_links: list[LinkedTest] = []
         self._links_by_nodeid: dict[str, list[LinkedTest]] = {}
         self.unknown_items: set[str] = set()
+        self.manual_tc_ids: dict[str, str] = {}  # nodeid -> tc_id
         self.execution_timestamp: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self._load_requirements()
 
@@ -102,6 +111,38 @@ class RequirementCollector:
                 "Cannot run with --jamb: requirement graph failed to load. Check earlier warnings for details."
             )
 
+        # First pass: collect manual TC IDs and check for duplicates
+        # Group items by base nodeid to handle parameterized tests
+        base_to_items: dict[str, list[pytest.Item]] = {}
+        for item in items:
+            base = _get_base_nodeid(item.nodeid)
+            base_to_items.setdefault(base, []).append(item)
+
+        # Track which base TC IDs have been claimed (for duplicate detection)
+        base_tc_id_to_base: dict[str, str] = {}  # base_tc_id -> first base nodeid
+
+        for base, base_items in base_to_items.items():
+            # Get TC ID from the first item (all params share the same marker)
+            tc_id = get_tc_id_marker(base_items[0])
+            if not tc_id:
+                continue
+
+            # Check for duplicate base TC IDs across different test functions
+            if tc_id in base_tc_id_to_base:
+                raise pytest.UsageError(
+                    f"Duplicate tc_id '{tc_id}' found on multiple tests:\n"
+                    f"  - {base_tc_id_to_base[tc_id]}\n"
+                    f"  - {base}\n"
+                    "Each tc_id must be unique across all tests."
+                )
+            base_tc_id_to_base[tc_id] = base
+
+            # Store base TC ID for all nodeids in the group
+            # (build_test_id_mapping will add suffixes for parameterized tests)
+            for item in base_items:
+                self.manual_tc_ids[item.nodeid] = tc_id
+
+        # Second pass: collect requirement markers
         for item in items:
             req_uids = get_requirement_markers(item)
             for uid in req_uids:
@@ -400,7 +441,7 @@ class RequirementCollector:
         )
 
         coverage = self.get_coverage()
-        records = build_test_records(coverage)
+        records = build_test_records(coverage, self.manual_tc_ids)
         metadata = self._build_matrix_metadata(tester_id, software_version)
 
         generate_test_records_matrix(
@@ -426,7 +467,7 @@ class RequirementCollector:
                 If not provided, auto-detects the root document.
             include_ancestors: Whether to include "Traces To" column.
         """
-        from jamb.matrix.generator import generate_full_chain_matrix
+        from jamb.matrix.generator import build_test_id_mapping, generate_full_chain_matrix
 
         coverage = self.get_coverage()
 
@@ -445,6 +486,9 @@ class RequirementCollector:
         if self.jamb_config.trace_to_ignore:
             trace_to_ignore = set(self.jamb_config.trace_to_ignore)
 
+        # Build TC mapping with manual IDs
+        tc_mapping = build_test_id_mapping(coverage, self.manual_tc_ids)
+
         generate_full_chain_matrix(
             coverage,
             self.graph,
@@ -452,6 +496,7 @@ class RequirementCollector:
             output_format,
             trace_from=trace_from,
             include_ancestors=include_ancestors,
+            tc_mapping=tc_mapping,
             trace_to_ignore=trace_to_ignore,
             all_test_links=self._build_links_by_uid(),
         )
@@ -480,4 +525,10 @@ class RequirementCollector:
         coverage = self.get_coverage()
         metadata = self._build_matrix_metadata(tester_id, software_version)
 
-        save_coverage(coverage, self.graph, output_path, metadata)
+        save_coverage(
+            coverage,
+            self.graph,
+            output_path,
+            metadata,
+            manual_tc_ids=self.manual_tc_ids,
+        )

@@ -1011,7 +1011,6 @@ def item_remove(uid: str, force: bool, no_update_tests: bool, root: Path | None)
             rel_path = ref.file.relative_to(project_root) if ref.file.is_relative_to(project_root) else ref.file
             test_info = f"::{ref.test_name}" if ref.test_name else ""
             click.echo(f"  - {rel_path}{test_info} (line {ref.line})")
-        click.echo("\nThese test references will become orphaned.")
         if not click.confirm("Proceed with removal?", default=False):
             raise click.Abort()
 
@@ -1486,7 +1485,7 @@ def publish(
     PATH is the output file or directory (optional).
 
     Use --template with a .docx file to apply custom styles.
-    Generate a starter template with: jamb publish-template
+    Generate a starter template with: jamb template
 
     For a traceability matrix with test coverage, use: pytest --jamb --jamb-trace-matrix PATH
     """
@@ -1748,9 +1747,9 @@ def _publish_docx(prefix: str, path: str, include_links: bool, template: Path | 
     click.echo(f"Published to {output_path}")
 
 
-@cli.command("publish-template")
+@cli.command("template")
 @click.argument("path", required=False, default="jamb-template.docx")
-def publish_template(path: str) -> None:
+def template(path: str) -> None:
     """Generate a DOCX template file with jamb styles.
 
     PATH is the output file path (default: jamb-template.docx).
@@ -1763,8 +1762,8 @@ def publish_template(path: str) -> None:
 
     \b
     Examples:
-        jamb publish-template
-        jamb publish-template my-company-template.docx
+        jamb template
+        jamb template my-company-template.docx
     """
     from jamb.publish.formats.docx import generate_template
 
@@ -2181,7 +2180,7 @@ def matrix(
 
     # Load coverage data
     try:
-        coverage, graph, metadata = load_coverage(str(input_path))
+        coverage, graph, metadata, manual_tc_ids = load_coverage(str(input_path))
     except FileNotFoundError:
         click.echo(
             f"Error: Coverage file '{input_path}' not found. Run 'pytest --jamb' first to generate it.",
@@ -2196,7 +2195,7 @@ def matrix(
 
     if test_records:
         # Generate test records matrix
-        records = build_test_records(coverage)
+        records = build_test_records(coverage, manual_tc_ids)
         generate_test_records_matrix(
             records,
             str(output),
@@ -2222,7 +2221,7 @@ def matrix(
             ignore_set = set(trace_to_ignore)
 
         # Generate trace matrix
-        tc_mapping = build_test_id_mapping(coverage)
+        tc_mapping = build_test_id_mapping(coverage, manual_tc_ids)
         generate_full_chain_matrix(
             coverage,
             graph,
@@ -2234,6 +2233,118 @@ def matrix(
             trace_to_ignore=ignore_set,
         )
         click.echo(f"Generated trace matrix: {output}")
+
+
+@cli.command("lock-tc")
+@click.option(
+    "--test-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=None,
+    help="Test directory (default: auto-detect from pyproject.toml or 'tests/').",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would be changed without modifying files.",
+)
+@click.option(
+    "--coverage",
+    "coverage_path",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Path to .jamb coverage file (default: auto-discover).",
+)
+@_cli_error_handler
+def lock_tc(
+    test_dir: Path | None,
+    dry_run: bool,
+    coverage_path: Path | None,
+) -> None:
+    """Lock TC IDs by inserting @pytest.mark.tc_id decorators into test files.
+
+    This command reads the current TC ID assignments from a .jamb file and
+    inserts @pytest.mark.tc_id() decorators into test functions, making the
+    auto-generated IDs permanent.
+
+    Examples:
+
+        jamb lock-tc
+        jamb lock-tc --dry-run
+        jamb lock-tc --test-dir tests/unit/
+    """
+    from jamb.coverage.serializer import load_coverage
+    from jamb.matrix.generator import build_test_id_mapping
+    from jamb.storage.test_references import insert_tc_id_markers
+
+    # Auto-discover .jamb file if not specified
+    if coverage_path is None:
+        coverage_path = Path(".jamb")
+        if not coverage_path.exists():
+            # Search parent directories
+            for parent in Path.cwd().parents:
+                candidate = parent / ".jamb"
+                if candidate.exists():
+                    coverage_path = candidate
+                    break
+
+    if not coverage_path.exists():
+        click.echo(
+            "Error: No .jamb file found. Run 'pytest --jamb' first.",
+            err=True,
+        )
+        sys.exit(1)
+
+    # Load coverage data
+    coverage, _, _, manual_tc_ids = load_coverage(str(coverage_path))
+
+    # Build TC ID mapping (including any existing manual IDs)
+    tc_mapping = build_test_id_mapping(coverage, manual_tc_ids)
+
+    if not tc_mapping:
+        click.echo("No tests found in coverage data.")
+        return
+
+    # Auto-detect test directory if not specified
+    if test_dir is None:
+        # Try pyproject.toml [tool.pytest.ini_options] testpaths
+        pyproject = Path("pyproject.toml")
+        if pyproject.exists():
+            try:
+                try:
+                    import tomllib  # type: ignore[import-not-found]
+                except ImportError:
+                    import tomli as tomllib
+
+                data = tomllib.loads(pyproject.read_text())
+                testpaths = data.get("tool", {}).get("pytest", {}).get("ini_options", {}).get("testpaths", [])
+                if testpaths:
+                    test_dir = Path(testpaths[0])
+            except (ImportError, OSError, KeyError):
+                pass
+
+        if test_dir is None:
+            test_dir = Path("tests")
+            if not test_dir.exists():
+                test_dir = Path(".")
+
+    # Insert tc_id markers
+    changes = insert_tc_id_markers(tc_mapping, test_dir, dry_run=dry_run)
+
+    if not changes:
+        click.echo("No changes needed - all tests already have tc_id markers or no test files found.")
+        return
+
+    # Report changes
+    action = "Would modify" if dry_run else "Modified"
+    for file_path, file_changes in changes.items():
+        click.echo(f"{action} {file_path}:")
+        for change in file_changes:
+            click.echo(f"  - {change}")
+
+    if dry_run:
+        click.echo(f"\nDry run complete. {len(changes)} file(s) would be modified.")
+    else:
+        click.echo(f"\nLocked TC IDs in {len(changes)} file(s).")
 
 
 if __name__ == "__main__":

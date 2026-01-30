@@ -94,10 +94,15 @@ class TestPytestConfigure:
 
         pytest_configure(mock_config)
 
-        mock_config.addinivalue_line.assert_called_once()
-        call_args = mock_config.addinivalue_line.call_args
-        assert call_args[0][0] == "markers"
-        assert "requirement" in call_args[0][1]
+        # Two markers are registered: requirement and tc_id
+        assert mock_config.addinivalue_line.call_count == 2
+        calls = mock_config.addinivalue_line.call_args_list
+        # First call registers requirement marker
+        assert calls[0][0][0] == "markers"
+        assert "requirement" in calls[0][0][1]
+        # Second call registers tc_id marker
+        assert calls[1][0][0] == "markers"
+        assert "tc_id" in calls[1][0][1]
 
     @patch("jamb.pytest_plugin.plugin.RequirementCollector")
     def test_creates_collector_when_jamb_enabled(self, mock_collector_class):

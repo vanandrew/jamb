@@ -1,5 +1,6 @@
 """Generate traceability matrix in various formats."""
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -12,6 +13,79 @@ from jamb.core.models import (
     TraceabilityGraph,
 )
 from jamb.matrix.utils import group_tests_by_nodeid
+
+# Pattern to extract number from TC ID like "TC001", "TC42"
+TC_NUMBER_PATTERN = re.compile(r"^TC(\d+)$")
+
+
+def _get_base_nodeid(nodeid: str) -> str:
+    """Extract base test function nodeid without parametrize suffix.
+
+    Args:
+        nodeid: Full pytest nodeid like "test_foo.py::test_bar[param1]".
+
+    Returns:
+        Base nodeid without parameter suffix, e.g., "test_foo.py::test_bar".
+    """
+    bracket_idx = nodeid.find("[")
+    if bracket_idx == -1:
+        return nodeid
+    return nodeid[:bracket_idx]
+
+
+def _num_to_suffix(n: int) -> str:
+    """Convert 0-indexed number to alphabetic suffix.
+
+    Args:
+        n: Zero-indexed number (0=a, 25=z, 26=aa, 27=ab, ...).
+
+    Returns:
+        Alphabetic suffix string.
+    """
+    result = []
+    n += 1  # Convert to 1-indexed
+    while n > 0:
+        n, remainder = divmod(n - 1, 26)
+        result.append(chr(ord("a") + remainder))
+    return "".join(reversed(result))
+
+
+def _extract_reserved_numbers(manual_tc_ids: dict[str, str]) -> set[int]:
+    """Extract reserved TC numbers from manual IDs.
+
+    Manual IDs matching pattern TC### reserve that number from auto-generation.
+
+    Args:
+        manual_tc_ids: Dict mapping nodeid to manual TC ID.
+
+    Returns:
+        Set of reserved TC numbers.
+    """
+    reserved: set[int] = set()
+    for tc_id in manual_tc_ids.values():
+        match = TC_NUMBER_PATTERN.match(tc_id)
+        if match:
+            reserved.add(int(match.group(1)))
+    return reserved
+
+
+def _group_nodeids_by_base(nodeids: list[str]) -> dict[str, list[str]]:
+    """Group nodeids by their base test function.
+
+    Parameterized tests share a base function and will be grouped together.
+
+    Args:
+        nodeids: List of pytest nodeids.
+
+    Returns:
+        Dict mapping base nodeid to list of full nodeids (sorted by param order).
+    """
+    groups: dict[str, list[str]] = {}
+    for nodeid in nodeids:
+        base = _get_base_nodeid(nodeid)
+        groups.setdefault(base, []).append(nodeid)
+    return groups
+
 
 # Type aliases for formatter functions
 TestRecordsFormatter = Callable[[list[TestRecord], MatrixMetadata | None], str | bytes]
@@ -90,45 +164,125 @@ def _get_full_chain_formatter(output_format: str) -> FullChainFormatter:
         raise ValueError(f"Unknown format: {output_format}")
 
 
-def build_test_id_mapping(coverage: dict[str, ItemCoverage]) -> dict[str, str]:
+def build_test_id_mapping(
+    coverage: dict[str, ItemCoverage],
+    manual_tc_ids: dict[str, str] | None = None,
+) -> dict[str, str]:
     """Build a mapping from test nodeid to TC ID.
 
     Uses the same sorting logic as build_test_records to ensure consistent
     TC numbering across test records and trace matrices.
 
+    For parameterized tests, all parameter variations share a base TC number
+    with alphabetic suffixes (TC001a, TC001b, etc.).
+
+    Manual TC IDs (from @pytest.mark.tc_id) take precedence. IDs matching
+    pattern TC### reserve that number from auto-generation.
+
     Args:
         coverage: Coverage data mapping UIDs to ItemCoverage.
+        manual_tc_ids: Optional dict mapping nodeid to manual TC ID.
 
     Returns:
         Dict mapping test nodeid to TC ID (e.g., "test.py::test_foo" -> "TC001").
     """
-    sorted_nodeids, _, width = group_tests_by_nodeid(coverage)
+    if manual_tc_ids is None:
+        manual_tc_ids = {}
 
-    return {nodeid: f"TC{str(i + 1).zfill(width)}" for i, nodeid in enumerate(sorted_nodeids)}
+    sorted_nodeids, tests_by_nodeid, _ = group_tests_by_nodeid(coverage)
+
+    if not sorted_nodeids:
+        return {}
+
+    # Group nodeids by base function (for parameterized test detection)
+    groups = _group_nodeids_by_base(sorted_nodeids)
+
+    # Get reserved numbers from manual IDs
+    reserved = _extract_reserved_numbers(manual_tc_ids)
+
+    # Build mapping from base nodeid to manual TC ID (if any node in group has one)
+    base_manual_ids: dict[str, str] = {}
+    for nodeid, tc_id in manual_tc_ids.items():
+        base = _get_base_nodeid(nodeid)
+        base_manual_ids[base] = tc_id
+
+    # Sort base nodeids using first nodeid in each group's sort key
+    def base_sort_key(base: str) -> tuple[str, str]:
+        # Use the first nodeid in the group for sorting
+        first_nodeid = groups[base][0]
+        # Get first requirement for this test (same logic as group_tests_by_nodeid)
+        links = tests_by_nodeid.get(first_nodeid, [])
+        reqs = sorted(set(lk.item_uid for lk in links))
+        first_req = reqs[0] if reqs else ""
+        return (first_req, first_nodeid)
+
+    sorted_bases = sorted(groups.keys(), key=base_sort_key)
+
+    # Calculate width based on number of test groups (not individual tests)
+    width = max(3, len(str(len(sorted_bases))))
+
+    # Assign TC IDs
+    tc_mapping: dict[str, str] = {}
+    auto_counter = 1
+
+    for base in sorted_bases:
+        nodeids_in_group = groups[base]
+        is_parameterized = len(nodeids_in_group) > 1
+
+        # Check if this group has a manual TC ID
+        if base in base_manual_ids:
+            base_tc_id = base_manual_ids[base]
+        else:
+            # Auto-assign: find next available number
+            while auto_counter in reserved:
+                auto_counter += 1
+            base_tc_id = f"TC{str(auto_counter).zfill(width)}"
+            auto_counter += 1
+
+        if is_parameterized:
+            # Assign suffixed IDs to each parameter variation
+            for i, nodeid in enumerate(nodeids_in_group):
+                suffix = _num_to_suffix(i)
+                tc_mapping[nodeid] = f"{base_tc_id}{suffix}"
+        else:
+            # Single test, no suffix needed
+            tc_mapping[nodeids_in_group[0]] = base_tc_id
+
+    return tc_mapping
 
 
-def build_test_records(coverage: dict[str, ItemCoverage]) -> list[TestRecord]:
+def build_test_records(
+    coverage: dict[str, ItemCoverage],
+    manual_tc_ids: dict[str, str] | None = None,
+) -> list[TestRecord]:
     """Transform coverage data to test-centric records.
 
     Collects all tests linked to items in the coverage data and produces
     a list of ``TestRecord`` objects sorted by the first requirement UID
     (alphabetically), with nodeid as tiebreaker.
 
+    For parameterized tests, all parameter variations share a base TC number
+    with alphabetic suffixes (TC001a, TC001b, etc.).
+
     Args:
         coverage: Coverage data mapping UIDs to ItemCoverage.
+        manual_tc_ids: Optional dict mapping nodeid to manual TC ID.
 
     Returns:
         List of TestRecord objects, one per unique test.
     """
-    sorted_nodeids, tests_by_nodeid, width = group_tests_by_nodeid(coverage)
+    sorted_nodeids, tests_by_nodeid, _ = group_tests_by_nodeid(coverage)
+
+    # Build TC ID mapping with manual IDs and parameterized support
+    tc_mapping = build_test_id_mapping(coverage, manual_tc_ids)
 
     records = []
-    for i, nodeid in enumerate(sorted_nodeids):
+    for nodeid in sorted_nodeids:
         links = tests_by_nodeid[nodeid]
         first = links[0]
         records.append(
             TestRecord(
-                test_id=f"TC{str(i + 1).zfill(width)}",
+                test_id=tc_mapping.get(nodeid, "TC???"),
                 test_name=nodeid.split("::")[-1],
                 test_nodeid=nodeid,
                 outcome=first.test_outcome or "unknown",
@@ -165,7 +319,7 @@ def generate_test_records_matrix(
 
     if isinstance(content, bytes):
         path.write_bytes(content)
-    else:
+    elif isinstance(content, str):
         path.write_text(content, encoding="utf-8")
 
 
@@ -225,5 +379,5 @@ def generate_full_chain_matrix(
 
     if isinstance(content, bytes):
         path.write_bytes(content)
-    else:
+    elif isinstance(content, str):
         path.write_text(content, encoding="utf-8")
