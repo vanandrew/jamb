@@ -1503,3 +1503,460 @@ class TestInitDocumentSaveError:
             r = _invoke(runner, ["init"], cwd=tmp_path)
             assert r.exit_code == 1
             assert "error" in r.output.lower()
+
+
+# =========================================================================
+# CLI Error Handler Tests
+# =========================================================================
+
+
+class TestCliErrorHandler:
+    """Tests for _cli_error_handler exception handling."""
+
+    def test_check_warns_on_oserror(self, tmp_path):
+        """check warns when a test file has OS errors."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "the one req"
+        _write_yaml(p, data)
+
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+
+        # Valid test file covering SRS001
+        (tests_dir / "test_valid.py").write_text(
+            "import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_a():\n    pass\n"
+        )
+
+        # File with encoding error
+        (tests_dir / "test_encoding.py").write_bytes(b"\x80\x81\x82")
+
+        r = _invoke(
+            runner,
+            ["check", "--documents", "SRS", "--root", str(tmp_path)],
+        )
+        # Should still pass (SRS001 is covered by valid test)
+        assert r.exit_code == 0
+        # But should warn about the encoding error file
+        assert "warning" in r.output.lower()
+        assert "test_encoding.py" in r.output
+        assert "encoding" in r.output.lower()
+
+
+class TestCheckUnknownItems:
+    """Tests for check command with unknown item references."""
+
+    def test_check_warns_on_unknown_items(self, tmp_path):
+        """check warns when tests reference unknown UIDs."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "the one req"
+        _write_yaml(p, data)
+
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+
+        # Test file referencing both valid and unknown UIDs
+        (tests_dir / "test_x.py").write_text(
+            "import pytest\n\n@pytest.mark.requirement('SRS001')\ndef test_valid():\n    pass\n\n"
+            "@pytest.mark.requirement('UNKNOWN001')\ndef test_unknown():\n    pass\n"
+        )
+
+        r = _invoke(
+            runner,
+            ["check", "--documents", "SRS", "--root", str(tmp_path)],
+        )
+        # Should fail because unknown items are referenced
+        assert r.exit_code == 1
+        assert "unknown" in r.output.lower()
+        assert "UNKNOWN001" in r.output
+
+
+class TestPublishAutoDetect:
+    """Tests for publish command auto-detecting format from extension."""
+
+    def test_publish_html_extension_auto_detect(self, tmp_path):
+        """publish auto-detects HTML format from .html extension."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        out = tmp_path / "out.html"
+        r = _invoke(runner, ["publish", "SRS", str(out)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        assert "<html" in out.read_text().lower()
+
+    def test_publish_htm_extension_auto_detect(self, tmp_path):
+        """publish auto-detects HTML format from .htm extension."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        out = tmp_path / "out.htm"
+        r = _invoke(runner, ["publish", "SRS", str(out)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        assert "<html" in out.read_text().lower()
+
+    def test_publish_docx_extension_auto_detect(self, tmp_path):
+        """publish auto-detects DOCX format from .docx extension."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        out = tmp_path / "out.docx"
+        r = _invoke(runner, ["publish", "SRS", str(out)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        # DOCX is a ZIP file
+        assert out.stat().st_size > 0
+
+
+class TestPublishNoLinksOption:
+    """Tests for publish --no-links option."""
+
+    def test_publish_no_links_flag(self, tmp_path):
+        """publish --no-links omits link sections."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+
+        p1 = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        _write_yaml(p1, {"active": True, "text": "req1", "links": ["SYS001"]})
+
+        r = _invoke(runner, ["publish", "SRS", "--no-links"], cwd=tmp_path)
+        assert r.exit_code == 0
+        # Should not contain "Links:" in output
+        assert "Links:" not in r.output
+
+
+class TestPublishMarkdownRequiresPath:
+    """Tests for publish --markdown requiring path."""
+
+    def test_publish_markdown_requires_path(self, tmp_path):
+        """publish --markdown without PATH exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        r = _invoke(runner, ["publish", "SRS", "--markdown"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "requires" in r.output.lower()
+
+
+class TestPublishDocxRequiresPath:
+    """Tests for publish --docx requiring path."""
+
+    def test_publish_docx_requires_path(self, tmp_path):
+        """publish --docx without PATH exits with code 1."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        r = _invoke(runner, ["publish", "SRS", "--docx"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "requires" in r.output.lower()
+
+
+class TestPublishAllMarkdown:
+    """Tests for publish all command with markdown format."""
+
+    def test_publish_all_markdown_to_file(self, tmp_path):
+        """publish all to markdown file includes all documents."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+
+        p1 = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        _write_yaml(p1, {"active": True, "text": "srs req"})
+        p2 = tmp_path / "reqs" / "sys" / "SYS001.yml"
+        _write_yaml(p2, {"active": True, "text": "sys req"})
+
+        out = tmp_path / "all.md"
+        r = _invoke(runner, ["publish", "all", str(out)], cwd=tmp_path)
+        assert r.exit_code == 0
+        content = out.read_text()
+        assert "SRS001" in content
+        assert "SYS001" in content
+
+
+class TestPublishAllHtml:
+    """Tests for publish all command with HTML format."""
+
+    def test_publish_all_html_to_file(self, tmp_path):
+        """publish all to HTML file includes all documents."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+
+        p1 = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        _write_yaml(p1, {"active": True, "text": "srs req"})
+        p2 = tmp_path / "reqs" / "sys" / "SYS001.yml"
+        _write_yaml(p2, {"active": True, "text": "sys req"})
+
+        out = tmp_path / "all.html"
+        r = _invoke(runner, ["publish", "all", str(out)], cwd=tmp_path)
+        assert r.exit_code == 0
+        content = out.read_text()
+        assert "SRS001" in content
+        assert "SYS001" in content
+
+
+class TestPublishAllDocx:
+    """Tests for publish all command with DOCX format."""
+
+    def test_publish_all_docx_to_file(self, tmp_path):
+        """publish all to DOCX file creates non-empty file."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+
+        p1 = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        _write_yaml(p1, {"active": True, "text": "srs req"})
+        p2 = tmp_path / "reqs" / "sys" / "SYS001.yml"
+        _write_yaml(p2, {"active": True, "text": "sys req"})
+
+        out = tmp_path / "all.docx"
+        r = _invoke(runner, ["publish", "all", str(out)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert out.exists()
+        assert out.stat().st_size > 0
+
+
+class TestPublishTemplateWarning:
+    """Tests for publish template warning with non-DOCX output."""
+
+    def test_publish_template_warning_with_html(self, tmp_path):
+        """publish --template warns when used with HTML output."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        # Create a dummy template file
+        template = tmp_path / "template.docx"
+        template.write_bytes(b"dummy")
+
+        out = tmp_path / "out.html"
+        r = _invoke(runner, ["publish", "SRS", str(out), "--template", str(template)], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "Warning" in r.output
+        assert "template" in r.output.lower()
+
+
+class TestPublishTemplateInvalidExtension:
+    """Tests for publish --template with invalid file extension."""
+
+    def test_publish_template_invalid_extension(self, tmp_path):
+        """publish --template exits with error for non-.docx template."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
+        data = _read_yaml(p)
+        data["text"] = "requirement"
+        _write_yaml(p, data)
+
+        # Create a dummy template file with wrong extension
+        template = tmp_path / "template.txt"
+        template.write_text("dummy")
+
+        out = tmp_path / "out.docx"
+        r = _invoke(runner, ["publish", "SRS", str(out), "--docx", "--template", str(template)], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "template" in r.output.lower()
+        assert ".docx" in r.output
+
+
+class TestMatrixTraceFromAutoDetect:
+    """Tests for matrix command trace_from auto-detection."""
+
+    def test_matrix_with_no_coverage_file(self, tmp_path):
+        """matrix errors when coverage file does not exist."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Try to run matrix without a .jamb file
+        # Click validates Path(exists=True) and returns exit code 2
+        r = _invoke(runner, ["matrix", "trace.html", "-i", str(tmp_path / "nonexistent.jamb")], cwd=tmp_path)
+        assert r.exit_code == 2  # Click validation error
+        assert "not exist" in r.output.lower() or "does not exist" in r.output.lower()
+
+
+class TestImportNoFile:
+    """Tests for import command without file argument."""
+
+    def test_import_no_file_errors(self, tmp_path):
+        """import without FILE argument exits with error."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        r = _invoke(runner, ["import"], cwd=tmp_path)
+        assert r.exit_code == 1
+        assert "missing" in r.output.lower() or "file" in r.output.lower()
+
+
+class TestExportNeighborsRequiresItems:
+    """Tests for export --neighbors requiring --items."""
+
+    def test_export_neighbors_without_items_errors(self, tmp_path):
+        """export --neighbors without --items exits with error."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        out = tmp_path / "export.yml"
+        r = _invoke(runner, ["export", str(out), "--neighbors", "--root", str(tmp_path)])
+        assert r.exit_code == 1
+        assert "--neighbors" in r.output
+        assert "--items" in r.output
+
+
+class TestReorderUpdatesTestReferences:
+    """Tests for reorder command updating test references."""
+
+    def test_reorder_updates_test_files(self, tmp_path):
+        """reorder updates @pytest.mark.requirement references in test files."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create items with a gap
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+        _invoke(runner, ["item", "remove", "SRS002"], cwd=tmp_path)
+
+        # Create a test file referencing SRS003
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS003")\ndef test_x(): pass\n')
+
+        # Reorder
+        r = _invoke(runner, ["reorder", "SRS"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "renamed" in r.output.lower()
+        assert "test" in r.output.lower()
+
+        # Test file should be updated
+        content = test_file.read_text()
+        assert '"SRS002"' in content
+        assert '"SRS003"' not in content
+
+    def test_reorder_no_update_tests_flag(self, tmp_path):
+        """reorder --no-update-tests skips test file updates."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create items with a gap
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+        _invoke(runner, ["item", "remove", "SRS002"], cwd=tmp_path)
+
+        # Create a test file referencing SRS003
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS003")\ndef test_x(): pass\n')
+
+        # Reorder with --no-update-tests
+        r = _invoke(runner, ["reorder", "SRS", "--no-update-tests"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "renamed" in r.output.lower()
+
+        # Test file should NOT be updated
+        content = test_file.read_text()
+        assert '"SRS003"' in content  # Still has old reference
+
+
+class TestItemRemoveWithTestReferences:
+    """Tests for item remove with test references."""
+
+    def test_item_remove_warns_about_test_references(self, tmp_path):
+        """item remove warns about test references and requires --force or confirmation."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+
+        # Create a test file referencing SRS001
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_x(): pass\n')
+
+        # Try to remove without --force (should prompt, then abort)
+        old = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            r = runner.invoke(cli, ["item", "remove", "SRS001"], input="n\n")
+        finally:
+            os.chdir(old)
+
+        assert r.exit_code != 0
+        assert "test" in r.output.lower()
+        assert "reference" in r.output.lower()
+
+    def test_item_remove_force_with_test_references(self, tmp_path):
+        """item remove --force removes despite test references."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+
+        # Create a test file referencing SRS001
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_x(): pass\n')
+
+        r = _invoke(runner, ["item", "remove", "SRS001", "--force"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert not (tmp_path / "reqs" / "srs" / "SRS001.yml").exists()
+        # Should note about orphaned references
+        assert "update" in r.output.lower() or "orphan" in r.output.lower()
+
+
+class TestItemRemoveWithChildLinks:
+    """Tests for item remove with items linking to it."""
+
+    def test_item_remove_warns_about_child_links(self, tmp_path):
+        """item remove warns when other items link to the target."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+        _invoke(runner, ["item", "add", "SYS"], cwd=tmp_path)
+        _invoke(runner, ["link", "add", "SRS001", "SYS001"], cwd=tmp_path)
+
+        # Remove SYS001 (which SRS001 links to) with --force to bypass prompt
+        r = _invoke(runner, ["item", "remove", "SYS001", "--force"], cwd=tmp_path)
+        assert r.exit_code == 0
+        # Should warn about child links
+        assert "warning" in r.output.lower()
+        assert "SRS001" in r.output

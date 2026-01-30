@@ -406,3 +406,221 @@ class TestRequirementReferenceClass:
             uid="SRS001",
         )
         assert ref.test_name is None
+
+
+class TestFindUidPositionsKeywordArgs:
+    """Tests for keyword arguments in _find_uid_positions_in_source."""
+
+    def test_keyword_argument_uid(self):
+        """UIDs passed as keyword arguments are detected."""
+        source = '@pytest.mark.requirement(uid="SRS001")\ndef test_foo(): pass'
+        positions = _find_uid_positions_in_source(source)
+        assert len(positions) == 1
+        assert positions[0][3] == "SRS001"
+        assert positions[0][4] == "test_foo"
+
+    def test_multiple_keyword_arguments(self):
+        """Multiple keyword UIDs in a single decorator."""
+        source = '@pytest.mark.requirement(uid1="SRS001", uid2="SRS002")\ndef test_foo(): pass'
+        positions = _find_uid_positions_in_source(source)
+        assert len(positions) == 2
+        uids = {p[3] for p in positions}
+        assert uids == {"SRS001", "SRS002"}
+
+    def test_mixed_positional_and_keyword(self):
+        """Mix of positional and keyword arguments."""
+        source = '@pytest.mark.requirement("SRS001", uid="SRS002")\ndef test_foo(): pass'
+        positions = _find_uid_positions_in_source(source)
+        assert len(positions) == 2
+        uids = {p[3] for p in positions}
+        assert uids == {"SRS001", "SRS002"}
+
+
+class TestUpdateTestReferencesExceptionHandling:
+    """Tests for exception handling in update_test_references."""
+
+    def test_skips_file_with_syntax_error(self, tmp_path):
+        """Files with syntax errors are skipped."""
+        bad_file = tmp_path / "test_bad.py"
+        bad_file.write_text("def broken(\n")  # Invalid syntax
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS003")\ndef test_ok(): pass')
+
+        changes = update_test_references({"SRS003": "SRS002"}, tmp_path)
+        # Should update good file, skip bad file
+        assert good_file in changes
+        assert bad_file not in changes
+
+    def test_skips_file_with_encoding_error(self, tmp_path):
+        """Files with encoding errors are skipped."""
+        bad_file = tmp_path / "test_bad_encoding.py"
+        bad_file.write_bytes(b"\x80\x81\x82")  # Invalid UTF-8
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS003")\ndef test_ok(): pass')
+
+        changes = update_test_references({"SRS003": "SRS002"}, tmp_path)
+        assert good_file in changes
+        assert bad_file not in changes
+
+    def test_skips_file_with_os_error(self, tmp_path):
+        """Files with OS errors (e.g., permission denied) are skipped."""
+        import os
+
+        bad_file = tmp_path / "test_no_read.py"
+        bad_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_a(): pass')
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS003")\ndef test_ok(): pass')
+
+        # Make file unreadable
+        original_mode = bad_file.stat().st_mode
+        try:
+            os.chmod(bad_file, 0o000)
+            changes = update_test_references({"SRS003": "SRS002"}, tmp_path)
+            assert good_file in changes
+            assert bad_file not in changes
+        finally:
+            os.chmod(bad_file, original_mode)
+
+
+class TestRemoveTestReferenceExceptionHandling:
+    """Tests for exception handling in remove_test_reference."""
+
+    def test_skips_file_with_syntax_error(self, tmp_path):
+        """Files with syntax errors are skipped during remove."""
+        bad_file = tmp_path / "test_bad.py"
+        bad_file.write_text("def broken(\n")  # Invalid syntax
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_ok(): pass')
+
+        changes = remove_test_reference("SRS001", tmp_path)
+        # Should process good file, skip bad file
+        assert good_file in changes
+        assert bad_file not in changes
+
+    def test_skips_file_with_encoding_error(self, tmp_path):
+        """Files with encoding errors are skipped during remove."""
+        bad_file = tmp_path / "test_bad_encoding.py"
+        bad_file.write_bytes(b"\x80\x81\x82")  # Invalid UTF-8
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_ok(): pass')
+
+        changes = remove_test_reference("SRS001", tmp_path)
+        assert good_file in changes
+        assert bad_file not in changes
+
+
+class TestRemoveTestReferenceLeadingComma:
+    """Tests for leading comma handling in remove_test_reference."""
+
+    def test_removes_trailing_uid_with_leading_comma(self, tmp_path):
+        """Removes UID at end of decorator, handling leading comma."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001", "SRS002")
+def test_feature():
+    pass
+""")
+        changes = remove_test_reference("SRS002", tmp_path, remove_empty=True)
+        assert test_file in changes
+
+        content = test_file.read_text()
+        assert '"SRS001"' in content
+        assert '"SRS002"' not in content
+
+    def test_removes_middle_uid_preserves_others(self, tmp_path):
+        """Removes middle UID from decorator with multiple args."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001", "SRS002", "SRS003")
+def test_feature():
+    pass
+""")
+        changes = remove_test_reference("SRS002", tmp_path, remove_empty=True)
+        assert test_file in changes
+
+        content = test_file.read_text()
+        assert '"SRS001"' in content
+        assert '"SRS002"' not in content
+        assert '"SRS003"' in content
+
+
+class TestRemoveTestReferenceKeywordArgs:
+    """Tests for keyword argument handling in remove_test_reference."""
+
+    def test_removes_single_keyword_uid(self, tmp_path):
+        """Removes entire decorator when keyword UID is the only arg."""
+        test_file = tmp_path / "test_kw.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement(uid="SRS001")
+def test_feature():
+    pass
+""")
+        changes = remove_test_reference("SRS001", tmp_path, remove_empty=True)
+        assert test_file in changes
+
+        content = test_file.read_text()
+        # Entire decorator should be removed since it's the only UID
+        assert "@pytest.mark.requirement" not in content
+
+    def test_detects_keyword_uid_in_mixed_marker(self, tmp_path):
+        """Keyword UIDs are detected but only positional args are removed.
+
+        Note: The implementation detects keyword UIDs to find matching markers,
+        but only handles removal of positional arguments. This test verifies
+        the keyword detection code path is exercised (lines 278-280).
+        """
+        test_file = tmp_path / "test_mixed.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001", uid="SRS002")
+def test_feature():
+    pass
+""")
+        # Remove the positional arg - this should work
+        changes = remove_test_reference("SRS001", tmp_path, remove_empty=True)
+        assert test_file in changes
+
+        content = test_file.read_text()
+        # Positional arg should be removed
+        assert '"SRS001"' not in content
+        # Keyword arg remains (removal not implemented for kwargs)
+        assert '"SRS002"' in content
+
+
+class TestFindTestReferencesExceptionHandling:
+    """Tests for exception handling in find_test_references."""
+
+    def test_skips_file_with_encoding_error(self, tmp_path):
+        """Files with encoding errors are skipped during find."""
+        bad_file = tmp_path / "test_bad_encoding.py"
+        bad_file.write_bytes(b"\x80\x81\x82")  # Invalid UTF-8
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_ok(): pass')
+
+        refs = find_test_references(tmp_path, uid="SRS001")
+        # Should find reference in good file only
+        assert len(refs) == 1
+        assert refs[0].file == good_file
+
+    def test_skips_file_with_os_error(self, tmp_path):
+        """Files with OS errors are skipped during find."""
+        import os
+
+        bad_file = tmp_path / "test_no_read.py"
+        bad_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_a(): pass')
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_ok(): pass')
+
+        # Make file unreadable
+        original_mode = bad_file.stat().st_mode
+        try:
+            os.chmod(bad_file, 0o000)
+            refs = find_test_references(tmp_path, uid="SRS001")
+            # Should only find reference in good file
+            assert len(refs) == 1
+            assert refs[0].file == good_file
+        finally:
+            os.chmod(bad_file, original_mode)
