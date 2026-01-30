@@ -1896,6 +1896,110 @@ class TestReorderUpdatesTestReferences:
         content = test_file.read_text()
         assert '"SRS003"' in content  # Still has old reference
 
+    def test_reorder_collision_detection_aborts(self, tmp_path):
+        """reorder aborts when orphaned test refs would collide with renamed UIDs."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create items SRS001, SRS002, SRS003
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+
+        # Create a test file referencing SRS002
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS002")\ndef test_x(): pass\n')
+
+        # Remove SRS002 with --no-update-tests to create orphan
+        _invoke(runner, ["item", "remove", "SRS002", "--force", "--no-update-tests"], cwd=tmp_path)
+
+        # Reorder should fail because SRS003->SRS002 would collide with orphaned SRS002 ref
+        old = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            r = runner.invoke(cli, ["reorder", "SRS"])
+        finally:
+            os.chdir(old)
+        assert r.exit_code == 1
+        assert "collide" in r.output.lower() or "orphan" in r.output.lower()
+        assert "--clean-orphans" in r.output
+
+    def test_reorder_clean_orphans_removes_collisions(self, tmp_path):
+        """reorder --clean-orphans removes orphaned refs before reordering."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create items SRS001, SRS002, SRS003
+        _invoke(runner, ["item", "add", "SRS", "--count", "3"], cwd=tmp_path)
+
+        # Create a test file referencing SRS002
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS002")\ndef test_x(): pass\n')
+
+        # Remove SRS002 with --no-update-tests to create orphan
+        _invoke(runner, ["item", "remove", "SRS002", "--force", "--no-update-tests"], cwd=tmp_path)
+
+        # Reorder with --clean-orphans should succeed
+        r = _invoke(runner, ["reorder", "SRS", "--clean-orphans"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "removed orphaned" in r.output.lower()
+
+        # Orphaned reference should be removed from test file
+        content = test_file.read_text()
+        assert "@pytest.mark.requirement" not in content
+
+
+class TestItemAddWithTestReferences:
+    """Tests for item add with test reference updates."""
+
+    def test_item_add_before_updates_test_refs(self, tmp_path):
+        """item add --before updates test references when items are shifted."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create items SRS001, SRS002
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+
+        # Create test file referencing SRS002
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS002")\ndef test_x(): pass\n')
+
+        # Insert before SRS002 - should shift SRS002 to SRS003
+        r = _invoke(runner, ["item", "add", "SRS", "--before", "SRS002"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert "updated test references" in r.output.lower()
+
+        # Test file should be updated: SRS002 -> SRS003
+        content = test_file.read_text()
+        assert '"SRS003"' in content
+        assert '"SRS002"' not in content
+
+    def test_item_add_no_update_tests_skips_refs(self, tmp_path):
+        """item add --before --no-update-tests skips test reference updates."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+
+        # Create items SRS001, SRS002
+        _invoke(runner, ["item", "add", "SRS", "--count", "2"], cwd=tmp_path)
+
+        # Create test file referencing SRS002
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS002")\ndef test_x(): pass\n')
+
+        # Insert before SRS002 with --no-update-tests
+        r = _invoke(runner, ["item", "add", "SRS", "--before", "SRS002", "--no-update-tests"], cwd=tmp_path)
+        assert r.exit_code == 0
+
+        # Test file should NOT be updated
+        content = test_file.read_text()
+        assert '"SRS002"' in content  # Still has old reference
+
 
 class TestItemRemoveWithTestReferences:
     """Tests for item remove with test references."""
@@ -1944,6 +2048,28 @@ class TestItemRemoveWithTestReferences:
         # Verify test file was updated (decorator removed)
         updated_content = test_file.read_text()
         assert "@pytest.mark.requirement" not in updated_content
+
+    def test_item_remove_no_update_tests_skips_cleanup(self, tmp_path):
+        """item remove --no-update-tests skips test reference cleanup."""
+        _init_project(tmp_path)
+        runner = CliRunner()
+        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
+
+        # Create a test file referencing SRS001
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        test_file = tests_dir / "test_feature.py"
+        test_file.write_text('@pytest.mark.requirement("SRS001")\ndef test_x(): pass\n')
+
+        r = _invoke(runner, ["item", "remove", "SRS001", "--force", "--no-update-tests"], cwd=tmp_path)
+        assert r.exit_code == 0
+        assert not (tmp_path / "reqs" / "srs" / "SRS001.yml").exists()
+        # Should note about orphaned references (not remove them)
+        assert "update test files" in r.output.lower()
+        # Verify test file was NOT updated
+        content = test_file.read_text()
+        assert "@pytest.mark.requirement" in content
+        assert '"SRS001"' in content
 
 
 class TestItemRemoveWithChildLinks:
