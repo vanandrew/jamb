@@ -64,7 +64,7 @@ IEC 62304 Clause 5.7.5 specifies what information must be included in software s
 ### Generating Compliant Test Records
 
 ```bash
-pytest --jamb --jamb-matrix matrix.html \
+pytest --jamb --jamb-trace-matrix matrix.html \
     --jamb-tester-id "QA Team / CI Pipeline" \
     --jamb-software-version "1.2.3"
 ```

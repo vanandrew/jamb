@@ -270,7 +270,7 @@ class TestJambDocumentsOption:
         assert result.ret == 0
         # Should show coverage for SRS only
         output = result.stdout.str()
-        assert "SRS" in output or "Total test spec items" in output
+        assert "SRS" in output or "Total testable items" in output
 
 
 class TestReportHeader:

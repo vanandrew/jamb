@@ -20,20 +20,49 @@ def test_multiple_requirements():
 
 The marker accepts any number of item UIDs as positional arguments.
 
+### Supported Import Styles
+
+jamb recognizes the requirement marker in three import styles:
+
+```python
+# Style 1: Fully qualified (recommended)
+import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example(): ...
+
+# Style 2: Import mark from pytest
+from pytest import mark
+
+@mark.requirement("SRS001")
+def test_example(): ...
+
+# Style 3: Import requirement directly
+from pytest.mark import requirement
+
+@requirement("SRS001")
+def test_example(): ...
+```
+
+All three styles work with `jamb check`, `pytest --jamb`, and the automatic test file updates performed by `jamb reorder`.
+
 ## pytest Command-Line Options
 
 | Option | Description |
 |--------|-------------|
 | `--jamb` | Enable traceability checking |
-| `--jamb-matrix PATH` | Output traceability matrix to PATH |
-| `--jamb-matrix-format FORMAT` | Set matrix format (`html`, `markdown`, `json`, `csv`, `xlsx`) |
+| `--jamb-test-matrix PATH` | Output test records matrix to PATH (format inferred from extension) |
+| `--jamb-trace-matrix PATH` | Output traceability matrix to PATH (format inferred from extension) |
 | `--jamb-fail-uncovered` | Fail if any test spec items lack coverage |
 | `--jamb-documents PREFIXES` | Comma-separated document prefixes to check |
-| `--jamb-tester-id ID` | Tester identification for traceability matrix (default: "Unknown") |
-| `--jamb-software-version VERSION` | Software version for traceability matrix (overrides pyproject.toml) |
-| `--jamb-trace-to-ignore PREFIX` | Exclude document prefix from trace matrix (repeatable) |
+| `--jamb-tester-id ID` | Tester identification for matrices (default: "Unknown") |
+| `--jamb-software-version VERSION` | Software version for matrices (overrides pyproject.toml) |
+| `--trace-from PREFIX` | Starting document prefix for full chain trace matrix (e.g., UN, SYS) |
+| `--include-ancestors` | Include "Traces To" column showing ancestors of starting items |
 
 **Note:** All pytest CLI options override their corresponding `[tool.jamb]` settings in `pyproject.toml`. For example, `--jamb-fail-uncovered` on the command line takes effect even if `fail_uncovered = false` in the config. When no CLI flag is given, the config file value is used.
+
+**Format inference:** Matrix format is automatically inferred from the file extension: `.html` for HTML, `.json` for JSON, `.csv` for CSV, `.md` for Markdown, `.xlsx` for Excel.
 
 ### Examples
 
@@ -41,11 +70,17 @@ The marker accepts any number of item UIDs as positional arguments.
 # Enable traceability checking
 pytest --jamb
 
-# Generate HTML matrix
-pytest --jamb --jamb-matrix matrix.html
+# Generate HTML trace matrix (format inferred from .html extension)
+pytest --jamb --jamb-trace-matrix matrix.html
 
-# Generate markdown matrix
-pytest --jamb --jamb-matrix matrix.md --jamb-matrix-format markdown
+# Generate markdown trace matrix
+pytest --jamb --jamb-trace-matrix matrix.md
+
+# Generate test records matrix
+pytest --jamb --jamb-test-matrix test-records.html
+
+# Generate both matrices
+pytest --jamb --jamb-trace-matrix trace.html --jamb-test-matrix records.html
 
 # Fail if requirements lack coverage
 pytest --jamb --jamb-fail-uncovered
@@ -54,14 +89,14 @@ pytest --jamb --jamb-fail-uncovered
 pytest --jamb --jamb-documents SRS
 
 # Generate matrix with IEC 62304 metadata
-pytest --jamb --jamb-matrix matrix.html \
+pytest --jamb --jamb-trace-matrix matrix.html \
     --jamb-tester-id "CI Pipeline" \
     --jamb-software-version "1.2.3"
 
-# Exclude specific documents from trace matrix
-pytest --jamb --jamb-matrix matrix.html \
-    --jamb-trace-to-ignore PRJ \
-    --jamb-trace-to-ignore HAZ
+# Full chain trace from user needs with ancestor column
+pytest --jamb --jamb-trace-matrix matrix.html \
+    --trace-from UN \
+    --include-ancestors
 ```
 
 ## The `jamb_log` Fixture
@@ -112,23 +147,23 @@ When a test fails, jamb automatically captures the failure message and includes 
 | Detects `@pytest.mark.requirement` | Yes | Yes | Uses saved data |
 | Reports pass/fail status | No | Yes | Uses saved data |
 | Captures `jamb_log` output | No | Yes | Uses saved data |
-| Generates traceability matrix | No | Yes (with `--jamb-matrix`) | Yes |
-| Generates test records matrix | No | No | Yes (with `--test-records`) |
+| Generates traceability matrix | No | Yes (with `--jamb-trace-matrix`) | Yes |
+| Generates test records matrix | No | Yes (with `--jamb-test-matrix`) | Yes (with `--test-records`) |
 | Speed | Fast | Depends on test suite | Fast |
 
 Use `jamb check` for quick feedback during development. Use `pytest --jamb` in CI for full traceability evidence. Use `jamb matrix` to regenerate matrices from saved coverage data without re-running tests.
 
 ## Matrix Output Formats
 
-The traceability matrix can be generated in several formats:
+Matrix format is inferred from the file extension:
 
-| Format | Flag | Best For |
-|--------|------|----------|
-| HTML | `--jamb-matrix-format html` | Regulatory submissions, standalone viewing |
-| Markdown | `--jamb-matrix-format markdown` | GitHub/GitLab rendering |
-| JSON | `--jamb-matrix-format json` | Tooling integration, programmatic access |
-| CSV | `--jamb-matrix-format csv` | Spreadsheet import, large datasets |
-| XLSX | `--jamb-matrix-format xlsx` | Excel, stakeholder review |
+| Format | Extension | Best For |
+|--------|-----------|----------|
+| HTML | `.html` | Regulatory submissions, standalone viewing |
+| Markdown | `.md` | GitHub/GitLab rendering |
+| JSON | `.json` | Tooling integration, programmatic access |
+| CSV | `.csv` | Spreadsheet import, large datasets |
+| XLSX | `.xlsx` | Excel, stakeholder review |
 
 **Performance Note:** When generating HTML or XLSX matrices with more than 5,000 rows, jamb emits a warning recommending CSV format for better performance and memory usage.
 

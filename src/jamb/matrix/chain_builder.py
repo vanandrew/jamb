@@ -424,6 +424,48 @@ def _calculate_summary(rows: list[ChainRow]) -> dict[str, int]:
     return summary
 
 
+def _detect_orphaned_items(
+    graph: TraceabilityGraph,
+    matrices: list[FullChainMatrix],
+    doc_paths: list[list[str]],
+) -> list[str]:
+    """Detect items that exist in the graph but don't appear in any trace chain.
+
+    These are items that have incomplete trace chains - they exist but
+    don't trace back to the root document.
+
+    Args:
+        graph: The traceability graph.
+        matrices: List of generated FullChainMatrix objects.
+        doc_paths: All document paths from root to leaves.
+
+    Returns:
+        List of UIDs that don't appear in any trace chain.
+    """
+    # Collect all item UIDs that appear in any chain row
+    items_in_chains: set[str] = set()
+    for matrix in matrices:
+        for row in matrix.rows:
+            for item in row.chain.values():
+                if item is not None:
+                    items_in_chains.add(item.uid)
+
+    # Get all documents that should be in the trace (union of all paths)
+    docs_in_trace: set[str] = set()
+    for path in doc_paths:
+        docs_in_trace.update(path)
+
+    # Find items that exist in these documents but don't appear in any chain
+    # Only consider requirement type items (not headings/info)
+    orphaned: list[str] = []
+    for prefix in docs_in_trace:
+        for item in graph.get_items_by_document(prefix):
+            if item.type == "requirement" and item.active and item.uid not in items_in_chains:
+                orphaned.append(item.uid)
+
+    return orphaned
+
+
 def build_full_chain_matrix(
     graph: TraceabilityGraph,
     coverage: dict[str, ItemCoverage],
@@ -507,6 +549,18 @@ def build_full_chain_matrix(
     if not matrices:
         warnings.warn(
             "No traceability matrices generated. All document paths were filtered by trace_to_ignore or had no items.",
+            stacklevel=2,
+        )
+
+    # Detect items that exist but don't appear in any trace chain
+    orphaned = _detect_orphaned_items(graph, matrices, doc_paths)
+    if orphaned:
+        sample = orphaned[:5]
+        msg = f"Found {len(orphaned)} items with incomplete trace chains: {', '.join(sample)}"
+        if len(orphaned) > 5:
+            msg += f" (and {len(orphaned) - 5} more)"
+        warnings.warn(
+            msg + ". These items don't trace back to the root document.",
             stacklevel=2,
         )
 

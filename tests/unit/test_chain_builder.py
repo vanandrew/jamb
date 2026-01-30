@@ -465,8 +465,12 @@ class TestTraceToIgnore:
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        # Ignore PRJ document
-        matrices = build_full_chain_matrix(prj_un_sys_srs_graph, coverage, "PRJ", trace_to_ignore={"PRJ"})
+        # Ignore PRJ document - suppress expected warning about incomplete trace chains
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(prj_un_sys_srs_graph, coverage, "PRJ", trace_to_ignore={"PRJ"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -520,8 +524,12 @@ class TestTraceToIgnore:
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        # Ignore UN document
-        matrices = build_full_chain_matrix(graph, coverage, "UN", trace_to_ignore={"UN"})
+        # Ignore UN document - suppress expected warning about incomplete trace chains
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "UN", trace_to_ignore={"UN"})
 
         assert len(matrices) == 1
         matrix = matrices[0]
@@ -943,11 +951,12 @@ class TestEmptyHierarchyAfterFiltering:
             warnings.simplefilter("always")
             matrices = build_full_chain_matrix(graph, coverage, "SRS", trace_to_ignore={"SRS"})
 
-            # Should emit warning about filtered path and empty result
-            assert len(w) == 2
+            # Should emit warnings about filtered path, empty result, and incomplete chains
+            assert len(w) == 3
             warning_messages = [str(warning.message) for warning in w]
             assert any("All documents filtered" in msg for msg in warning_messages)
             assert any("No traceability matrices generated" in msg for msg in warning_messages)
+            assert any("incomplete trace chains" in msg for msg in warning_messages)
 
         # Should return empty list since all paths are filtered
         assert len(matrices) == 0
@@ -966,8 +975,12 @@ class TestEmptyHierarchyAfterFiltering:
 
         coverage = {"SRS001": ItemCoverage(item=srs_item, linked_tests=[])}
 
-        # Filter only SYS (keep SRS)
-        matrices = build_full_chain_matrix(graph, coverage, "SYS", trace_to_ignore={"SYS"})
+        # Filter only SYS (keep SRS) - suppress expected warning about incomplete trace chains
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SYS", trace_to_ignore={"SYS"})
 
         assert len(matrices) == 1
         matrix = matrices[0]

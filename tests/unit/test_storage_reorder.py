@@ -29,7 +29,9 @@ class TestReorderDocument:
     def test_no_items(self, tmp_path):
         doc_path = _make_doc(tmp_path)
         stats = reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
-        assert stats == {"renamed": 0, "unchanged": 0}
+        assert stats["renamed"] == 0
+        assert stats["unchanged"] == 0
+        assert stats["rename_map"] == {}
 
     def test_already_sequential(self, tmp_path):
         doc_path = _make_doc(tmp_path)
@@ -38,7 +40,9 @@ class TestReorderDocument:
         _write_item(doc_path, "SRS003")
 
         stats = reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
-        assert stats == {"renamed": 0, "unchanged": 3}
+        assert stats["renamed"] == 0
+        assert stats["unchanged"] == 3
+        assert stats["rename_map"] == {}
         assert (doc_path / "SRS001.yml").exists()
         assert (doc_path / "SRS002.yml").exists()
         assert (doc_path / "SRS003.yml").exists()
@@ -172,7 +176,9 @@ class TestReorderDocument:
         _write_item(doc_path, "SRS005", text="only item")
 
         stats = reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
-        assert stats == {"renamed": 1, "unchanged": 0}
+        assert stats["renamed"] == 1
+        assert stats["unchanged"] == 0
+        assert stats["rename_map"] == {"SRS005": "SRS001"}
         assert (doc_path / "SRS001.yml").exists()
         assert not (doc_path / "SRS005.yml").exists()
         data = yaml.safe_load((doc_path / "SRS001.yml").read_text())

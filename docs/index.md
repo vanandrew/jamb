@@ -29,7 +29,7 @@ jamb link add SRS001 SYS001
 # def test_something(): ...
 
 # Generate traceability matrix
-pytest --jamb --jamb-matrix matrix.html
+pytest --jamb --jamb-trace-matrix matrix.html
 ```
 
 ### Trace Matrix

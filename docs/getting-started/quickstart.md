@@ -66,7 +66,7 @@ pytest --jamb
 ## 5. Generate a Traceability Matrix
 
 ```bash
-pytest --jamb --jamb-matrix matrix.html
+pytest --jamb --jamb-trace-matrix matrix.html
 ```
 
 Open `matrix.html` in a browser to see which requirements have passing tests.
@@ -74,7 +74,7 @@ Open `matrix.html` in a browser to see which requirements have passing tests.
 For IEC 62304 compliant test records, include tester and version metadata:
 
 ```bash
-pytest --jamb --jamb-matrix matrix.html \
+pytest --jamb --jamb-trace-matrix matrix.html \
     --jamb-tester-id "CI Pipeline" \
     --jamb-software-version "1.0.0"
 ```

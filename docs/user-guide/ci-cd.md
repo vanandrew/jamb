@@ -29,7 +29,7 @@ jobs:
         run: jamb check
 
       - name: Run tests with traceability
-        run: pytest --jamb --jamb-fail-uncovered --jamb-matrix matrix.html
+        run: pytest --jamb --jamb-fail-uncovered --jamb-trace-matrix matrix.html
 
       - name: Upload traceability matrix
         uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ A typical CI pipeline for a regulated project:
 
 1. **Validate** -- `jamb validate` ensures the requirements tree is structurally sound
 2. **Test** -- `pytest --jamb --jamb-fail-uncovered` runs tests and checks coverage
-3. **Matrix** -- `--jamb-matrix matrix.html` generates the traceability matrix artifact
+3. **Matrix** -- `--jamb-trace-matrix matrix.html` generates the traceability matrix artifact
 4. **Publish** -- (optional) `jamb publish all ./docs --html` generates requirement documents
 
 ### Strict Mode

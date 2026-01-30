@@ -1293,11 +1293,19 @@ class TestIsRequirementMarker:
         node = self._parse_call("pytest.mark.skip('reason')")
         assert _is_requirement_marker(node) is False
 
-    def test_plain_function_call_returns_false(self):
+    def test_bare_requirement_returns_true(self):
+        """Support @requirement(...) style for `from pytest.mark import requirement`."""
         from jamb.cli.commands import _is_requirement_marker
 
         node = self._parse_call("requirement('SRS001')")
-        assert _is_requirement_marker(node) is False
+        assert _is_requirement_marker(node) is True
+
+    def test_mark_requirement_returns_true(self):
+        """Support @mark.requirement(...) style for `from pytest import mark`."""
+        from jamb.cli.commands import _is_requirement_marker
+
+        node = self._parse_call("mark.requirement('SRS001')")
+        assert _is_requirement_marker(node) is True
 
     def test_different_module_returns_false(self):
         from jamb.cli.commands import _is_requirement_marker
