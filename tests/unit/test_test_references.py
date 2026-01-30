@@ -1071,3 +1071,60 @@ def test_feature():
         lines = content.split("\n")
         tc_id_line = [line for line in lines if "tc_id" in line][0]
         assert tc_id_line == '@pytest.mark.tc_id("TC001")'
+
+    def test_skips_nodeid_without_function_name(self, tmp_path):
+        """Skips nodeids that don't have a function name component."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+def test_feature():
+    pass
+""")
+        # This nodeid has no function component (malformed)
+        tc_mapping = {"test_feature.py": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        # Should return empty since the nodeid doesn't have a function
+        assert changes == {}
+
+    def test_skips_nonexistent_file(self, tmp_path):
+        """Skips files that don't exist."""
+        tc_mapping = {"nonexistent_file.py::test_foo": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert changes == {}
+
+    def test_handles_parameterized_tc_id_suffix_stripping(self, tmp_path):
+        """Strips alphabetic suffix from parameterized test TC IDs."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.parametrize("val", [1, 2, 3])
+def test_parameterized(val):
+    pass
+""")
+        # TC IDs with suffixes should strip to base TC ID
+        tc_mapping = {
+            "test_feature.py::test_parameterized[1]": "TC001a",
+            "test_feature.py::test_parameterized[2]": "TC001b",
+            "test_feature.py::test_parameterized[3]": "TC001c",
+        }
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        # Should insert TC001 (base ID, not TC001a)
+        assert '@pytest.mark.tc_id("TC001")' in content
+        # Should only have one tc_id marker
+        assert content.count("tc_id") == 1
+
+    def test_skips_file_with_unicode_error(self, tmp_path):
+        """Files with unicode decode errors are skipped."""
+        bad_file = tmp_path / "test_bad.py"
+        # Write invalid UTF-8 bytes
+        bad_file.write_bytes(b"\xff\xfe invalid utf-8")
+
+        tc_mapping = {"test_bad.py::test_bad": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert bad_file not in changes

@@ -744,3 +744,26 @@ class TestBuildTestIdMapping:
 
         assert result_none == result_empty
         assert result_none["test.py::test_foo"] == "TC001"
+
+    def test_skips_multiple_reserved_numbers(self):
+        """Auto-numbering skips multiple consecutive reserved numbers."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_a",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_b",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        # Reserve TC001 and TC002 via manual IDs
+        manual_tc_ids = {"test.py::test_a": "TC001", "other.py::other": "TC002"}
+        result = build_test_id_mapping(coverage, manual_tc_ids)
+
+        assert result["test.py::test_a"] == "TC001"
+        # test_b should get TC003 (skipping both TC001 and TC002)
+        assert result["test.py::test_b"] == "TC003"

@@ -907,3 +907,97 @@ class TestManualTcIdCollection:
             call_kwargs = mock_save_coverage.call_args[1]
             assert "manual_tc_ids" in call_kwargs
             assert call_kwargs["manual_tc_ids"] == {"test::foo": "TC001"}
+
+
+class TestDuplicateTcIdDetection:
+    """Tests for duplicate tc_id marker detection."""
+
+    def test_duplicate_tc_id_raises_usage_error(self):
+        """Duplicate tc_id on different tests raises UsageError."""
+        from jamb.core.models import TraceabilityGraph
+        from jamb.pytest_plugin.collector import RequirementCollector
+
+        mock_config = MagicMock()
+        mock_config.option = MagicMock()
+        mock_config.option.jamb_documents = None
+
+        with (
+            patch("jamb.pytest_plugin.collector.load_config") as mock_load_config,
+            patch("jamb.storage.discover_documents"),
+            patch("jamb.storage.build_traceability_graph") as mock_build_graph,
+            patch("jamb.pytest_plugin.collector.get_tc_id_marker") as mock_get_tc_id,
+        ):
+            mock_jamb_config = MagicMock()
+            mock_jamb_config.exclude_patterns = None
+            mock_load_config.return_value = mock_jamb_config
+
+            graph = TraceabilityGraph()
+            mock_build_graph.return_value = graph
+
+            collector = RequirementCollector(mock_config)
+
+            # Create two mock items with same tc_id
+            mock_item1 = MagicMock()
+            mock_item1.nodeid = "test.py::test_one"
+            mock_item2 = MagicMock()
+            mock_item2.nodeid = "test.py::test_two"
+
+            # Both return the same tc_id
+            mock_get_tc_id.return_value = "TC001"
+
+            # Run collection
+            generator = collector.pytest_collection_modifyitems([mock_item1, mock_item2])
+            next(generator)  # Advance past yield
+
+            with pytest.raises(pytest.UsageError, match="Duplicate tc_id 'TC001'"):
+                try:
+                    next(generator)
+                except StopIteration:
+                    pass
+
+    def test_parameterized_tests_share_tc_id(self):
+        """Parameterized tests can share the same tc_id without error."""
+        from jamb.core.models import TraceabilityGraph
+        from jamb.pytest_plugin.collector import RequirementCollector
+
+        mock_config = MagicMock()
+        mock_config.option = MagicMock()
+        mock_config.option.jamb_documents = None
+
+        with (
+            patch("jamb.pytest_plugin.collector.load_config") as mock_load_config,
+            patch("jamb.storage.discover_documents"),
+            patch("jamb.storage.build_traceability_graph") as mock_build_graph,
+            patch("jamb.pytest_plugin.collector.get_tc_id_marker") as mock_get_tc_id,
+            patch("jamb.pytest_plugin.collector.get_requirement_markers") as mock_get_req,
+        ):
+            mock_jamb_config = MagicMock()
+            mock_jamb_config.exclude_patterns = None
+            mock_load_config.return_value = mock_jamb_config
+
+            graph = TraceabilityGraph()
+            mock_build_graph.return_value = graph
+
+            collector = RequirementCollector(mock_config)
+
+            # Create parameterized test items (same base, different params)
+            mock_item1 = MagicMock()
+            mock_item1.nodeid = "test.py::test_foo[param1]"
+            mock_item2 = MagicMock()
+            mock_item2.nodeid = "test.py::test_foo[param2]"
+
+            # Same tc_id for parameterized tests
+            mock_get_tc_id.return_value = "TC001"
+            mock_get_req.return_value = []
+
+            # Run collection - should NOT raise
+            generator = collector.pytest_collection_modifyitems([mock_item1, mock_item2])
+            next(generator)  # Advance past yield
+            try:
+                next(generator)
+            except StopIteration:
+                pass
+
+            # Both should have the same tc_id recorded
+            assert collector.manual_tc_ids["test.py::test_foo[param1]"] == "TC001"
+            assert collector.manual_tc_ids["test.py::test_foo[param2]"] == "TC001"

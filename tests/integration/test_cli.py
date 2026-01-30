@@ -2605,3 +2605,365 @@ class TestMatrixCommand:
 
         assert result.exit_code == 1
         assert "Unrecognized file extension" in result.output
+
+
+class TestLockTcCommand:
+    """Tests for lock-tc command."""
+
+    @pytest.fixture
+    def jamb_coverage_file(self, tmp_path):
+        """Create a .jamb coverage file for testing."""
+        import json
+
+        jamb_data = {
+            "version": 2,
+            "coverage": {
+                "SRS001": {
+                    "item": {
+                        "uid": "SRS001",
+                        "text": "Test requirement",
+                        "document_prefix": "SRS",
+                        "type": "requirement",
+                        "active": True,
+                    },
+                    "linked_tests": [
+                        {
+                            "test_nodeid": "test_feature.py::test_example",
+                            "item_uid": "SRS001",
+                            "test_outcome": "passed",
+                        }
+                    ],
+                }
+            },
+            "graph": {
+                "items": {
+                    "SRS001": {
+                        "uid": "SRS001",
+                        "text": "Test requirement",
+                        "document_prefix": "SRS",
+                        "type": "requirement",
+                        "active": True,
+                    }
+                },
+                "item_parents": {},
+                "item_children": {},
+                "document_parents": {},
+            },
+            "manual_tc_ids": {},
+        }
+        jamb_path = tmp_path / ".jamb"
+        jamb_path.write_text(json.dumps(jamb_data))
+        return jamb_path
+
+    def test_lock_tc_help(self, runner):
+        """Test that lock-tc --help works."""
+        result = runner.invoke(cli, ["lock-tc", "--help"])
+
+        assert result.exit_code == 0
+        assert "Lock TC IDs" in result.output
+        assert "--dry-run" in result.output
+        assert "--test-dir" in result.output
+
+    def test_lock_tc_no_jamb_file(self, runner, tmp_path):
+        """Test lock-tc fails when no .jamb file exists."""
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(cli, ["lock-tc"])
+
+            assert result.exit_code == 1
+            assert "No .jamb file found" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_dry_run(self, runner, tmp_path, jamb_coverage_file):
+        """Test lock-tc --dry-run shows what would be changed."""
+        import os
+
+        # Create test file
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--dry-run", "--coverage", str(jamb_coverage_file)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+            assert "Would modify" in result.output
+            assert "would add @pytest.mark.tc_id" in result.output
+            assert "Dry run complete" in result.output
+
+            # Verify file was NOT modified
+            content = test_file.read_text()
+            assert "@pytest.mark.tc_id" not in content
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_inserts_markers(self, runner, tmp_path, jamb_coverage_file):
+        """Test lock-tc actually inserts tc_id markers."""
+        import os
+
+        # Create test file
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--coverage", str(jamb_coverage_file)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+            assert "Modified" in result.output
+            assert "Locked TC IDs" in result.output
+
+            # Verify file WAS modified
+            content = test_file.read_text()
+            assert "@pytest.mark.tc_id" in content
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_no_changes_needed(self, runner, tmp_path, jamb_coverage_file):
+        """Test lock-tc when all tests already have tc_id markers."""
+        import os
+
+        # Create test file with existing tc_id
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.tc_id("TC001")
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--coverage", str(jamb_coverage_file)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+            assert "No changes needed" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_no_tests_in_coverage(self, runner, tmp_path):
+        """Test lock-tc when coverage has no tests."""
+        import json
+        import os
+
+        # Create .jamb with empty coverage
+        jamb_data = {
+            "version": 2,
+            "coverage": {},
+            "graph": {"items": {}, "item_parents": {}, "item_children": {}, "document_parents": {}},
+            "manual_tc_ids": {},
+        }
+        jamb_path = tmp_path / ".jamb"
+        jamb_path.write_text(json.dumps(jamb_data))
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--coverage", str(jamb_path)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+            assert "No tests found" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_with_test_dir_option(self, runner, tmp_path, jamb_coverage_file):
+        """Test lock-tc --test-dir option."""
+        import os
+
+        # Create test file in subdirectory
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        test_file = test_dir / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        # Update coverage file to point to tests/ dir
+        import json
+
+        jamb_data = json.loads(jamb_coverage_file.read_text())
+        jamb_data["coverage"]["SRS001"]["linked_tests"][0]["test_nodeid"] = "tests/test_feature.py::test_example"
+        jamb_coverage_file.write_text(json.dumps(jamb_data))
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--test-dir", str(test_dir), "--coverage", str(jamb_coverage_file)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+            # File should be modified
+            content = test_file.read_text()
+            assert "@pytest.mark.tc_id" in content
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_auto_discovers_tests_dir(self, runner, tmp_path, jamb_coverage_file):
+        """Test lock-tc auto-detects tests directory."""
+        import os
+
+        # Create tests directory (standard convention)
+        test_dir = tmp_path / "tests"
+        test_dir.mkdir()
+        test_file = test_dir / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        # Update coverage to use tests/ prefix
+        import json
+
+        jamb_data = json.loads(jamb_coverage_file.read_text())
+        jamb_data["coverage"]["SRS001"]["linked_tests"][0]["test_nodeid"] = "tests/test_feature.py::test_example"
+        jamb_coverage_file.write_text(json.dumps(jamb_data))
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--coverage", str(jamb_coverage_file)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_discovers_jamb_in_parent(self, runner, tmp_path):
+        """Test lock-tc discovers .jamb file in parent directory."""
+        import json
+        import os
+
+        # Create .jamb in root
+        jamb_data = {
+            "version": 2,
+            "coverage": {
+                "SRS001": {
+                    "item": {
+                        "uid": "SRS001",
+                        "text": "Test",
+                        "document_prefix": "SRS",
+                        "type": "requirement",
+                        "active": True,
+                    },
+                    "linked_tests": [
+                        {
+                            "test_nodeid": "test_feature.py::test_example",
+                            "item_uid": "SRS001",
+                            "test_outcome": "passed",
+                        }
+                    ],
+                }
+            },
+            "graph": {"items": {}, "item_parents": {}, "item_children": {}, "document_parents": {}},
+            "manual_tc_ids": {},
+        }
+        (tmp_path / ".jamb").write_text(json.dumps(jamb_data))
+
+        # Create test file
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        # Create and cd into subdirectory
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(subdir)
+            result = runner.invoke(cli, ["lock-tc"], catch_exceptions=False)
+
+            assert result.exit_code == 0
+        finally:
+            os.chdir(original_cwd)
+
+    def test_lock_tc_reads_testpaths_from_pyproject(self, runner, tmp_path, jamb_coverage_file):
+        """Test lock-tc reads testpaths from pyproject.toml."""
+        import os
+
+        # Create pyproject.toml with testpaths
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("""
+[tool.pytest.ini_options]
+testpaths = ["src/tests"]
+""")
+
+        # Create test file in src/tests
+        test_dir = tmp_path / "src" / "tests"
+        test_dir.mkdir(parents=True)
+        test_file = test_dir / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_example():
+    pass
+""")
+
+        # Update coverage to use src/tests/ prefix
+        import json
+
+        jamb_data = json.loads(jamb_coverage_file.read_text())
+        jamb_data["coverage"]["SRS001"]["linked_tests"][0]["test_nodeid"] = "src/tests/test_feature.py::test_example"
+        jamb_coverage_file.write_text(json.dumps(jamb_data))
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(
+                cli,
+                ["lock-tc", "--coverage", str(jamb_coverage_file)],
+                catch_exceptions=False,
+            )
+
+            assert result.exit_code == 0
+        finally:
+            os.chdir(original_cwd)
