@@ -215,9 +215,12 @@ class TestInsertItems:
         _write_item(doc_path, "SRS002", text="second")
         _write_item(doc_path, "SRS003", text="third")
 
-        new_uids = insert_items(doc_path, "SRS", 3, "", position=3, count=1, all_doc_paths={"SRS": doc_path})
+        new_uids, rename_map = insert_items(
+            doc_path, "SRS", 3, "", position=3, count=1, all_doc_paths={"SRS": doc_path}
+        )
 
         assert new_uids == ["SRS003"]
+        assert rename_map == {"SRS003": "SRS004"}
         # Old SRS003 shifted to SRS004
         assert (doc_path / "SRS004.yml").exists()
         data = yaml.safe_load((doc_path / "SRS004.yml").read_text())
@@ -233,9 +236,12 @@ class TestInsertItems:
         _write_item(doc_path, "SRS002", text="second")
         _write_item(doc_path, "SRS003", text="third")
 
-        new_uids = insert_items(doc_path, "SRS", 3, "", position=2, count=1, all_doc_paths={"SRS": doc_path})
+        new_uids, rename_map = insert_items(
+            doc_path, "SRS", 3, "", position=2, count=1, all_doc_paths={"SRS": doc_path}
+        )
 
         assert new_uids == ["SRS002"]
+        assert rename_map == {"SRS002": "SRS003", "SRS003": "SRS004"}
         # Old SRS002 -> SRS003, old SRS003 -> SRS004
         assert yaml.safe_load((doc_path / "SRS003.yml").read_text())["text"] == "second"
         assert yaml.safe_load((doc_path / "SRS004.yml").read_text())["text"] == "third"
@@ -266,9 +272,12 @@ class TestInsertItems:
         _write_item(doc_path, "SRS002", text="second")
         _write_item(doc_path, "SRS003", text="third")
 
-        new_uids = insert_items(doc_path, "SRS", 3, "", position=2, count=2, all_doc_paths={"SRS": doc_path})
+        new_uids, rename_map = insert_items(
+            doc_path, "SRS", 3, "", position=2, count=2, all_doc_paths={"SRS": doc_path}
+        )
 
         assert new_uids == ["SRS002", "SRS003"]
+        assert rename_map == {"SRS002": "SRS004", "SRS003": "SRS005"}
         # Old SRS002 -> SRS004, old SRS003 -> SRS005
         assert yaml.safe_load((doc_path / "SRS004.yml").read_text())["text"] == "second"
         assert yaml.safe_load((doc_path / "SRS005.yml").read_text())["text"] == "third"
@@ -285,7 +294,7 @@ class TestInsertItems:
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            new_uids = insert_items(
+            new_uids, rename_map = insert_items(
                 doc_path,
                 "SRS",
                 3,
@@ -301,6 +310,7 @@ class TestInsertItems:
 
         # Position adjusted to max (len + 1 = 3), so new UID is SRS003
         assert new_uids == ["SRS003"]
+        assert rename_map == {}  # No items were shifted
         # Existing items unchanged
         assert yaml.safe_load((doc_path / "SRS001.yml").read_text())["text"] == "first"
         assert yaml.safe_load((doc_path / "SRS002.yml").read_text())["text"] == "second"
@@ -311,9 +321,12 @@ class TestInsertItems:
         _write_item(doc_path, "SRS001", text="first")
         _write_item(doc_path, "SRS002", text="second")
 
-        new_uids = insert_items(doc_path, "SRS", 3, "", position=1, count=1, all_doc_paths={"SRS": doc_path})
+        new_uids, rename_map = insert_items(
+            doc_path, "SRS", 3, "", position=1, count=1, all_doc_paths={"SRS": doc_path}
+        )
 
         assert new_uids == ["SRS001"]
+        assert rename_map == {"SRS001": "SRS002", "SRS002": "SRS003"}
         # Old SRS001 -> SRS002, old SRS002 -> SRS003
         assert yaml.safe_load((doc_path / "SRS002.yml").read_text())["text"] == "first"
         assert yaml.safe_load((doc_path / "SRS003.yml").read_text())["text"] == "second"

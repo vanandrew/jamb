@@ -425,8 +425,13 @@ Usage: jamb reorder [OPTIONS] PREFIX
   By default, test files with @pytest.mark.requirement() decorators are also
   updated to reflect the new UIDs. Use --no-update-tests to skip this.
 
+  If orphaned test references (references to deleted items) would collide
+  with renamed UIDs, the reorder is aborted. Use --clean-orphans to
+  automatically remove such orphaned references before reordering.
+
 Options:
   --no-update-tests   Skip updating test file references
+  --clean-orphans     Remove orphaned test references before reorder
   --root PATH         Project root directory
   --help              Show this message and exit.
 ```
@@ -442,6 +447,9 @@ jamb reorder UT
 # Reorder without updating test files
 jamb reorder SRS --no-update-tests
 
+# Reorder, auto-removing orphaned refs that would collide
+jamb reorder SRS --clean-orphans
+
 # Reorder in a specific project directory
 jamb reorder SRS --root /path/to/project
 ```
@@ -453,6 +461,16 @@ Updated test references in 2 files:
   tests/test_feature.py: SRS003->SRS002, SRS005->SRS004
   tests/test_integration.py: SRS003->SRS002
 ```
+
+**Collision Detection:**
+
+If you delete an item but forget to update the test files referencing it, those references become "orphaned." When you later reorder, some renamed UIDs might collide with these orphans. For example:
+
+1. Delete SRS003 with `--no-update-tests` (leaving orphaned test refs)
+2. Run `jamb reorder SRS` — this would rename SRS004 → SRS003
+3. jamb detects the orphaned SRS003 reference and aborts to prevent ambiguity
+
+Use `--clean-orphans` to automatically remove these orphaned references before reordering.
 
 **Test File Updates:**
 
@@ -654,6 +672,10 @@ Usage: jamb item add [OPTIONS] PREFIX
 
   PREFIX is the document to add the item to (e.g., SRS, UT).
 
+  When using --before or --after, existing items are shifted and test files
+  with @pytest.mark.requirement() decorators are updated automatically.
+  Use --no-update-tests to skip test file updates.
+
 Options:
   -c, --count INTEGER  Number of items to add
   --after TEXT         Insert after this UID
@@ -661,6 +683,8 @@ Options:
   --header TEXT        Set the item header
   --text TEXT          Set the item body text
   --links TEXT         Add parent link(s) (multiple allowed)
+  --no-update-tests    Skip updating test file references (when using --before/--after)
+  --root PATH          Project root directory
   --help               Show this message and exit.
 ```
 
@@ -672,11 +696,14 @@ jamb item add SRS
 # Add multiple items at once
 jamb item add SRS --count 5
 
-# Insert after a specific item
+# Insert after a specific item (auto-updates test references)
 jamb item add SRS --after SRS003
 
-# Insert before a specific item
+# Insert before a specific item (auto-updates test references)
 jamb item add SRS --before SRS005
+
+# Insert without updating test files
+jamb item add SRS --after SRS003 --no-update-tests
 
 # Add an item with a header and body text
 jamb item add SRS --header "Login Page" --text "The system shall display a login page."
@@ -684,6 +711,10 @@ jamb item add SRS --header "Login Page" --text "The system shall display a login
 # Add an item with parent links
 jamb item add UT --links SRS001 --links SRS002
 ```
+
+**Note:** When using `--before` or `--after`, jamb automatically updates
+`@pytest.mark.requirement()` decorators in test files to reflect the new UIDs.
+Use `--no-update-tests` to skip this.
 
 ---
 
@@ -700,27 +731,36 @@ Usage: jamb item remove [OPTIONS] UID
   displays a warning and prompts for confirmation. Use --force to skip the
   confirmation prompt.
 
+  By default, jamb removes @pytest.mark.requirement() decorators
+  referencing the deleted UID. Use --no-update-tests to skip this.
+
 Options:
-  --force       Skip confirmation prompts for test references
-  --root PATH   Project root directory
-  --help        Show this message and exit.
+  --force             Skip confirmation prompts for test references
+  --no-update-tests   Skip removing orphaned test references
+  --root PATH         Project root directory
+  --help              Show this message and exit.
 ```
 
 **Example:**
 ```bash
-# Remove an item (prompts if tests reference it)
+# Remove an item (prompts if tests reference it, then cleans up test refs)
 jamb item remove SRS005
 
 # Force removal without confirmation
 jamb item remove SRS005 --force
 
+# Remove without updating test files
+jamb item remove SRS005 --no-update-tests
+
 # Remove from a specific project directory
 jamb item remove SRS005 --root /path/to/project
 ```
 
-**Test Reference Warning:**
+**Test Reference Handling:**
 
-When removing an item that is referenced by tests, jamb warns you before deletion:
+When removing an item that is referenced by tests, jamb:
+1. Warns you and prompts for confirmation (unless `--force` is used)
+2. After deletion, automatically removes the orphaned test references
 
 ```
 WARNING: SRS004 is referenced by 3 test(s):
@@ -731,10 +771,12 @@ WARNING: SRS004 is referenced by 3 test(s):
 These test references will become orphaned.
 Proceed with removal? [y/N]: y
 Removed item: SRS004
-Note: Update test files to remove orphaned references.
+Removed test references from 2 file(s)
+  tests/test_validation.py: removed decorator with SRS004, removed decorator with SRS004
+  tests/test_integration.py: removed decorator with SRS004
 ```
 
-Use `--force` to skip the confirmation prompt (useful in scripts), but remember to update your test files afterward to remove orphaned references.
+Use `--no-update-tests` to skip the automatic cleanup and leave test references unchanged.
 
 ---
 

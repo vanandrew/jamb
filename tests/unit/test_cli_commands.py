@@ -1939,8 +1939,11 @@ class TestItemRemoveWithTestReferences:
         r = _invoke(runner, ["item", "remove", "SRS001", "--force"], cwd=tmp_path)
         assert r.exit_code == 0
         assert not (tmp_path / "reqs" / "srs" / "SRS001.yml").exists()
-        # Should note about orphaned references
-        assert "update" in r.output.lower() or "orphan" in r.output.lower()
+        # Should have removed test references automatically
+        assert "removed test references" in r.output.lower()
+        # Verify test file was updated (decorator removed)
+        updated_content = test_file.read_text()
+        assert "@pytest.mark.requirement" not in updated_content
 
 
 class TestItemRemoveWithChildLinks:

@@ -498,12 +498,18 @@ def _is_requirement_marker(node: ast.Call) -> bool:
     help="Skip updating test file references",
 )
 @click.option(
+    "--clean-orphans",
+    is_flag=True,
+    default=False,
+    help="Remove orphaned test references before reorder",
+)
+@click.option(
     "--root",
     type=click.Path(exists=True, path_type=Path),
     help="Project root directory",
 )
 @_cli_error_handler
-def reorder(prefix: str, no_update_tests: bool, root: Path | None) -> None:
+def reorder(prefix: str, no_update_tests: bool, clean_orphans: bool, root: Path | None) -> None:
     """Renumber item UIDs sequentially to fill gaps.
 
     PREFIX is the document identifier (e.g., SRS, UT).
@@ -514,10 +520,19 @@ def reorder(prefix: str, no_update_tests: bool, root: Path | None) -> None:
 
     By default, test files with @pytest.mark.requirement() decorators are
     also updated. Use --no-update-tests to skip this.
+
+    If orphaned test references (references to deleted items) would collide
+    with renamed UIDs, the reorder is aborted. Use --clean-orphans to
+    automatically remove such orphaned references before reordering.
     """
     from jamb.storage import discover_documents
+    from jamb.storage.items import read_document_items
     from jamb.storage.reorder import reorder_document
-    from jamb.storage.test_references import update_test_references
+    from jamb.storage.test_references import (
+        detect_reference_collisions,
+        remove_test_reference,
+        update_test_references,
+    )
 
     project_root = root or Path.cwd()
     dag = discover_documents(project_root)
@@ -528,6 +543,45 @@ def reorder(prefix: str, no_update_tests: bool, root: Path | None) -> None:
     doc_path = dag.document_paths[prefix]
     config = dag.documents[prefix]
     all_doc_paths = dict(dag.document_paths)
+
+    # Build set of valid UIDs across all documents
+    valid_uids: set[str] = set()
+    for doc_prefix, dp in all_doc_paths.items():
+        doc_config = dag.documents[doc_prefix]
+        items = read_document_items(dp, doc_prefix, include_inactive=True, sep=doc_config.sep)
+        valid_uids.update(item["uid"] for item in items)
+
+    # Compute preview rename_map to check for collisions
+    item_files = sorted(p for p in doc_path.iterdir() if p.suffix == ".yml" and p.name != ".jamb.yml")
+    preview_rename_map: dict[str, str] = {}
+    for i, item_file in enumerate(item_files, start=1):
+        old_uid = item_file.stem
+        new_uid = f"{prefix}{config.sep}{str(i).zfill(config.digits)}"
+        if old_uid != new_uid:
+            preview_rename_map[old_uid] = new_uid
+
+    # Check for collisions if we're updating tests
+    if preview_rename_map and not no_update_tests:
+        collisions = detect_reference_collisions(preview_rename_map, project_root, valid_uids)
+        if collisions:
+            if clean_orphans:
+                # Remove orphaned references that would collide
+                orphan_uids = {ref.uid for _, ref in collisions}
+                for orphan_uid in orphan_uids:
+                    orphan_changes = remove_test_reference(orphan_uid, project_root, remove_empty=True)
+                    if orphan_changes:
+                        click.echo(f"Removed orphaned references to {orphan_uid}")
+            else:
+                # Abort with error message
+                click.echo(
+                    "Error: Cannot reorder - orphaned test references would collide with renamed UIDs:", err=True
+                )
+                for _target_uid, ref in collisions:
+                    rel_path = ref.file.relative_to(project_root) if ref.file.is_relative_to(project_root) else ref.file
+                    test_info = f"::{ref.test_name}" if ref.test_name else ""
+                    click.echo(f"  - {ref.uid} in {rel_path}{test_info} (line {ref.line})", err=True)
+                click.echo("\nUse --clean-orphans to remove orphaned references before reordering.", err=True)
+                sys.exit(1)
 
     stats = reorder_document(doc_path, prefix, config.digits, config.sep, all_doc_paths)
     click.echo(f"Reordered {prefix}: {stats['renamed']} renamed, {stats['unchanged']} unchanged")
@@ -731,6 +785,17 @@ def item() -> None:
 @click.option("--header", default=None, help="Set the item header")
 @click.option("--text", default=None, help="Set the item body text")
 @click.option("--links", multiple=True, help="Add parent link(s) (multiple allowed)")
+@click.option(
+    "--no-update-tests",
+    is_flag=True,
+    default=False,
+    help="Skip updating test file references (when using --before/--after)",
+)
+@click.option(
+    "--root",
+    type=click.Path(exists=True, path_type=Path),
+    help="Project root directory",
+)
 @_cli_error_handler
 def item_add(
     prefix: str,
@@ -740,21 +805,29 @@ def item_add(
     header: str | None,
     text: str | None,
     links: tuple[str, ...],
+    no_update_tests: bool,
+    root: Path | None,
 ) -> None:
     """Add a new item to a document.
 
     PREFIX is the document to add the item to (e.g., SRS, UT).
+
+    When using --before or --after, existing items are shifted and test files
+    with @pytest.mark.requirement() decorators are updated automatically.
+    Use --no-update-tests to skip test file updates.
     """
     import re
 
     from jamb.storage import discover_documents
     from jamb.storage.items import next_uid, read_document_items, write_item
+    from jamb.storage.test_references import update_test_references
 
     if after_uid and before_uid:
         click.echo("Error: --after and --before are mutually exclusive", err=True)
         sys.exit(1)
 
-    dag = discover_documents()
+    project_root = root or Path.cwd()
+    dag = discover_documents(project_root)
     if prefix not in dag.document_paths:
         click.echo(f"Error: Document '{prefix}' not found", err=True)
         sys.exit(1)
@@ -782,7 +855,7 @@ def item_add(
 
         from jamb.storage.reorder import insert_items
 
-        new_uids = insert_items(
+        new_uids, rename_map = insert_items(
             doc_path,
             prefix,
             config.digits,
@@ -791,6 +864,17 @@ def item_add(
             count,
             dag.document_paths,
         )
+
+        # Update test references if items were shifted
+        if rename_map and not no_update_tests:
+            test_changes = update_test_references(rename_map, project_root)
+            if test_changes:
+                click.echo(f"Updated test references in {len(test_changes)} file(s)")
+                for test_file, changes in test_changes.items():
+                    rel_path = (
+                        test_file.relative_to(project_root) if test_file.is_relative_to(project_root) else test_file
+                    )
+                    click.echo(f"  {rel_path}: {', '.join(changes)}")
 
         for uid in new_uids:
             item_data = {
@@ -873,21 +957,30 @@ def item_list(prefix: str | None, root: Path | None) -> None:
     help="Skip confirmation prompts for test references",
 )
 @click.option(
+    "--no-update-tests",
+    is_flag=True,
+    default=False,
+    help="Skip removing orphaned test references",
+)
+@click.option(
     "--root",
     type=click.Path(exists=True, path_type=Path),
     help="Project root directory",
 )
 @_cli_error_handler
-def item_remove(uid: str, force: bool, root: Path | None) -> None:
+def item_remove(uid: str, force: bool, no_update_tests: bool, root: Path | None) -> None:
     """Remove an item by UID.
 
     UID is the item identifier (e.g., SRS001, UT002).
 
     If the item is referenced by tests, displays a warning and prompts
     for confirmation. Use --force to skip the confirmation prompt.
+
+    By default, jamb removes @pytest.mark.requirement() decorators
+    referencing the deleted UID. Use --no-update-tests to skip this.
     """
     from jamb.storage import build_traceability_graph, discover_documents
-    from jamb.storage.test_references import find_test_references
+    from jamb.storage.test_references import find_test_references, remove_test_reference
 
     project_root = root or Path.cwd()
     item_path, _ = _find_item_path(uid)
@@ -925,7 +1018,15 @@ def item_remove(uid: str, force: bool, root: Path | None) -> None:
     item_path.unlink()
     click.echo(f"Removed item: {uid}")
 
-    if has_test_refs:
+    # Remove orphaned test references unless --no-update-tests is set
+    if has_test_refs and not no_update_tests:
+        test_changes = remove_test_reference(uid, project_root, remove_empty=True)
+        if test_changes:
+            click.echo(f"Removed test references from {len(test_changes)} file(s)")
+            for test_file, changes in test_changes.items():
+                rel_path = test_file.relative_to(project_root) if test_file.is_relative_to(project_root) else test_file
+                click.echo(f"  {rel_path}: {', '.join(changes)}")
+    elif has_test_refs:
         click.echo("Note: Update test files to remove orphaned references.")
 
 
