@@ -199,7 +199,7 @@ def insert_items(
     position: int,
     count: int,
     all_doc_paths: dict[str, Path],
-) -> list[str]:
+) -> tuple[list[str], dict[str, str]]:
     """Insert *count* new item slots at *position*, shifting existing items forward.
 
     Items with number >= *position* are renamed to number + *count*.
@@ -215,8 +215,10 @@ def insert_items(
         all_doc_paths: Mapping of all document prefixes to their paths.
 
     Returns:
-        The list of new UIDs that were freed (e.g. ``["SRS005"]``).
-        The caller is responsible for writing the actual item files at those paths.
+        A tuple of (new_uids, rename_map) where:
+        - new_uids: List of new UIDs that were freed (e.g. ``["SRS005"]``).
+          The caller is responsible for writing the actual item files at those paths.
+        - rename_map: Dict mapping old UIDs to new UIDs for items that were shifted.
 
     Raises:
         ValueError: If position < 1 or count < 1.
@@ -287,6 +289,6 @@ def insert_items(
                     continue
                 _update_links_in_file(yml_file, rename_map)
 
-    # 6. Return the freed UIDs
+    # 6. Return the freed UIDs and the rename map
     new_uids = [f"{prefix}{sep}{str(position + i).zfill(digits)}" for i in range(count)]
-    return new_uids
+    return new_uids, rename_map
