@@ -38,12 +38,14 @@ def generate_pdf_report(data: list) -> dict:
 
 
 # SRS012: Threshold Check
+@pytest.mark.tc_id("TC018")
 @pytest.mark.requirement("SRS012")
 def test_threshold_exceeded():
     """Test that exceeding threshold returns True."""
     assert check_threshold(120, 100) is True
 
 
+@pytest.mark.tc_id("TC019")
 @pytest.mark.requirement("SRS012")
 def test_threshold_not_exceeded():
     """Test that value under threshold returns False."""
@@ -51,6 +53,7 @@ def test_threshold_not_exceeded():
 
 
 # SRS013: Alert Generation
+@pytest.mark.tc_id("TC020")
 @pytest.mark.requirement("SRS013")
 def test_alert_creation():
     """Test alert record is created."""
@@ -59,6 +62,7 @@ def test_alert_creation():
     assert alert["severity"] == "high"
 
 
+@pytest.mark.tc_id("TC021")
 @pytest.mark.requirement("SRS013")
 def test_alert_includes_timestamp():
     """Test alert includes timestamp."""
@@ -66,6 +70,7 @@ def test_alert_includes_timestamp():
     assert "timestamp" in alert
 
 
+@pytest.mark.tc_id("TC022")
 @pytest.mark.requirement("SRS013")
 def test_alert_severity_levels():
     """Test different severity levels can be set."""
@@ -79,6 +84,7 @@ def test_alert_severity_levels():
 
 
 # SRS014: CSV Export
+@pytest.mark.tc_id("TC023")
 @pytest.mark.requirement("SRS014")
 def test_csv_generation():
     """Test CSV is generated with header."""
@@ -93,6 +99,7 @@ def test_csv_generation():
     assert "timestamp,heart_rate,blood_pressure" in csv
 
 
+@pytest.mark.tc_id("TC024")
 @pytest.mark.requirement("SRS014")
 def test_csv_iso8601_timestamps():
     """Test CSV uses ISO 8601 format timestamps."""
@@ -108,6 +115,7 @@ def test_csv_iso8601_timestamps():
 
 
 # SRS015: PDF Report
+@pytest.mark.tc_id("TC025")
 @pytest.mark.requirement("SRS015")
 def test_pdf_report_format():
     """Test PDF report is generated."""
@@ -116,6 +124,7 @@ def test_pdf_report_format():
     assert report["format"] == "pdf"
 
 
+@pytest.mark.tc_id("TC026")
 @pytest.mark.requirement("SRS015")
 def test_pdf_report_has_charts():
     """Test PDF report includes charts."""
@@ -124,6 +133,7 @@ def test_pdf_report_has_charts():
     assert report["has_charts"] is True
 
 
+@pytest.mark.tc_id("TC027")
 @pytest.mark.requirement("SRS015")
 def test_pdf_report_has_summary():
     """Test PDF report includes summary."""

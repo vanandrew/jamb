@@ -12,6 +12,10 @@ from jamb.core.models import (
     TraceabilityGraph,
 )
 from jamb.matrix.generator import (
+    _extract_reserved_numbers,
+    _get_base_nodeid,
+    _group_nodeids_by_base,
+    _num_to_suffix,
     build_test_id_mapping,
     build_test_records,
     generate_full_chain_matrix,
@@ -465,6 +469,131 @@ class TestInferFormat:
             infer_format("noextension")
 
 
+class TestGetBaseNodeid:
+    """Tests for _get_base_nodeid helper function."""
+
+    def test_strips_parameter_suffix(self):
+        """Test that parameter suffix is stripped from nodeid."""
+        result = _get_base_nodeid("test.py::test_foo[param]")
+        assert result == "test.py::test_foo"
+
+    def test_no_parameters_unchanged(self):
+        """Test that nodeid without parameters is unchanged."""
+        result = _get_base_nodeid("test.py::test_foo")
+        assert result == "test.py::test_foo"
+
+    def test_nested_brackets_uses_first(self):
+        """Test that only the first bracket index is used."""
+        result = _get_base_nodeid("test.py::test_foo[a][b]")
+        assert result == "test.py::test_foo"
+
+    def test_empty_parameters(self):
+        """Test nodeid with empty parameter brackets."""
+        result = _get_base_nodeid("test.py::test_foo[]")
+        assert result == "test.py::test_foo"
+
+    def test_complex_parameters(self):
+        """Test nodeid with complex parameters."""
+        result = _get_base_nodeid("test.py::test_foo[param1-param2-True]")
+        assert result == "test.py::test_foo"
+
+
+class TestNumToSuffix:
+    """Tests for _num_to_suffix helper function."""
+
+    def test_zero_returns_a(self):
+        """Test that 0 returns 'a'."""
+        assert _num_to_suffix(0) == "a"
+
+    def test_25_returns_z(self):
+        """Test that 25 returns 'z'."""
+        assert _num_to_suffix(25) == "z"
+
+    def test_26_returns_aa(self):
+        """Test that 26 returns 'aa'."""
+        assert _num_to_suffix(26) == "aa"
+
+    def test_27_returns_ab(self):
+        """Test that 27 returns 'ab'."""
+        assert _num_to_suffix(27) == "ab"
+
+    def test_51_returns_az(self):
+        """Test that 51 returns 'az'."""
+        assert _num_to_suffix(51) == "az"
+
+    def test_52_returns_ba(self):
+        """Test that 52 returns 'ba'."""
+        assert _num_to_suffix(52) == "ba"
+
+
+class TestExtractReservedNumbers:
+    """Tests for _extract_reserved_numbers helper function."""
+
+    def test_extracts_tc_pattern_numbers(self):
+        """Test that TC pattern numbers are extracted."""
+        manual_tc_ids = {"test::foo": "TC001", "test::bar": "TC042"}
+        result = _extract_reserved_numbers(manual_tc_ids)
+        assert result == {1, 42}
+
+    def test_ignores_non_matching_patterns(self):
+        """Test that non-matching patterns are ignored."""
+        manual_tc_ids = {"test::foo": "TC-AUTH-001", "test::bar": "CUSTOM123"}
+        result = _extract_reserved_numbers(manual_tc_ids)
+        assert result == set()
+
+    def test_empty_dict_returns_empty_set(self):
+        """Test that empty dict returns empty set."""
+        assert _extract_reserved_numbers({}) == set()
+
+    def test_ignores_suffixed_ids(self):
+        """Test that TC IDs with suffixes are ignored."""
+        manual_tc_ids = {"test::foo": "TC001a", "test::bar": "TC002b"}
+        result = _extract_reserved_numbers(manual_tc_ids)
+        assert result == set()
+
+    def test_extracts_large_numbers(self):
+        """Test that large TC numbers are extracted."""
+        manual_tc_ids = {"test::foo": "TC999", "test::bar": "TC1234"}
+        result = _extract_reserved_numbers(manual_tc_ids)
+        assert result == {999, 1234}
+
+
+class TestGroupNodeidsByBase:
+    """Tests for _group_nodeids_by_base helper function."""
+
+    def test_groups_parameterized_tests(self):
+        """Test that parameterized tests are grouped by base nodeid."""
+        nodeids = ["t.py::test[1]", "t.py::test[2]"]
+        result = _group_nodeids_by_base(nodeids)
+        assert result == {"t.py::test": ["t.py::test[1]", "t.py::test[2]"]}
+
+    def test_single_test_own_group(self):
+        """Test that single non-parameterized test is in its own group."""
+        nodeids = ["t.py::test_foo"]
+        result = _group_nodeids_by_base(nodeids)
+        assert result == {"t.py::test_foo": ["t.py::test_foo"]}
+
+    def test_mixed_parameterized_and_single(self):
+        """Test mixing parameterized and single tests."""
+        nodeids = ["t.py::test_a[1]", "t.py::test_a[2]", "t.py::test_b"]
+        result = _group_nodeids_by_base(nodeids)
+        assert result == {
+            "t.py::test_a": ["t.py::test_a[1]", "t.py::test_a[2]"],
+            "t.py::test_b": ["t.py::test_b"],
+        }
+
+    def test_empty_list_returns_empty_dict(self):
+        """Test that empty list returns empty dict."""
+        result = _group_nodeids_by_base([])
+        assert result == {}
+
+    def test_preserves_order_within_groups(self):
+        """Test that order is preserved within groups."""
+        nodeids = ["t.py::test[c]", "t.py::test[a]", "t.py::test[b]"]
+        result = _group_nodeids_by_base(nodeids)
+        assert result["t.py::test"] == ["t.py::test[c]", "t.py::test[a]", "t.py::test[b]"]
+
+
 class TestBuildTestIdMapping:
     """Tests for build_test_id_mapping function."""
 
@@ -497,3 +626,121 @@ class TestBuildTestIdMapping:
 
         assert "test.py::test_foo" in result
         assert result["test.py::test_foo"] == "TC001"
+
+    def test_manual_tc_id_takes_precedence(self):
+        """Manual TC ID overrides auto-generation."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test_foo",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+
+        manual_tc_ids = {"test.py::test_foo": "TC-CUSTOM"}
+        result = build_test_id_mapping(coverage, manual_tc_ids)
+
+        assert result["test.py::test_foo"] == "TC-CUSTOM"
+
+    def test_reserved_numbers_skipped(self):
+        """Auto-numbering skips reserved TC numbers."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_a",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_b",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        # TC001 is reserved by manual ID
+        manual_tc_ids = {"test.py::test_a": "TC001"}
+        result = build_test_id_mapping(coverage, manual_tc_ids)
+
+        assert result["test.py::test_a"] == "TC001"
+        # test_b should get TC002 (skipping reserved TC001)
+        assert result["test.py::test_b"] == "TC002"
+
+    def test_parameterized_gets_suffixes(self):
+        """Parameterized tests get alphabetic suffixes."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_foo[1]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_foo[2]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link3 = LinkedTest(
+            test_nodeid="test.py::test_foo[3]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2, link3])}
+
+        result = build_test_id_mapping(coverage)
+
+        assert result["test.py::test_foo[1]"] == "TC001a"
+        assert result["test.py::test_foo[2]"] == "TC001b"
+        assert result["test.py::test_foo[3]"] == "TC001c"
+
+    def test_single_test_no_suffix(self):
+        """Non-parameterized tests have no suffix."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test_foo",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+
+        result = build_test_id_mapping(coverage)
+
+        assert result["test.py::test_foo"] == "TC001"
+        # Verify no suffix is present
+        assert not result["test.py::test_foo"].endswith("a")
+
+    def test_manual_id_on_parameterized_test(self):
+        """Manual ID applied to all parameter variations with suffixes."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_foo[1]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_foo[2]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        # Manual ID for base nodeid
+        manual_tc_ids = {"test.py::test_foo[1]": "TC-AUTH"}
+        result = build_test_id_mapping(coverage, manual_tc_ids)
+
+        assert result["test.py::test_foo[1]"] == "TC-AUTHa"
+        assert result["test.py::test_foo[2]"] == "TC-AUTHb"
+
+    def test_none_manual_ids_same_as_empty(self):
+        """None and {} for manual_tc_ids behave the same."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test_foo",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+
+        result_none = build_test_id_mapping(coverage, None)
+        result_empty = build_test_id_mapping(coverage, {})
+
+        assert result_none == result_empty
+        assert result_none["test.py::test_foo"] == "TC001"

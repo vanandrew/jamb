@@ -10,6 +10,7 @@ from jamb.storage.test_references import (
     detect_reference_collisions,
     find_orphaned_references,
     find_test_references,
+    insert_tc_id_markers,
     remove_test_reference,
     update_test_references,
 )
@@ -772,3 +773,301 @@ def test_orphaned(): pass
 
         collisions = detect_reference_collisions(rename_map, tmp_path, valid_uids)
         assert len(collisions) == 0
+
+
+class TestInsertTcIdMarkers:
+    """Tests for insert_tc_id_markers function."""
+
+    def test_inserts_marker_no_existing_decorators(self, tmp_path):
+        """Inserts tc_id marker when function has no decorators."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+def test_feature():
+    pass
+""")
+        tc_mapping = {"test_feature.py::test_feature": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        assert '@pytest.mark.tc_id("TC001")' in content
+        # Verify indentation - should have no leading spaces
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        assert tc_id_line == '@pytest.mark.tc_id("TC001")'
+
+    def test_inserts_marker_with_existing_decorator_no_indent(self, tmp_path):
+        """Inserts tc_id marker before existing decorator at column 0."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_feature():
+    pass
+""")
+        tc_mapping = {"test_feature.py::test_feature": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        assert '@pytest.mark.tc_id("TC001")' in content
+        # tc_id should come before requirement
+        tc_id_idx = content.index("tc_id")
+        req_idx = content.index("requirement")
+        assert tc_id_idx < req_idx
+        # Verify no extra indentation
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        assert tc_id_line == '@pytest.mark.tc_id("TC001")'
+
+    def test_inserts_marker_with_4_space_indent(self, tmp_path):
+        """Inserts tc_id marker with correct 4-space indentation in class."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+class TestFeature:
+    @pytest.mark.requirement("SRS001")
+    def test_method(self):
+        pass
+""")
+        tc_mapping = {"test_feature.py::TestFeature::test_method": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        assert '@pytest.mark.tc_id("TC001")' in content
+        # Verify 4-space indentation matches existing decorator
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        assert tc_id_line == '    @pytest.mark.tc_id("TC001")'
+
+    def test_inserts_marker_with_8_space_indent(self, tmp_path):
+        """Inserts tc_id marker with correct 8-space indentation in nested class."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+class TestOuter:
+    class TestInner:
+        @pytest.mark.requirement("SRS001")
+        def test_nested(self):
+            pass
+""")
+        tc_mapping = {"test_feature.py::TestOuter::TestInner::test_nested": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        assert tc_id_line == '        @pytest.mark.tc_id("TC001")'
+
+    def test_inserts_marker_class_method_no_existing_decorator(self, tmp_path):
+        """Inserts tc_id marker for class method without existing decorators."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+class TestFeature:
+    def test_method(self):
+        pass
+""")
+        tc_mapping = {"test_feature.py::TestFeature::test_method": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        # Should match the def indentation
+        assert tc_id_line == '    @pytest.mark.tc_id("TC001")'
+
+    def test_inserts_marker_with_multiple_existing_decorators(self, tmp_path):
+        """Inserts tc_id marker before multiple existing decorators."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.slow
+@pytest.mark.requirement("SRS001")
+def test_feature():
+    pass
+""")
+        tc_mapping = {"test_feature.py::test_feature": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        # tc_id should come first
+        lines = content.split("\n")
+        decorator_lines = [line for line in lines if line.strip().startswith("@")]
+        assert decorator_lines[0] == '@pytest.mark.tc_id("TC001")'
+        assert "@pytest.mark.slow" in decorator_lines[1]
+
+    def test_skips_function_with_existing_tc_id(self, tmp_path):
+        """Does not insert tc_id if function already has one."""
+        test_file = tmp_path / "test_feature.py"
+        original = """import pytest
+
+@pytest.mark.tc_id("TC-EXISTING")
+@pytest.mark.requirement("SRS001")
+def test_feature():
+    pass
+"""
+        test_file.write_text(original)
+        tc_mapping = {"test_feature.py::test_feature": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        # No changes should be made
+        assert test_file not in changes
+        assert test_file.read_text() == original
+
+    def test_dry_run_does_not_modify_file(self, tmp_path):
+        """Dry run reports changes without modifying files."""
+        test_file = tmp_path / "test_feature.py"
+        original = """import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_feature():
+    pass
+"""
+        test_file.write_text(original)
+        tc_mapping = {"test_feature.py::test_feature": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path, dry_run=True)
+
+        assert test_file in changes
+        assert "would add" in changes[test_file][0]
+        # File should be unchanged
+        assert test_file.read_text() == original
+
+    def test_handles_parameterized_tests(self, tmp_path):
+        """Parameterized tests get base TC ID without suffix."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.parametrize("x", [1, 2, 3])
+def test_param(x):
+    pass
+""")
+        # Parameterized nodeids have suffixes
+        tc_mapping = {
+            "test_feature.py::test_param[1]": "TC001a",
+            "test_feature.py::test_param[2]": "TC001b",
+            "test_feature.py::test_param[3]": "TC001c",
+        }
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        # Should insert base TC ID (without suffix)
+        assert '@pytest.mark.tc_id("TC001")' in content
+        # Only one tc_id marker should be inserted
+        assert content.count("tc_id") == 1
+
+    def test_inserts_multiple_markers_in_file(self, tmp_path):
+        """Inserts tc_id markers for multiple functions in same file."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+def test_one():
+    pass
+
+@pytest.mark.requirement("SRS002")
+def test_two():
+    pass
+""")
+        tc_mapping = {
+            "test_feature.py::test_one": "TC001",
+            "test_feature.py::test_two": "TC002",
+        }
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        assert len(changes[test_file]) == 2
+        content = test_file.read_text()
+        assert '@pytest.mark.tc_id("TC001")' in content
+        assert '@pytest.mark.tc_id("TC002")' in content
+
+    def test_handles_async_functions(self, tmp_path):
+        """Inserts tc_id marker for async test functions."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+@pytest.mark.requirement("SRS001")
+async def test_async():
+    pass
+""")
+        tc_mapping = {"test_feature.py::test_async": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        assert '@pytest.mark.tc_id("TC001")' in content
+
+    def test_returns_empty_when_no_matching_functions(self, tmp_path):
+        """Returns empty dict when no functions match tc_mapping."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+def test_feature():
+    pass
+""")
+        tc_mapping = {"test_other.py::test_other": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert changes == {}
+
+    def test_skips_file_with_syntax_error(self, tmp_path):
+        """Files with syntax errors are skipped."""
+        bad_file = tmp_path / "test_bad.py"
+        bad_file.write_text("def broken(\n")
+        good_file = tmp_path / "test_good.py"
+        good_file.write_text("""import pytest
+
+def test_good():
+    pass
+""")
+        tc_mapping = {
+            "test_bad.py::test_bad": "TC001",
+            "test_good.py::test_good": "TC002",
+        }
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert good_file in changes
+        assert bad_file not in changes
+
+    def test_2_space_indent(self, tmp_path):
+        """Handles 2-space indentation correctly."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""import pytest
+
+class TestFeature:
+  @pytest.mark.requirement("SRS001")
+  def test_method(self):
+    pass
+""")
+        tc_mapping = {"test_feature.py::TestFeature::test_method": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        assert tc_id_line == '  @pytest.mark.tc_id("TC001")'
+
+    def test_handles_mark_style_decorator(self, tmp_path):
+        """Handles @mark.requirement style decorators."""
+        test_file = tmp_path / "test_feature.py"
+        test_file.write_text("""from pytest import mark
+
+@mark.requirement("SRS001")
+def test_feature():
+    pass
+""")
+        tc_mapping = {"test_feature.py::test_feature": "TC001"}
+        changes = insert_tc_id_markers(tc_mapping, tmp_path)
+
+        assert test_file in changes
+        content = test_file.read_text()
+        lines = content.split("\n")
+        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        assert tc_id_line == '@pytest.mark.tc_id("TC001")'

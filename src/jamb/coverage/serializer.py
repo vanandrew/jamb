@@ -20,8 +20,8 @@ from jamb.core.models import (
 COVERAGE_FILE = ".jamb"
 
 # Supported coverage file versions for forward compatibility
-CURRENT_VERSION = 1
-SUPPORTED_VERSIONS = {1}
+CURRENT_VERSION = 2
+SUPPORTED_VERSIONS = {1, 2}
 
 # Required top-level fields for file validation
 REQUIRED_FIELDS = {"coverage", "graph"}
@@ -32,6 +32,7 @@ def save_coverage(
     graph: TraceabilityGraph,
     output_path: str = COVERAGE_FILE,
     metadata: MatrixMetadata | None = None,
+    manual_tc_ids: dict[str, str] | None = None,
 ) -> None:
     """Save coverage data to .jamb file for later matrix generation.
 
@@ -40,9 +41,10 @@ def save_coverage(
         graph: The traceability graph with all items and relationships.
         output_path: Path to write the coverage file (default: .jamb).
         metadata: Optional matrix metadata for IEC 62304 compliance.
+        manual_tc_ids: Optional dict mapping nodeid to manual TC ID.
     """
     data: dict[str, Any] = {
-        "version": 1,
+        "version": CURRENT_VERSION,
         "coverage": {},
         "graph": {
             "items": {},
@@ -51,6 +53,10 @@ def save_coverage(
             "document_parents": graph.document_parents,
         },
     }
+
+    # Save manual TC IDs if provided
+    if manual_tc_ids:
+        data["manual_tc_ids"] = manual_tc_ids
 
     # Serialize coverage
     for uid, cov in coverage.items():
@@ -99,14 +105,15 @@ def save_coverage(
 
 def load_coverage(
     input_path: str = COVERAGE_FILE,
-) -> tuple[dict[str, ItemCoverage], TraceabilityGraph, MatrixMetadata | None]:
+) -> tuple[dict[str, ItemCoverage], TraceabilityGraph, MatrixMetadata | None, dict[str, str]]:
     """Load coverage data from .jamb file.
 
     Args:
         input_path: Path to the coverage file (default: .jamb).
 
     Returns:
-        Tuple of (coverage dict, TraceabilityGraph, optional MatrixMetadata).
+        Tuple of (coverage dict, TraceabilityGraph, optional MatrixMetadata, manual_tc_ids).
+        manual_tc_ids maps test nodeid to manual TC ID (empty dict if none).
 
     Raises:
         FileNotFoundError: If the coverage file does not exist.
@@ -182,7 +189,10 @@ def load_coverage(
     if "metadata" in data:
         metadata = _deserialize_metadata(data["metadata"])
 
-    return coverage, graph, metadata
+    # Load manual TC IDs (version 2+)
+    manual_tc_ids: dict[str, str] = data.get("manual_tc_ids", {})
+
+    return coverage, graph, metadata, manual_tc_ids
 
 
 def _serialize_item(item: Item) -> dict[str, Any]:

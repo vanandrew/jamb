@@ -109,6 +109,12 @@ def pytest_configure(config: pytest.Config) -> None:
         "Example: @pytest.mark.requirement('UT001', 'UT002')",
     )
 
+    # Register the tc_id marker for manual test case IDs
+    config.addinivalue_line(
+        "markers",
+        "tc_id(id): Assign a manual test case ID to this test. Example: @pytest.mark.tc_id('TC-AUTH-001')",
+    )
+
     if config.option.jamb:
         # Initialize the collector
         collector = RequirementCollector(config)

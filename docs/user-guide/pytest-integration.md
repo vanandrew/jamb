@@ -46,6 +46,34 @@ def test_example(): ...
 
 All three styles work with `jamb check`, `pytest --jamb`, and the automatic test file updates performed by `jamb reorder`.
 
+### Manual Test Case IDs
+
+By default, jamb assigns sequential test case IDs (TC001, TC002, etc.) automatically based on test order. To lock specific IDs to tests, use `@pytest.mark.tc_id`:
+
+```python
+import pytest
+
+@pytest.mark.tc_id("TC-AUTH-001")
+@pytest.mark.requirement("SRS001")
+def test_user_login():
+    """Test with a manually assigned test case ID."""
+    assert True
+
+@pytest.mark.tc_id("TC042")
+@pytest.mark.requirement("SRS002")
+def test_password_reset():
+    """Another test with a fixed ID."""
+    assert True
+```
+
+Manual TC IDs:
+- Override auto-generated IDs for the marked test
+- Can use any format (TC001, TC-AUTH-001, TEST-42, etc.)
+- Reserve their number from auto-generation (e.g., `@pytest.mark.tc_id("TC005")` prevents auto-assignment of TC005)
+- Must be unique across all tests
+
+To convert auto-generated IDs to permanent manual IDs, use `jamb lock-tc` after running tests. See the [lock-tc command](commands.md#jamb-lock-tc) for details.
+
 ## pytest Command-Line Options
 
 | Option | Description |
@@ -226,7 +254,7 @@ The trace matrix is requirement-centric, showing the full traceability chain fro
 
 | Column | Description |
 |--------|-------------|
-| Test Case | Sequential test ID (TC001, TC002, etc.) |
+| Test Case | Sequential test ID (TC001, TC002, etc.) or manual ID from `@pytest.mark.tc_id` |
 | Test Name | pytest function name |
 | Outcome | Test result: passed, failed, skipped, or error |
 | Requirements | Item UIDs covered by this test |
@@ -235,6 +263,8 @@ The trace matrix is requirement-centric, showing the full traceability chain fro
 | Actual Results | Observed outcomes (from `jamb_log.actual_result()`) |
 | Notes | Observations and failure messages (from `jamb_log.note()`) |
 | Timestamp | ISO 8601 UTC timestamp of test execution |
+
+**Parameterized Tests:** When a test uses `@pytest.mark.parametrize`, each parameter variation receives a unique TC ID with an alphabetic suffix. For example, if `test_boundary_values` has three parameter sets, they become TC003a, TC003b, and TC003c. Suffixes follow the pattern: a-z, then aa, ab, etc. for tests with more than 26 parameters.
 
 ### Trace Matrix Columns
 

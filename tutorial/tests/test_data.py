@@ -29,9 +29,7 @@ def get_retention_policy() -> int:
     return 7
 
 
-def query_vital_signs(
-    patient_id: str, start_date: datetime, end_date: datetime
-) -> list:
+def query_vital_signs(patient_id: str, start_date: datetime, end_date: datetime) -> list:
     """Simulated indexed query for vital signs."""
     # Simulate returning paginated results
     return [{"heart_rate": 72, "timestamp": start_date.isoformat()}]
@@ -50,6 +48,7 @@ def paginate_results(results: list, page: int, page_size: int = 100) -> dict:
 
 
 # SRS006: WebSocket Connection
+@pytest.mark.tc_id("TC008")
 @pytest.mark.requirement("SRS006")
 def test_websocket_connection():
     """Test WebSocket connection for real-time data."""
@@ -57,6 +56,7 @@ def test_websocket_connection():
     assert conn["connected"] is True
 
 
+@pytest.mark.tc_id("TC009")
 @pytest.mark.requirement("SRS006")
 def test_websocket_endpoint():
     """Test WebSocket connects to correct endpoint."""
@@ -65,6 +65,7 @@ def test_websocket_endpoint():
 
 
 # SRS007: Data Polling
+@pytest.mark.tc_id("TC010")
 @pytest.mark.requirement("SRS007")
 def test_device_api_polling():
     """Test device API returns vital signs."""
@@ -73,6 +74,7 @@ def test_device_api_polling():
     assert "blood_pressure" in data
 
 
+@pytest.mark.tc_id("TC011")
 @pytest.mark.requirement("SRS007")
 def test_polling_includes_timestamp():
     """Test that polled data includes timestamp."""
@@ -81,6 +83,7 @@ def test_polling_includes_timestamp():
 
 
 # SRS008: Database Write
+@pytest.mark.tc_id("TC012")
 @pytest.mark.requirement("SRS008")
 def test_vital_signs_write():
     """Test vital signs are written to database."""
@@ -88,6 +91,7 @@ def test_vital_signs_write():
     assert write_vital_signs(data) is True
 
 
+@pytest.mark.tc_id("TC013")
 @pytest.mark.requirement("SRS008")
 def test_write_requires_timestamp():
     """Test that write requires timestamp."""
@@ -96,6 +100,7 @@ def test_write_requires_timestamp():
 
 
 # SRS009: Data Retention
+@pytest.mark.tc_id("TC014")
 @pytest.mark.requirement("SRS009")
 def test_retention_policy():
     """Test data retention is 7 years."""
@@ -103,6 +108,7 @@ def test_retention_policy():
 
 
 # SRS010: Query Optimization
+@pytest.mark.tc_id("TC015")
 @pytest.mark.requirement("SRS010")
 def test_indexed_query():
     """Test date range query returns results."""
@@ -113,6 +119,7 @@ def test_indexed_query():
 
 
 # SRS011: Pagination
+@pytest.mark.tc_id("TC016")
 @pytest.mark.requirement("SRS011")
 def test_pagination_default_page_size():
     """Test pagination uses 100 records per page."""
@@ -121,6 +128,7 @@ def test_pagination_default_page_size():
     assert page["page_size"] == 100
 
 
+@pytest.mark.tc_id("TC017")
 @pytest.mark.requirement("SRS011")
 def test_pagination_returns_correct_page():
     """Test pagination returns correct page data."""

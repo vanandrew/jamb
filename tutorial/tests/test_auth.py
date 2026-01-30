@@ -30,6 +30,7 @@ def refresh_token(token: str) -> str:
 
 
 # SRS001: Credential Validation
+@pytest.mark.tc_id("TC002")
 @pytest.mark.requirement("SRS001")
 def test_valid_credentials_accepted(jamb_log):
     """Test that valid credentials return True."""
@@ -41,6 +42,7 @@ def test_valid_credentials_accepted(jamb_log):
     jamb_log.actual_result("Authentication returned True")
 
 
+@pytest.mark.tc_id("TC001")
 @pytest.mark.requirement("SRS001")
 def test_invalid_credentials_rejected(jamb_log):
     """Test that invalid credentials return False."""
@@ -52,13 +54,16 @@ def test_invalid_credentials_rejected(jamb_log):
 
 
 # SRS002: Password Hashing
+@pytest.mark.tc_id("TC004")
 @pytest.mark.requirement("SRS002")
-def test_password_hashing_uses_bcrypt():
+@pytest.mark.parametrize("password", ["password1", "123456", "complex!@#"])
+def test_password_hashing_uses_bcrypt(password):
     """Test that password hashing produces bcrypt format."""
-    hashed = hash_password("mypassword")
+    hashed = hash_password(password)
     assert hashed.startswith("$2b$12$")
 
 
+@pytest.mark.tc_id("TC003")
 @pytest.mark.requirement("SRS002")
 def test_password_hashing_produces_different_output():
     """Test that hashing transforms the password."""
@@ -67,6 +72,7 @@ def test_password_hashing_produces_different_output():
 
 
 # SRS003: Login Throttling
+@pytest.mark.tc_id("TC005")
 @pytest.mark.requirement("SRS003")
 def test_login_allowed_when_under_threshold():
     """Test that login is allowed when under attempt threshold."""
@@ -74,6 +80,7 @@ def test_login_allowed_when_under_threshold():
 
 
 # SRS004: Session Token
+@pytest.mark.tc_id("TC006")
 @pytest.mark.requirement("SRS004")
 def test_jwt_generation():
     """Test that JWT token is generated."""
@@ -83,6 +90,7 @@ def test_jwt_generation():
 
 
 # SRS005: Session Refresh
+@pytest.mark.tc_id("TC007")
 @pytest.mark.requirement("SRS005")
 def test_token_refresh():
     """Test that token can be refreshed."""

@@ -393,3 +393,169 @@ def detect_reference_collisions(
     target_uids = set(rename_map.values())
     orphans = find_orphaned_references(test_dir, valid_uids)
     return [(ref.uid, ref) for ref in orphans if ref.uid in target_uids]
+
+
+def _is_tc_id_marker(node: ast.Call) -> bool:
+    """Check if an AST Call node is a tc_id marker.
+
+    Handles multiple import styles:
+    - pytest.mark.tc_id(...)
+    - mark.tc_id(...)
+
+    Args:
+        node: An ``ast.Call`` node to inspect.
+
+    Returns:
+        ``True`` if the node represents a tc_id marker call.
+    """
+    func = node.func
+
+    # @pytest.mark.tc_id(...)
+    if isinstance(func, ast.Attribute) and func.attr == "tc_id":
+        if isinstance(func.value, ast.Attribute) and func.value.attr == "mark":
+            if isinstance(func.value.value, ast.Name) and func.value.value.id == "pytest":
+                return True
+        # @mark.tc_id(...)
+        if isinstance(func.value, ast.Name) and func.value.id == "mark":
+            return True
+
+    return False
+
+
+def _has_tc_id_marker(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Check if a function has a tc_id marker decorator.
+
+    Args:
+        func_node: A function definition AST node.
+
+    Returns:
+        True if the function has a tc_id marker.
+    """
+    for decorator in func_node.decorator_list:
+        if isinstance(decorator, ast.Call) and _is_tc_id_marker(decorator):
+            return True
+    return False
+
+
+def _nodeid_to_file_and_func(nodeid: str) -> tuple[str, str]:
+    """Extract file path and function name from pytest nodeid.
+
+    Args:
+        nodeid: Pytest nodeid like "tests/test_foo.py::test_bar[param]".
+
+    Returns:
+        Tuple of (file_path, function_name).
+    """
+    # Remove parameter suffix if present
+    base = nodeid.split("[")[0]
+    parts = base.split("::")
+    file_path = parts[0]
+    func_name = parts[-1] if len(parts) > 1 else ""
+    return file_path, func_name
+
+
+def insert_tc_id_markers(
+    tc_mapping: dict[str, str],
+    test_dir: Path,
+    dry_run: bool = False,
+) -> dict[Path, list[str]]:
+    """Insert @pytest.mark.tc_id() decorators into test files.
+
+    For each test in tc_mapping, adds a tc_id decorator if not already present.
+    Parameterized test variations share the same base function, so only one
+    decorator is inserted for the base function.
+
+    Args:
+        tc_mapping: Dict mapping test nodeid to TC ID.
+        test_dir: Root directory containing test files.
+        dry_run: If True, don't actually modify files, just report changes.
+
+    Returns:
+        Dict mapping file paths to lists of change descriptions.
+    """
+    changes: dict[Path, list[str]] = {}
+
+    # Group by base nodeid (strip parameter suffix) to avoid duplicate insertions
+    base_to_tc_id: dict[str, str] = {}
+    for nodeid, tc_id in tc_mapping.items():
+        base = nodeid.split("[")[0]
+        if base not in base_to_tc_id:
+            # For parameterized tests with suffixes, use the base TC ID
+            # e.g., TC001a -> TC001
+            base_tc_id = tc_id.rstrip("abcdefghijklmnopqrstuvwxyz")
+            base_to_tc_id[base] = base_tc_id
+
+    # Group by file
+    file_to_funcs: dict[str, dict[str, str]] = {}  # file -> {func_name: tc_id}
+    for base_nodeid, tc_id in base_to_tc_id.items():
+        file_path, func_name = _nodeid_to_file_and_func(base_nodeid)
+        if not func_name:
+            continue
+        file_to_funcs.setdefault(file_path, {})[func_name] = tc_id
+
+    # Process each file
+    for rel_file_path, func_tc_ids in file_to_funcs.items():
+        # Find the actual file (could be absolute or relative to test_dir)
+        resolved_path = Path(rel_file_path)
+        if not resolved_path.is_absolute():
+            resolved_path = test_dir / rel_file_path
+        if not resolved_path.exists():
+            # Try relative to current dir
+            resolved_path = Path(rel_file_path)
+        if not resolved_path.exists():
+            continue
+
+        try:
+            source = resolved_path.read_text()
+            tree = ast.parse(source)
+        except (SyntaxError, OSError, UnicodeDecodeError):
+            continue
+
+        # Find test functions that need tc_id markers
+        insertions: list[tuple[int, str, str]] = []  # (line, indent, tc_id)
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                if node.name in func_tc_ids and not _has_tc_id_marker(node):
+                    # Find insertion point (before first decorator or function def)
+                    if node.decorator_list:
+                        insert_line = min(d.lineno for d in node.decorator_list)
+                        # Get indentation from first decorator
+                        # col_offset points to the expression after @, so subtract 1
+                        first_dec = node.decorator_list[0]
+                        indent_col = max(0, first_dec.col_offset - 1)
+                    else:
+                        insert_line = node.lineno
+                        indent_col = node.col_offset
+
+                    tc_id = func_tc_ids[node.name]
+                    indent = " " * indent_col
+                    insertions.append((insert_line, indent, tc_id))
+
+        if not insertions:
+            continue
+
+        # Sort insertions by line number (reverse to insert from bottom up)
+        insertions.sort(key=lambda x: x[0], reverse=True)
+
+        if dry_run:
+            dry_run_changes = [f"would add @pytest.mark.tc_id('{tc_id}')" for _, _, tc_id in insertions]
+            changes[resolved_path] = dry_run_changes
+            continue
+
+        # Apply insertions
+        lines = source.splitlines(keepends=True)
+        applied_changes: list[str] = []
+
+        for line_num, indent, tc_id in insertions:
+            # Insert new decorator line
+            decorator_line = f'{indent}@pytest.mark.tc_id("{tc_id}")\n'
+            # line_num is 1-indexed, list is 0-indexed
+            lines.insert(line_num - 1, decorator_line)
+            applied_changes.append(f"added @pytest.mark.tc_id('{tc_id}')")
+
+        # Write back
+        resolved_path.write_text("".join(lines))
+        changes[resolved_path] = applied_changes
+
+    return changes

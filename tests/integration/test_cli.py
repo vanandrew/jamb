@@ -525,7 +525,7 @@ class TestPublishCommandExtended:
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(cli, ["publish-template", str(template_path)], catch_exceptions=False)
+            result = runner.invoke(cli, ["template", str(template_path)], catch_exceptions=False)
             assert result.exit_code == 0
             assert template_path.exists()
 
@@ -558,7 +558,7 @@ class TestPublishCommandExtended:
         try:
             os.chdir(jamb_project)
             # Generate template first
-            runner.invoke(cli, ["publish-template", str(template_path)])
+            runner.invoke(cli, ["template", str(template_path)])
 
             # Try to use with HTML
             result = runner.invoke(
@@ -609,18 +609,18 @@ class TestPublishCommandExtended:
 
 
 class TestPublishTemplateCommand:
-    """Tests for publish-template command."""
+    """Tests for template command."""
 
     def test_publish_template_help(self, runner):
-        """Test that publish-template --help works."""
-        result = runner.invoke(cli, ["publish-template", "--help"])
+        """Test that template --help works."""
+        result = runner.invoke(cli, ["template", "--help"])
 
         assert result.exit_code == 0
         assert "template" in result.output.lower()
         assert "jamb" in result.output.lower()
 
     def test_publish_template_creates_file(self, runner, tmp_path):
-        """Test that publish-template creates a DOCX file."""
+        """Test that template creates a DOCX file."""
         import os
 
         output_path = tmp_path / "my-template.docx"
@@ -628,7 +628,7 @@ class TestPublishTemplateCommand:
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            result = runner.invoke(cli, ["publish-template", str(output_path)], catch_exceptions=False)
+            result = runner.invoke(cli, ["template", str(output_path)], catch_exceptions=False)
 
             assert result.exit_code == 0
             assert output_path.exists()
@@ -638,13 +638,13 @@ class TestPublishTemplateCommand:
             os.chdir(original_cwd)
 
     def test_publish_template_default_name(self, runner, tmp_path):
-        """Test publish-template uses default filename."""
+        """Test template uses default filename."""
         import os
 
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            result = runner.invoke(cli, ["publish-template"], catch_exceptions=False)
+            result = runner.invoke(cli, ["template"], catch_exceptions=False)
 
             assert result.exit_code == 0
             assert (tmp_path / "jamb-template.docx").exists()
@@ -652,7 +652,7 @@ class TestPublishTemplateCommand:
             os.chdir(original_cwd)
 
     def test_publish_template_overwrite_prompt(self, runner, tmp_path):
-        """Test publish-template prompts before overwriting."""
+        """Test template prompts before overwriting."""
         import os
 
         output_path = tmp_path / "template.docx"
@@ -662,7 +662,7 @@ class TestPublishTemplateCommand:
         try:
             os.chdir(tmp_path)
             # Answer 'n' to overwrite prompt
-            result = runner.invoke(cli, ["publish-template", str(output_path)], input="n\n")
+            result = runner.invoke(cli, ["template", str(output_path)], input="n\n")
 
             assert result.exit_code == 0
             assert "Aborted" in result.output

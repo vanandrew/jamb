@@ -702,3 +702,208 @@ class TestSaveCoverageFile:
             mock_save_coverage.assert_called_once()
             call_args = mock_save_coverage.call_args
             assert call_args[0][2] == "custom.jamb"
+
+
+class TestManualTcIdCollection:
+    """Tests for manual TC ID collection during pytest_collection_modifyitems."""
+
+    def test_collects_tc_id_from_marker(self):
+        """TC ID from marker stored in collector.manual_tc_ids."""
+        from jamb.core.models import Item, TraceabilityGraph
+        from jamb.pytest_plugin.collector import RequirementCollector
+
+        mock_config = MagicMock()
+        mock_config.option = MagicMock()
+        mock_config.option.jamb_documents = None
+
+        with (
+            patch("jamb.pytest_plugin.collector.load_config") as mock_load_config,
+            patch("jamb.storage.discover_documents"),
+            patch("jamb.storage.build_traceability_graph") as mock_build_graph,
+        ):
+            mock_jamb_config = MagicMock()
+            mock_jamb_config.exclude_patterns = None
+            mock_load_config.return_value = mock_jamb_config
+
+            graph = TraceabilityGraph()
+            item = Item(uid="SRS001", text="Test req", document_prefix="SRS")
+            graph.add_item(item)
+            mock_build_graph.return_value = graph
+
+            collector = RequirementCollector(mock_config)
+
+            # Create mock test item with tc_id marker
+            mock_item = MagicMock()
+            mock_item.nodeid = "test_foo.py::test_bar"
+
+            # Set up tc_id marker
+            mock_tc_marker = MagicMock()
+            mock_tc_marker.args = ("TC-AUTH-001",)
+
+            # Set up requirement marker
+            mock_req_marker = MagicMock()
+            mock_req_marker.args = ("SRS001",)
+
+            def iter_markers_side_effect(marker_name):
+                if marker_name == "tc_id":
+                    return [mock_tc_marker]
+                elif marker_name == "requirement":
+                    return [mock_req_marker]
+                return []
+
+            mock_item.iter_markers = MagicMock(side_effect=iter_markers_side_effect)
+
+            # Run collection hook - exhaust the generator to execute code after yield
+            generator = collector.pytest_collection_modifyitems(items=[mock_item])
+            next(generator)  # Advance to yield
+            try:
+                next(generator)  # Execute code after yield
+            except StopIteration:
+                pass
+
+            # Verify TC ID was collected
+            assert "test_foo.py::test_bar" in collector.manual_tc_ids
+            assert collector.manual_tc_ids["test_foo.py::test_bar"] == "TC-AUTH-001"
+
+    def test_duplicate_tc_id_raises_usage_error(self):
+        """Duplicate tc_id on different tests raises UsageError."""
+        from jamb.core.models import TraceabilityGraph
+        from jamb.pytest_plugin.collector import RequirementCollector
+
+        mock_config = MagicMock()
+        mock_config.option = MagicMock()
+        mock_config.option.jamb_documents = None
+
+        with (
+            patch("jamb.pytest_plugin.collector.load_config") as mock_load_config,
+            patch("jamb.storage.discover_documents"),
+            patch("jamb.storage.build_traceability_graph") as mock_build_graph,
+        ):
+            mock_jamb_config = MagicMock()
+            mock_jamb_config.exclude_patterns = None
+            mock_load_config.return_value = mock_jamb_config
+
+            mock_build_graph.return_value = TraceabilityGraph()
+
+            collector = RequirementCollector(mock_config)
+
+            # Create two mock test items with the same tc_id
+            mock_tc_marker = MagicMock()
+            mock_tc_marker.args = ("TC001",)
+
+            mock_item1 = MagicMock()
+            mock_item1.nodeid = "test_foo.py::test_one"
+            mock_item1.iter_markers = MagicMock(side_effect=lambda name: [mock_tc_marker] if name == "tc_id" else [])
+
+            mock_item2 = MagicMock()
+            mock_item2.nodeid = "test_foo.py::test_two"
+            mock_item2.iter_markers = MagicMock(side_effect=lambda name: [mock_tc_marker] if name == "tc_id" else [])
+
+            # Run collection hook - exhaust generator to execute code after yield
+            generator = collector.pytest_collection_modifyitems(items=[mock_item1, mock_item2])
+            next(generator)  # Advance to yield
+            with pytest.raises(pytest.UsageError, match="Duplicate tc_id.*TC001"):
+                next(generator)  # Execute code after yield - should raise
+
+    def test_parameterized_test_all_params_get_same_base_id(self):
+        """All parameter variations share the same TC ID in manual_tc_ids."""
+        from jamb.core.models import Item, TraceabilityGraph
+        from jamb.pytest_plugin.collector import RequirementCollector
+
+        mock_config = MagicMock()
+        mock_config.option = MagicMock()
+        mock_config.option.jamb_documents = None
+
+        with (
+            patch("jamb.pytest_plugin.collector.load_config") as mock_load_config,
+            patch("jamb.storage.discover_documents"),
+            patch("jamb.storage.build_traceability_graph") as mock_build_graph,
+        ):
+            mock_jamb_config = MagicMock()
+            mock_jamb_config.exclude_patterns = None
+            mock_load_config.return_value = mock_jamb_config
+
+            graph = TraceabilityGraph()
+            item = Item(uid="SRS001", text="Test req", document_prefix="SRS")
+            graph.add_item(item)
+            mock_build_graph.return_value = graph
+
+            collector = RequirementCollector(mock_config)
+
+            # Create mock parameterized test items with tc_id marker
+            mock_tc_marker = MagicMock()
+            mock_tc_marker.args = ("TC-PARAM",)
+
+            mock_req_marker = MagicMock()
+            mock_req_marker.args = ("SRS001",)
+
+            def create_mock_item(nodeid):
+                mock = MagicMock()
+                mock.nodeid = nodeid
+                mock.iter_markers = MagicMock(
+                    side_effect=lambda name: {
+                        "tc_id": [mock_tc_marker],
+                        "requirement": [mock_req_marker],
+                    }.get(name, [])
+                )
+                return mock
+
+            items = [
+                create_mock_item("test_foo.py::test_bar[param1]"),
+                create_mock_item("test_foo.py::test_bar[param2]"),
+                create_mock_item("test_foo.py::test_bar[param3]"),
+            ]
+
+            # Run collection hook - exhaust generator to execute code after yield
+            generator = collector.pytest_collection_modifyitems(items=items)
+            next(generator)  # Advance to yield
+            try:
+                next(generator)  # Execute code after yield
+            except StopIteration:
+                pass
+
+            # Verify all parameter variations have the same base TC ID
+            assert collector.manual_tc_ids["test_foo.py::test_bar[param1]"] == "TC-PARAM"
+            assert collector.manual_tc_ids["test_foo.py::test_bar[param2]"] == "TC-PARAM"
+            assert collector.manual_tc_ids["test_foo.py::test_bar[param3]"] == "TC-PARAM"
+
+    def test_tc_id_passed_to_save_coverage(self):
+        """manual_tc_ids passed when saving coverage."""
+        from jamb.core.models import Item, TraceabilityGraph
+        from jamb.pytest_plugin.collector import RequirementCollector
+
+        mock_config = MagicMock()
+        mock_config.option = MagicMock()
+        mock_config.option.jamb_documents = None
+        mock_config.pluginmanager = MagicMock()
+        mock_config.pluginmanager.list_plugin_distinfo.return_value = []
+
+        with (
+            patch("jamb.pytest_plugin.collector.load_config") as mock_load_config,
+            patch("jamb.storage.discover_documents"),
+            patch("jamb.storage.build_traceability_graph") as mock_build_graph,
+            patch("jamb.coverage.serializer.save_coverage") as mock_save_coverage,
+        ):
+            mock_jamb_config = MagicMock()
+            mock_jamb_config.exclude_patterns = None
+            mock_jamb_config.software_version = "1.0.0"
+            mock_load_config.return_value = mock_jamb_config
+
+            graph = TraceabilityGraph()
+            item = Item(uid="SRS001", text="Test req", document_prefix="SRS")
+            graph.add_item(item)
+            mock_build_graph.return_value = graph
+
+            collector = RequirementCollector(mock_config)
+
+            # Manually set manual_tc_ids
+            collector.manual_tc_ids = {"test::foo": "TC001"}
+
+            # Call save_coverage_file
+            collector.save_coverage_file()
+
+            # Verify manual_tc_ids was passed to save_coverage
+            mock_save_coverage.assert_called_once()
+            call_kwargs = mock_save_coverage.call_args[1]
+            assert "manual_tc_ids" in call_kwargs
+            assert call_kwargs["manual_tc_ids"] == {"test::foo": "TC001"}
