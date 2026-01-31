@@ -74,6 +74,16 @@ include_ancestors = true
 : **Type:** `bool`
 : **Default:** `false`
 
+`tc_id_prefix`
+: Prefix for auto-generated test case IDs. When tests are run with `pytest --jamb`, each test receives a unique TC ID like `TC001`, `TC002`. This option customizes the prefix portion.
+: **Type:** `str`
+: **Default:** `"TC"`
+: **Constraints:** Only alphanumeric characters, hyphens (`-`), and underscores (`_`) are allowed. Invalid characters will cause a validation error.
+: **Example:** `tc_id_prefix = "TEST-"` produces IDs like `TEST-001`, `TEST-002`
+
+!!! note "Changing the prefix"
+    Changing `tc_id_prefix` only affects newly generated TC IDs. Existing IDs in test files (from `@pytest.mark.tc_id`) and the `.jamb` coverage file must be updated manually.
+
 ### Example Configurations
 
 **Minimal (most projects):**
@@ -92,6 +102,14 @@ fail_uncovered = true
 require_all_pass = true
 trace_matrix_output = "matrix.html"
 trace_to_ignore = ["PRJ"]
+```
+
+**Custom TC ID prefix:**
+
+```toml
+[tool.jamb]
+test_documents = ["SRS"]
+tc_id_prefix = "PROJ-TC-"
 ```
 
 **Dual-matrix output (trace + test records):**

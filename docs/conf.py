@@ -16,9 +16,7 @@ class _ClickForwardRefFilter(logging.Filter):
 
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
-        return not (
-            "Cannot resolve forward reference" in msg and "jamb.cli.commands" in msg
-        )
+        return not ("Cannot resolve forward reference" in msg and "jamb.cli.commands" in msg)
 
 
 # sphinx.util.logging.getLogger() prefixes the name with "sphinx.", so the
@@ -114,9 +112,7 @@ def _fixup_click_docstrings(_app, _what, _name, _obj, _options, lines):
             lines.insert(i + 1, "")
             i += 2  # skip the directive + blank line
             # Indent all non-blank body lines that follow
-            while i < len(lines) and (
-                lines[i].strip() or (i + 1 < len(lines) and lines[i + 1].strip())
-            ):
+            while i < len(lines) and (lines[i].strip() or (i + 1 < len(lines) and lines[i + 1].strip())):
                 if lines[i].strip():
                     lines[i] = "   " + lines[i]
                 i += 1

@@ -441,7 +441,7 @@ class RequirementCollector:
         )
 
         coverage = self.get_coverage()
-        records = build_test_records(coverage, self.manual_tc_ids)
+        records = build_test_records(coverage, self.manual_tc_ids, self.jamb_config.tc_id_prefix)
         metadata = self._build_matrix_metadata(tester_id, software_version)
 
         generate_test_records_matrix(
@@ -486,8 +486,8 @@ class RequirementCollector:
         if self.jamb_config.trace_to_ignore:
             trace_to_ignore = set(self.jamb_config.trace_to_ignore)
 
-        # Build TC mapping with manual IDs
-        tc_mapping = build_test_id_mapping(coverage, self.manual_tc_ids)
+        # Build TC mapping with manual IDs and configured prefix
+        tc_mapping = build_test_id_mapping(coverage, self.manual_tc_ids, self.jamb_config.tc_id_prefix)
 
         generate_full_chain_matrix(
             coverage,

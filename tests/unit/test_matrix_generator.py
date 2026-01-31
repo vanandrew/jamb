@@ -767,3 +767,122 @@ class TestBuildTestIdMapping:
         assert result["test.py::test_a"] == "TC001"
         # test_b should get TC003 (skipping both TC001 and TC002)
         assert result["test.py::test_b"] == "TC003"
+
+
+class TestBuildTestIdMappingWithPrefix:
+    """Tests for build_test_id_mapping with custom tc_id_prefix."""
+
+    def test_custom_prefix_applied(self):
+        """Test that custom prefix is applied to auto-generated IDs."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test_foo",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+
+        result = build_test_id_mapping(coverage, None, tc_id_prefix="TEST-")
+
+        assert result["test.py::test_foo"] == "TEST-001"
+
+    def test_custom_prefix_with_hyphen(self):
+        """Test that hyphenated prefix works correctly."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_a",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_b",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        result = build_test_id_mapping(coverage, None, tc_id_prefix="PROJ-TC-")
+
+        assert "PROJ-TC-001" in result.values()
+        assert "PROJ-TC-002" in result.values()
+
+    def test_custom_prefix_with_parameterized(self):
+        """Test that custom prefix works with parameterized tests."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_foo[1]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_foo[2]",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        result = build_test_id_mapping(coverage, None, tc_id_prefix="UNIT-")
+
+        assert result["test.py::test_foo[1]"] == "UNIT-001a"
+        assert result["test.py::test_foo[2]"] == "UNIT-001b"
+
+    def test_reserved_numbers_with_custom_prefix(self):
+        """Test that reserved numbers work with custom prefix matching."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_a",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_b",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        # Manual ID with same prefix reserves that number
+        manual_tc_ids = {"test.py::test_a": "TEST001"}
+        result = build_test_id_mapping(coverage, manual_tc_ids, tc_id_prefix="TEST")
+
+        assert result["test.py::test_a"] == "TEST001"
+        # test_b should get TEST002 (skipping reserved TEST001)
+        assert result["test.py::test_b"] == "TEST002"
+
+    def test_different_prefix_doesnt_reserve(self):
+        """Test that manual IDs with different prefix don't reserve numbers."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link1 = LinkedTest(
+            test_nodeid="test.py::test_a",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        link2 = LinkedTest(
+            test_nodeid="test.py::test_b",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link1, link2])}
+
+        # Manual ID with TC prefix shouldn't reserve when using TEST prefix
+        manual_tc_ids = {"test.py::test_a": "TC001"}
+        result = build_test_id_mapping(coverage, manual_tc_ids, tc_id_prefix="TEST")
+
+        # test_a keeps its manual ID
+        assert result["test.py::test_a"] == "TC001"
+        # test_b should get TEST001 since TC001 doesn't match TEST pattern
+        assert result["test.py::test_b"] == "TEST001"
+
+    def test_default_prefix_is_tc(self):
+        """Test that default prefix is 'TC' when not specified."""
+        item = Item(uid="SRS001", text="Req", document_prefix="SRS")
+        link = LinkedTest(
+            test_nodeid="test.py::test_foo",
+            item_uid="SRS001",
+            test_outcome="passed",
+        )
+        coverage = {"SRS001": ItemCoverage(item=item, linked_tests=[link])}
+
+        result = build_test_id_mapping(coverage)
+
+        assert result["test.py::test_foo"] == "TC001"
