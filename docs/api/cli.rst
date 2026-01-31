@@ -63,3 +63,8 @@ Import/Export Commands
 .. autofunction:: export_yaml
 
 .. autofunction:: import_yaml_cmd
+
+Test Case Commands
+------------------
+
+.. autofunction:: lock_tc

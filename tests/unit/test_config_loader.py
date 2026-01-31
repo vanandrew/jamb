@@ -556,3 +556,86 @@ class TestJambConfigValidation:
         )
         warnings = config.validate(["UN", "SRS", "PRJ"])
         assert warnings == []
+
+
+class TestTcIdPrefixValidation:
+    """Tests for tc_id_prefix configuration and validation."""
+
+    def test_default_tc_id_prefix(self):
+        """Test that default tc_id_prefix is 'TC'."""
+        config = JambConfig()
+        assert config.tc_id_prefix == "TC"
+
+    def test_custom_tc_id_prefix(self):
+        """Test that custom tc_id_prefix is accepted."""
+        config = JambConfig(tc_id_prefix="TEST")
+        assert config.tc_id_prefix == "TEST"
+
+    def test_tc_id_prefix_with_hyphen(self):
+        """Test that tc_id_prefix with hyphen is valid."""
+        config = JambConfig(tc_id_prefix="TC-")
+        warnings = config.validate([])
+        assert warnings == []
+
+    def test_tc_id_prefix_with_underscore(self):
+        """Test that tc_id_prefix with underscore is valid."""
+        config = JambConfig(tc_id_prefix="TEST_CASE_")
+        warnings = config.validate([])
+        assert warnings == []
+
+    def test_tc_id_prefix_alphanumeric(self):
+        """Test that alphanumeric tc_id_prefix is valid."""
+        config = JambConfig(tc_id_prefix="TC2024")
+        warnings = config.validate([])
+        assert warnings == []
+
+    def test_tc_id_prefix_invalid_characters_raises_error(self):
+        """Test that tc_id_prefix with invalid characters raises ValueError."""
+        import pytest
+
+        config = JambConfig(tc_id_prefix="TC@#$")
+        with pytest.raises(ValueError, match="invalid characters"):
+            config.validate([])
+
+    def test_tc_id_prefix_with_space_raises_error(self):
+        """Test that tc_id_prefix with space raises ValueError."""
+        import pytest
+
+        config = JambConfig(tc_id_prefix="TC ID")
+        with pytest.raises(ValueError, match="invalid characters"):
+            config.validate([])
+
+    def test_tc_id_prefix_with_dot_raises_error(self):
+        """Test that tc_id_prefix with dot raises ValueError."""
+        import pytest
+
+        config = JambConfig(tc_id_prefix="TC.ID")
+        with pytest.raises(ValueError, match="invalid characters"):
+            config.validate([])
+
+    def test_load_config_with_tc_id_prefix(self, tmp_path):
+        """Test loading config with tc_id_prefix from pyproject.toml."""
+        content = """
+[tool.jamb]
+test_documents = ["SRS"]
+tc_id_prefix = "TEST-"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+
+        assert config.tc_id_prefix == "TEST-"
+
+    def test_load_config_default_tc_id_prefix(self, tmp_path):
+        """Test that tc_id_prefix defaults to 'TC' when not specified."""
+        content = """
+[tool.jamb]
+test_documents = ["SRS"]
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+
+        assert config.tc_id_prefix == "TC"

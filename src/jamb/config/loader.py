@@ -40,6 +40,10 @@ class JambConfig:
             of the simple trace matrix.
         include_ancestors (bool): Whether to include a "Traces To" column
             showing ancestors of the starting items in full chain matrices.
+        tc_id_prefix (str): Prefix for auto-generated test case IDs. Defaults
+            to ``"TC"``, producing IDs like ``TC001``, ``TC002``. Custom prefixes
+            allow project-specific formats (e.g., ``"TEST-"`` → ``TEST-001``).
+            Must contain only alphanumeric characters, hyphens, or underscores.
 
     Examples:
         Construct a config with custom settings::
@@ -65,6 +69,7 @@ class JambConfig:
     software_version: str | None = None
     trace_from: str | None = None
     include_ancestors: bool = False
+    tc_id_prefix: str = "TC"
 
     def validate(self, available_documents: list[str]) -> list[str]:
         """Validate configuration against available documents.
@@ -74,7 +79,17 @@ class JambConfig:
 
         Returns:
             List of validation warning messages. Empty if no issues found.
+
+        Raises:
+            ValueError: If tc_id_prefix contains invalid characters.
         """
+        # Hard validation: tc_id_prefix must only contain alphanumeric, hyphens, underscores
+        if self.tc_id_prefix and not re.match(r"^[A-Za-z0-9_-]+$", self.tc_id_prefix):
+            raise ValueError(
+                f"tc_id_prefix '{self.tc_id_prefix}' contains invalid characters. "
+                "Only alphanumeric characters, hyphens, and underscores are allowed."
+            )
+
         validation_warnings: list[str] = []
 
         if self.trace_from and self.trace_from not in available_documents:
@@ -229,6 +244,7 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         "software_version",
         "trace_from",
         "include_ancestors",
+        "tc_id_prefix",
     }
     unknown = set(jamb_config.keys()) - RECOGNIZED_KEYS
     if unknown:
@@ -261,4 +277,5 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         software_version=software_version,
         trace_from=jamb_config.get("trace_from"),
         include_ancestors=jamb_config.get("include_ancestors", False),
+        tc_id_prefix=jamb_config.get("tc_id_prefix", "TC"),
     )

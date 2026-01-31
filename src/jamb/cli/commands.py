@@ -2170,6 +2170,7 @@ def matrix(
 
     The .jamb file is automatically created when running pytest with --jamb.
     """
+    from jamb.config.loader import load_config
     from jamb.coverage.serializer import load_coverage
     from jamb.matrix.generator import (
         build_test_id_mapping,
@@ -2177,6 +2178,10 @@ def matrix(
         generate_full_chain_matrix,
         generate_test_records_matrix,
     )
+
+    # Load jamb config for tc_id_prefix
+    config = load_config()
+    print(config.tc_id_prefix)
 
     # Load coverage data
     try:
@@ -2195,7 +2200,7 @@ def matrix(
 
     if test_records:
         # Generate test records matrix
-        records = build_test_records(coverage, manual_tc_ids)
+        records = build_test_records(coverage, manual_tc_ids, config.tc_id_prefix)
         generate_test_records_matrix(
             records,
             str(output),
@@ -2221,7 +2226,7 @@ def matrix(
             ignore_set = set(trace_to_ignore)
 
         # Generate trace matrix
-        tc_mapping = build_test_id_mapping(coverage, manual_tc_ids)
+        tc_mapping = build_test_id_mapping(coverage, manual_tc_ids, config.tc_id_prefix)
         generate_full_chain_matrix(
             coverage,
             graph,
@@ -2266,15 +2271,19 @@ def lock_tc(
     inserts @pytest.mark.tc_id() decorators into test functions, making the
     auto-generated IDs permanent.
 
+    \b
     Examples:
-
         jamb lock-tc
         jamb lock-tc --dry-run
         jamb lock-tc --test-dir tests/unit/
     """
+    from jamb.config.loader import load_config
     from jamb.coverage.serializer import load_coverage
     from jamb.matrix.generator import build_test_id_mapping
     from jamb.storage.test_references import insert_tc_id_markers
+
+    # Load jamb config for tc_id_prefix
+    config = load_config()
 
     # Auto-discover .jamb file if not specified
     if coverage_path is None:
@@ -2298,7 +2307,7 @@ def lock_tc(
     coverage, _, _, manual_tc_ids = load_coverage(str(coverage_path))
 
     # Build TC ID mapping (including any existing manual IDs)
-    tc_mapping = build_test_id_mapping(coverage, manual_tc_ids)
+    tc_mapping = build_test_id_mapping(coverage, manual_tc_ids, config.tc_id_prefix)
 
     if not tc_mapping:
         click.echo("No tests found in coverage data.")

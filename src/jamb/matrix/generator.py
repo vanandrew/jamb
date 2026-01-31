@@ -14,8 +14,20 @@ from jamb.core.models import (
 )
 from jamb.matrix.utils import group_tests_by_nodeid
 
-# Pattern to extract number from TC ID like "TC001", "TC42"
-TC_NUMBER_PATTERN = re.compile(r"^TC(\d+)$")
+# Default TC ID prefix
+DEFAULT_TC_PREFIX = "TC"
+
+
+def _build_tc_number_pattern(prefix: str) -> re.Pattern[str]:
+    """Build a regex pattern to extract number from TC ID with given prefix.
+
+    Args:
+        prefix: The TC ID prefix (e.g., "TC", "TEST-").
+
+    Returns:
+        Compiled regex pattern that captures the numeric part.
+    """
+    return re.compile(rf"^{re.escape(prefix)}(\d+)$")
 
 
 def _get_base_nodeid(nodeid: str) -> str:
@@ -50,20 +62,26 @@ def _num_to_suffix(n: int) -> str:
     return "".join(reversed(result))
 
 
-def _extract_reserved_numbers(manual_tc_ids: dict[str, str]) -> set[int]:
+def _extract_reserved_numbers(
+    manual_tc_ids: dict[str, str],
+    prefix: str = DEFAULT_TC_PREFIX,
+) -> set[int]:
     """Extract reserved TC numbers from manual IDs.
 
-    Manual IDs matching pattern TC### reserve that number from auto-generation.
+    Manual IDs matching the configured prefix pattern reserve that number
+    from auto-generation.
 
     Args:
         manual_tc_ids: Dict mapping nodeid to manual TC ID.
+        prefix: The TC ID prefix to match against.
 
     Returns:
         Set of reserved TC numbers.
     """
     reserved: set[int] = set()
+    pattern = _build_tc_number_pattern(prefix)
     for tc_id in manual_tc_ids.values():
-        match = TC_NUMBER_PATTERN.match(tc_id)
+        match = pattern.match(tc_id)
         if match:
             reserved.add(int(match.group(1)))
     return reserved
@@ -167,6 +185,7 @@ def _get_full_chain_formatter(output_format: str) -> FullChainFormatter:
 def build_test_id_mapping(
     coverage: dict[str, ItemCoverage],
     manual_tc_ids: dict[str, str] | None = None,
+    tc_id_prefix: str = DEFAULT_TC_PREFIX,
 ) -> dict[str, str]:
     """Build a mapping from test nodeid to TC ID.
 
@@ -177,11 +196,12 @@ def build_test_id_mapping(
     with alphabetic suffixes (TC001a, TC001b, etc.).
 
     Manual TC IDs (from @pytest.mark.tc_id) take precedence. IDs matching
-    pattern TC### reserve that number from auto-generation.
+    the configured prefix pattern reserve that number from auto-generation.
 
     Args:
         coverage: Coverage data mapping UIDs to ItemCoverage.
         manual_tc_ids: Optional dict mapping nodeid to manual TC ID.
+        tc_id_prefix: Prefix for auto-generated TC IDs (default: "TC").
 
     Returns:
         Dict mapping test nodeid to TC ID (e.g., "test.py::test_foo" -> "TC001").
@@ -198,7 +218,7 @@ def build_test_id_mapping(
     groups = _group_nodeids_by_base(sorted_nodeids)
 
     # Get reserved numbers from manual IDs
-    reserved = _extract_reserved_numbers(manual_tc_ids)
+    reserved = _extract_reserved_numbers(manual_tc_ids, tc_id_prefix)
 
     # Build mapping from base nodeid to manual TC ID (if any node in group has one)
     base_manual_ids: dict[str, str] = {}
@@ -236,7 +256,7 @@ def build_test_id_mapping(
             # Auto-assign: find next available number
             while auto_counter in reserved:
                 auto_counter += 1
-            base_tc_id = f"TC{str(auto_counter).zfill(width)}"
+            base_tc_id = f"{tc_id_prefix}{str(auto_counter).zfill(width)}"
             auto_counter += 1
 
         if is_parameterized:
@@ -254,6 +274,7 @@ def build_test_id_mapping(
 def build_test_records(
     coverage: dict[str, ItemCoverage],
     manual_tc_ids: dict[str, str] | None = None,
+    tc_id_prefix: str = DEFAULT_TC_PREFIX,
 ) -> list[TestRecord]:
     """Transform coverage data to test-centric records.
 
@@ -267,6 +288,7 @@ def build_test_records(
     Args:
         coverage: Coverage data mapping UIDs to ItemCoverage.
         manual_tc_ids: Optional dict mapping nodeid to manual TC ID.
+        tc_id_prefix: Prefix for auto-generated TC IDs (default: "TC").
 
     Returns:
         List of TestRecord objects, one per unique test.
@@ -274,7 +296,7 @@ def build_test_records(
     sorted_nodeids, tests_by_nodeid, _ = group_tests_by_nodeid(coverage)
 
     # Build TC ID mapping with manual IDs and parameterized support
-    tc_mapping = build_test_id_mapping(coverage, manual_tc_ids)
+    tc_mapping = build_test_id_mapping(coverage, manual_tc_ids, tc_id_prefix)
 
     records = []
     for nodeid in sorted_nodeids:
