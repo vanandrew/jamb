@@ -82,9 +82,6 @@ exclude_also = [
     "class .*\\(Protocol\\):",
 ]
 
-[tool.mypy]
-strict = true
-
 [tool.ruff]
 target-version = "py310"
 line-length = 120
@@ -99,6 +96,7 @@ dev = [
     "pre-commit",
     "types-PyYAML",
     "types-openpyxl",
+    "ty>=0.0.14",
 ]
 docs = [
     "sphinx>=7.0",
@@ -109,3 +107,7 @@ docs = [
     "sphinxcontrib-mermaid>=0.9",
     "sphinx-autodoc-typehints>=2.0",
 ]
+
+[tool.ty.src]
+# Only check source code, exclude tests which use MagicMock extensively
+include = ["src"]

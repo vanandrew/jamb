@@ -846,10 +846,12 @@ def item_add(
         # Parse numeric part
         pattern = re.compile(rf"^{re.escape(prefix)}{re.escape(config.sep)}(\d+)$", re.IGNORECASE)
         m = pattern.match(anchor_uid)
-        if not m:
+        if m is None:
             click.echo(f"Error: Cannot parse UID '{anchor_uid}'", err=True)
             sys.exit(1)
 
+        # Type narrowing after null check
+        assert m is not None
         anchor_num = int(m.group(1))
         position = anchor_num + 1 if after_uid else anchor_num
 
@@ -1014,6 +1016,7 @@ def item_remove(uid: str, force: bool, no_update_tests: bool, root: Path | None)
         if not click.confirm("Proceed with removal?", default=False):
             raise click.Abort()
 
+    assert item_path is not None  # Already checked above
     item_path.unlink()
     click.echo(f"Removed item: {uid}")
 
@@ -1069,6 +1072,8 @@ def item_show(uid: str) -> None:
         click.echo(f"Error: Item '{uid}' not found", err=True)
         sys.exit(1)
 
+    # Type narrowing: both are now known to be non-None
+    assert item_path is not None and prefix is not None
     data = read_item(item_path, prefix)
 
     click.echo(f"UID: {data['uid']}")
@@ -1122,6 +1127,8 @@ def link_add(child: str, parent: str) -> None:
         click.echo(f"Error: Parent item '{parent}' not found", err=True)
         sys.exit(1)
 
+    # Type narrowing after null checks
+    assert item_path is not None
     with open(item_path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
@@ -1168,6 +1175,8 @@ def link_remove(child: str, parent: str) -> None:
         click.echo(f"Error: Item '{child}' not found", err=True)
         sys.exit(1)
 
+    # Type narrowing after null check
+    assert item_path is not None
     with open(item_path, encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
 
@@ -1507,6 +1516,8 @@ def publish(
             click.echo("Example: jamb publish SRS output.docx --docx", err=True)
             sys.exit(1)
 
+        # Type narrowing after null check
+        assert path is not None
         _publish_docx(prefix, path, include_links, template)
         return
 
@@ -1517,6 +1528,8 @@ def publish(
         if not path:
             click.echo("Error: --html requires an output PATH", err=True)
             sys.exit(1)
+        # Type narrowing after null check
+        assert path is not None
         _publish_html(prefix, path, include_links)
         return
 
@@ -1525,6 +1538,8 @@ def publish(
         if not path:
             click.echo("Error: --markdown requires an output PATH", err=True)
             sys.exit(1)
+        # Type narrowing after null check
+        assert path is not None
         _publish_markdown(prefix, path, include_links)
         return
 
@@ -2072,6 +2087,8 @@ def import_yaml_cmd(
     if dry_run:
         click.echo("Dry run - no changes will be made:")
 
+    # Type narrowing after null check
+    assert file is not None
     stats = import_from_yaml(
         file,
         dry_run=dry_run,
@@ -2336,6 +2353,8 @@ def lock_tc(
             if not test_dir.exists():
                 test_dir = Path(".")
 
+    # Type narrowing: test_dir is guaranteed to be set at this point
+    assert test_dir is not None
     # Insert tc_id markers
     changes = insert_tc_id_markers(tc_mapping, test_dir, dry_run=dry_run)
 

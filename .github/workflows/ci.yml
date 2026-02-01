@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv sync --frozen --group dev
-      - run: uv run mypy src/jamb
+      - run: uv run ty check
 
   test:
     runs-on: ubuntu-latest
