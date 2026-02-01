@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 import yaml
 
@@ -523,7 +523,8 @@ def _extract_prefix(uid: str, dag: DocumentDAG | None = None) -> str | None:
     if dag is not None:
         # Match against known prefixes, longest first, to resolve ambiguity
         # (e.g. both "SRS" and "SRS2" exist — "SRS2001" should match "SRS2").
-        for prefix in sorted(dag.documents, key=len, reverse=True):
+        prefixes = cast(list[str], sorted(dag.documents.keys(), key=len, reverse=True))
+        for prefix in prefixes:
             config = dag.documents[prefix]
             sep = config.sep
             if uid.startswith(prefix + sep) and uid[len(prefix) + len(sep) :].isdigit():
