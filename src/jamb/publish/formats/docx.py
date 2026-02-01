@@ -244,7 +244,7 @@ def render_docx(
         item_type = item.type
 
         if item_type == "heading":
-            heading_display = item.header if item.header else item.uid
+            heading_display = item.uid
             heading = doc.add_heading(heading_display, level=1)
         else:
             if item.header:

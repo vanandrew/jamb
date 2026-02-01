@@ -225,7 +225,7 @@ def render_html(
 
         parts.append(f'<div class="{css_class}">')
         if item_type == "heading":
-            heading_display = item.header if item.header else item.uid
+            heading_display = item.uid
             parts.append(
                 f'<h2 id="{_esc(item.uid)}">{_esc(heading_display)}'
                 f'<span class="item-type-badge badge-heading">Heading</span></h2>'
