@@ -2873,6 +2873,7 @@ def test_example():
         finally:
             os.chdir(original_cwd)
 
+    @pytest.mark.filterwarnings("ignore:Orphaned items in coverage:UserWarning")
     def test_lock_tc_discovers_jamb_in_parent(self, runner, tmp_path):
         """Test lock-tc discovers .jamb file in parent directory."""
         import json
