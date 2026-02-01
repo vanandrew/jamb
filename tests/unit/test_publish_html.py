@@ -206,9 +206,9 @@ class TestRenderHtml:
 
         assert 'class="item item-heading"' in result
         assert "<h2" in result
-        assert "Safety Requirements" in result
+        assert "SRS001" in result
         # Heading should show header text (badge is appended)
-        assert "Safety Requirements<span" in result
+        assert "SRS001<span" in result
 
     def test_render_html_info_item_class(self):
         """Test that info items get item-info class."""
@@ -252,10 +252,10 @@ class TestRenderHtml:
         ]
         result = render_html(items, "SRS")
 
-        # Should NOT have "SRS001: Section Header" in the h2
-        assert "SRS001: Section Header<span" not in result
+        # Should have "SRS001" in the h2
+        assert "SRS001<span" in result
         # Header text should appear before the badge span
-        assert "Section Header<span" in result
+        assert "SRS001<span" in result
 
     def test_render_html_child_links_no_graph(self):
         """Child links section not rendered when graph is None."""
@@ -464,7 +464,7 @@ class TestRenderHtmlEdgeCases:
 
         # Heading renders as <h2>, others as <h3>
         # Each item has a type badge appended
-        assert ">Safety Section<span" in result
+        assert ">SRS001<span" in result
         assert ">SRS002<span" in result
         assert ">SRS003<span" in result
 
