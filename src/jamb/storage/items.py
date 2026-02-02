@@ -313,6 +313,7 @@ def compute_content_hash(item_data: dict[str, Any]) -> str:
     """
 
     def normalize(s: str) -> str:
+        """Normalize a string to NFC Unicode form for consistent hashing."""
         return unicodedata.normalize("NFC", s)
 
     content_parts = [

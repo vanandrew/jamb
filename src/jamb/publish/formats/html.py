@@ -190,6 +190,7 @@ def render_html(
     fallback_order = len(document_order) if document_order else 0
 
     def get_doc_order(item: Item) -> int:
+        """Return sort index for an item based on document hierarchy order."""
         return doc_order_index.get(item.document_prefix, fallback_order)
 
     sorted_items = sorted(items, key=lambda x: (get_doc_order(x), x.document_prefix, x.uid))

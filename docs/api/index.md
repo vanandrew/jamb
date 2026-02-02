@@ -8,6 +8,7 @@ Python API documentation for jamb's public modules.
 core
 config
 storage
+coverage
 cli
 pytest_plugin
 matrix

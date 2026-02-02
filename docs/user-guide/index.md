@@ -8,6 +8,7 @@ Detailed documentation for using jamb in your projects.
 concepts
 configuration
 commands
+publishing
 yaml-format
 pytest-integration
 ci-cd

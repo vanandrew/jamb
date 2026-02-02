@@ -61,6 +61,11 @@ def group_tests_by_nodeid(
         return [], {}, 3
 
     def sort_key(nodeid: str) -> tuple[str, str]:
+        """Return sort key (first_requirement, nodeid) for consistent test ordering.
+
+        Tests are sorted by their first linked requirement UID (alphabetically),
+        with nodeid as tiebreaker. This ensures stable TC ID assignment.
+        """
         links = tests_by_nodeid[nodeid]
         reqs = sorted(set(lk.item_uid for lk in links))
         first_req = reqs[0] if reqs else ""

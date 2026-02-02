@@ -525,6 +525,18 @@ jamb matrix trace.html --include-ancestors
 jamb matrix trace.html --input=.jamb-coverage
 ```
 
+**Choosing an Output Format:**
+
+| Format | Extension | Best For | Considerations |
+|--------|-----------|----------|----------------|
+| HTML | `.html` | Regulatory submissions, standalone viewing | Self-contained with CSS, hyperlinks between items |
+| Markdown | `.md` | GitHub/GitLab rendering, documentation sites | Plain text, diff-friendly, integrates with docs pipelines |
+| JSON | `.json` | Tooling integration, custom processing | Structured data, suitable for programmatic access |
+| CSV | `.csv` | Large datasets, spreadsheet import | Recommended for 5,000+ rows, smallest memory footprint |
+| XLSX | `.xlsx` | Excel review, stakeholder distribution | Styled cells, color-coded status, good for small-medium matrices |
+
+**Performance Note:** For matrices with more than 5,000 rows, CSV is recommended. HTML and XLSX formats load all data into memory for styling, while CSV streams directly to disk.
+
 ---
 
 ### jamb lock-tc

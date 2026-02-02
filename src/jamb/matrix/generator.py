@@ -228,6 +228,11 @@ def build_test_id_mapping(
 
     # Sort base nodeids using first nodeid in each group's sort key
     def base_sort_key(base: str) -> tuple[str, str]:
+        """Return sort key (first_requirement, first_nodeid) for a base test function.
+
+        Used to ensure consistent TC ID ordering: tests are sorted by their first
+        linked requirement UID (alphabetically), with nodeid as tiebreaker.
+        """
         # Use the first nodeid in the group for sorting
         first_nodeid = groups[base][0]
         # Get first requirement for this test (same logic as group_tests_by_nodeid)

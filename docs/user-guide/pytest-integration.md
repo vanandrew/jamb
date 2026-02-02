@@ -209,9 +209,27 @@ When using `--jamb-tester-id` and `--jamb-software-version`, the matrix includes
 
 This metadata satisfies IEC 62304 Clause 5.7.5 requirements for software system test records.
 
-#### Test Records Matrix Example
+#### Test Records Matrix (IEC 62304 5.7.5)
 
-The test records matrix is test-centric, showing one row per test:
+The test records matrix is a test-centric view designed to satisfy **IEC 62304 Clause 5.7.5** requirements for software system test records. Each row represents a single test execution with complete traceability to requirements.
+
+**IEC 62304 5.7.5 requires:**
+- Test procedures or test cases
+- Expected results
+- Actual results
+- Pass/fail status
+- Tester identification
+- Date of testing
+
+The jamb test records matrix provides all of these through:
+- **Test Case column**: Unique test identifier (TC001, etc.)
+- **Expected Results column**: Populated via `jamb_log.expected_result()`
+- **Actual Results column**: Populated via `jamb_log.actual_result()`
+- **Outcome column**: Pass/fail/skip status from pytest
+- **Metadata header**: Tester ID, timestamp, and software version
+- **Requirements column**: Links to verified requirements
+
+**Example output (one row per test):**
 
 | Test Case | Test Name | Outcome | Requirements | Test Actions | Expected Results | Actual Results | Notes | Timestamp |
 |-----------|-----------|---------|--------------|--------------|------------------|----------------|-------|-----------|

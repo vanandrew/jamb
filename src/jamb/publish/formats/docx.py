@@ -226,6 +226,7 @@ def render_docx(
     fallback_order = len(document_order) if document_order else 0
 
     def get_doc_order(item: Item) -> int:
+        """Return sort index for an item based on document hierarchy order."""
         return doc_order_index.get(item.document_prefix, fallback_order)
 
     # Sort items by document hierarchy, then UID
