@@ -1,6 +1,7 @@
 active: true
 header: Data Polling
 type: requirement
+safety_class: C
 links:
 - RC001: TUd9JBnZefOAi02jqu4Y3WFiLJAfBI_srcbJREqorGw
 - SYS003: w09LYCJsEzfNmeLb1rLmrw5F9gPrp9mkcAy5pOfdO6Y

@@ -133,6 +133,8 @@ def render_full_chain_csv(
         if matrix.include_ancestors:
             headers.append("Traces To")
         headers.extend(matrix.document_hierarchy)
+        for col_config in matrix.column_configs:
+            headers.append(col_config.header)
         headers.extend(["Tests", "Status"])
         writer.writerow(headers)
 
@@ -151,6 +153,10 @@ def render_full_chain_csv(
                     cells.append(f"{item.uid}: {item.full_display_text}")
                 else:
                     cells.append("")
+
+            # Extra columns
+            for col_config in matrix.column_configs:
+                cells.append(row.extra_columns.get(col_config.key, col_config.default))
 
             # Tests column
             tests = []

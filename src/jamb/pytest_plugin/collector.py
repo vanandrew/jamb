@@ -499,6 +499,7 @@ class RequirementCollector:
             tc_mapping=tc_mapping,
             trace_to_ignore=trace_to_ignore,
             all_test_links=self._build_links_by_uid(),
+            column_configs=self.jamb_config.matrix_columns or None,
         )
 
     def save_coverage_file(

@@ -118,6 +118,7 @@ def render_full_chain_json(
             "path_name": matrix.path_name,
             "document_hierarchy": matrix.document_hierarchy,
             "include_ancestors": matrix.include_ancestors,
+            "column_configs": [{"key": c.key, "header": c.header, "source": c.source} for c in matrix.column_configs],
             "summary": matrix.summary,
             "rows": [],
         }
@@ -141,6 +142,10 @@ def render_full_chain_json(
                     }
                 else:
                     row_data["chain"][prefix] = None
+
+            # Extra columns
+            if row.extra_columns:
+                row_data["extra_columns"] = row.extra_columns
 
             # Tests
             for test in row.descendant_tests:

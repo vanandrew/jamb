@@ -1,6 +1,7 @@
 active: true
 header: Session Refresh
 type: requirement
+safety_class: B
 links:
 - SYS002: am-pBFVcPYF2ruXcASif26hxeS8ykY4_JHd6blwFFZE
 text: |

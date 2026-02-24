@@ -109,6 +109,8 @@ verification_method: test
 
 Custom attributes are read and written by jamb without modification. They are available on the `Item.custom_attributes` dictionary and will be preserved across edits and imports.
 
+Custom attributes can be displayed as extra columns in the traceability matrix by configuring `[[tool.jamb.matrix_columns]]` in `pyproject.toml`. See {doc}`configuration` for details.
+
 ## Document Configuration (`.jamb.yml`)
 
 Each document directory contains a `.jamb.yml` configuration file:

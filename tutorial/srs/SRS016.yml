@@ -2,6 +2,7 @@ active: true
 derived: true
 header: Redundant Alert Delivery
 type: requirement
+safety_class: C
 links:
 - RC002: iQYRUfrCVdRM3HlCqFQhTepmGpZfdxV2xdcE0icNcU0
 text: |

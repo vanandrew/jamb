@@ -1,6 +1,7 @@
 active: true
 header: Data Retention
 type: requirement
+safety_class: B
 links:
 - SYS004: CtaneGYoBbcrTfiqEiCbPrQcefYCf_cv5PS2sMetAb4
 text: |

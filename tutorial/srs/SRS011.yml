@@ -1,6 +1,7 @@
 active: true
 header: Pagination
 type: requirement
+safety_class: A
 links:
 - SYS005: 78LFGysHpzqHZioVvuM7LteQaR-jARk-5_WOQsnAkwo
 text: |

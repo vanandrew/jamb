@@ -1276,3 +1276,126 @@ class TestBuildChainRowsEmptyPath:
         result = _build_chain_rows(graph, coverage, [], include_ancestors=False)
 
         assert result == []
+
+
+class TestExtraColumns:
+    """Tests for extra column resolution in full chain matrices."""
+
+    def test_review_status_always_present(self):
+        """Review Status column is always included even without column_configs."""
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="Requirement", document_prefix="SRS", reviewed=None)
+        graph.add_item(item)
+
+        coverage: dict[str, ItemCoverage] = {}
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SRS")
+
+        assert len(matrices) == 1
+        matrix = matrices[0]
+        # review_status should always be in column_configs
+        assert any(c.key == "review_status" for c in matrix.column_configs)
+        # and populated on the row
+        row = matrix.rows[0]
+        assert row.extra_columns["review_status"] == "Not Reviewed"
+
+    def test_custom_attribute_column(self):
+        """Custom attribute values are resolved from Item.custom_attributes."""
+        from jamb.core.models import MatrixColumnConfig
+
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(
+            uid="SRS001",
+            text="Requirement",
+            document_prefix="SRS",
+            custom_attributes={"safety_class": "B"},
+        )
+        graph.add_item(item)
+
+        coverage: dict[str, ItemCoverage] = {}
+        col = MatrixColumnConfig(key="safety_class", header="Safety Class")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SRS", column_configs=[col])
+
+        row = matrices[0].rows[0]
+        assert row.extra_columns["safety_class"] == "B"
+
+    def test_missing_custom_attribute_uses_default(self):
+        """Missing custom attribute shows the configured default."""
+        from jamb.core.models import MatrixColumnConfig
+
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="Requirement", document_prefix="SRS")
+        graph.add_item(item)
+
+        coverage: dict[str, ItemCoverage] = {}
+        col = MatrixColumnConfig(key="owner", header="Owner", default="Unassigned")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SRS", column_configs=[col])
+
+        row = matrices[0].rows[0]
+        assert row.extra_columns["owner"] == "Unassigned"
+
+    def test_user_review_status_not_duplicated(self):
+        """User-supplied review_status config is deduplicated with the built-in."""
+        from jamb.core.models import MatrixColumnConfig
+
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="Requirement", document_prefix="SRS")
+        graph.add_item(item)
+
+        coverage: dict[str, ItemCoverage] = {}
+        user_col = MatrixColumnConfig(key="review_status", header="Review", source="built_in")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SRS", column_configs=[user_col])
+
+        matrix = matrices[0]
+        review_cols = [c for c in matrix.column_configs if c.key == "review_status"]
+        assert len(review_cols) == 1
+
+    def test_extra_columns_uses_deepest_item(self):
+        """Extra columns use the deepest non-None item in the chain."""
+        from jamb.core.models import MatrixColumnConfig
+
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SYS", [])
+        graph.set_document_parents("SRS", ["SYS"])
+
+        sys_item = Item(
+            uid="SYS001",
+            text="System req",
+            document_prefix="SYS",
+            custom_attributes={"safety_class": "A"},
+        )
+        srs_item = Item(
+            uid="SRS001",
+            text="Software req",
+            document_prefix="SRS",
+            links=["SYS001"],
+            custom_attributes={"safety_class": "C"},
+        )
+        graph.add_item(sys_item)
+        graph.add_item(srs_item)
+
+        coverage: dict[str, ItemCoverage] = {}
+        col = MatrixColumnConfig(key="safety_class", header="Safety Class")
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            matrices = build_full_chain_matrix(graph, coverage, "SYS", column_configs=[col])
+
+        # SRS001 is the deepest item in the chain, so its value should be used
+        row = matrices[0].rows[0]
+        assert row.extra_columns["safety_class"] == "C"

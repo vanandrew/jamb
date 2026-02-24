@@ -9,6 +9,7 @@ from jamb.core.models import (
     Item,
     ItemCoverage,
     LinkedTest,
+    MatrixColumnConfig,
     TraceabilityGraph,
 )
 
@@ -267,6 +268,52 @@ def _get_ancestor_uids(
     return ancestor_uids
 
 
+def _resolve_extra_columns(
+    chain: dict[str, Item | None],
+    doc_path: list[str],
+    column_configs: list[MatrixColumnConfig],
+) -> dict[str, str]:
+    """Resolve extra column values for a chain row.
+
+    For each column, walks the chain from deepest to shallowest item.
+    Built-in columns (e.g. review_status) resolve from the deepest item.
+    Custom attribute columns check each item in turn, using the first
+    one that has the attribute — so a parent's attribute is inherited
+    when the child doesn't define it.
+    """
+    if not column_configs:
+        return {}
+
+    from jamb.matrix.column_resolvers import resolve_column
+
+    # Collect non-None items from deepest to shallowest
+    items = []
+    for prefix in reversed(doc_path):
+        item = chain.get(prefix)
+        if item is not None:
+            items.append(item)
+
+    if not items:
+        return {c.key: c.default for c in column_configs}
+
+    result: dict[str, str] = {}
+    for config in column_configs:
+        if config.source == "built_in":
+            # Built-in columns always resolve from deepest item
+            result[config.key] = resolve_column(items[0], config)
+        else:
+            # Custom attributes: walk up the chain until we find one
+            resolved = config.default
+            for item in items:
+                value = item.custom_attributes.get(config.key)
+                if value is not None:
+                    resolved = str(value)
+                    break
+            result[config.key] = resolved
+
+    return result
+
+
 def _build_chain_rows(
     graph: TraceabilityGraph,
     coverage: dict[str, ItemCoverage],
@@ -274,6 +321,7 @@ def _build_chain_rows(
     include_ancestors: bool,
     trace_to_ignore: set[str] | None = None,
     all_test_links: dict[str, list[LinkedTest]] | None = None,
+    column_configs: list[MatrixColumnConfig] | None = None,
 ) -> list[ChainRow]:
     """Build chain rows for a single document path.
 
@@ -285,6 +333,7 @@ def _build_chain_rows(
         trace_to_ignore: Set of document prefixes to exclude from output.
         all_test_links: Optional dict mapping UIDs to LinkedTest lists for
             tests linked to higher-order items not in coverage.
+        column_configs: Optional list of extra column definitions to resolve.
 
     Returns:
         List of ChainRow objects representing all trace chains in this path.
@@ -384,6 +433,12 @@ def _build_chain_rows(
     initial_chain: dict[str, Item | None] = {p: None for p in doc_path}
     rows = list(build_chains(0, initial_chain, start_items))
 
+    # Resolve extra columns for each row
+    configs = column_configs or []
+    if configs:
+        for row in rows:
+            row.extra_columns = _resolve_extra_columns(row.chain, doc_path, configs)
+
     return rows
 
 
@@ -473,6 +528,7 @@ def build_full_chain_matrix(
     include_ancestors: bool = False,
     trace_to_ignore: set[str] | None = None,
     all_test_links: dict[str, list[LinkedTest]] | None = None,
+    column_configs: list[MatrixColumnConfig] | None = None,
 ) -> list[FullChainMatrix]:
     """Build full chain matrices from starting document.
 
@@ -489,6 +545,9 @@ def build_full_chain_matrix(
             and from the "Traces To" ancestor UIDs.
         all_test_links: Optional dict mapping UIDs to LinkedTest lists for
             tests linked to higher-order items not in coverage.
+        column_configs: Optional list of extra column definitions.  When
+            provided, each :class:`ChainRow` will have its
+            :attr:`~ChainRow.extra_columns` populated.
 
     Returns:
         List of FullChainMatrix objects, one per unique path.
@@ -498,6 +557,16 @@ def build_full_chain_matrix(
         ValueError: If start_prefix is not found in document hierarchy.
     """
     trace_to_ignore = trace_to_ignore or set()
+
+    # Always include the built-in review_status column, followed by user-configured columns.
+    # Filter out any user-supplied review_status to avoid duplicates.
+    _REVIEW_STATUS = MatrixColumnConfig(
+        key="review_status",
+        header="Review Status",
+        source="built_in",
+    )
+    user_columns = [c for c in (column_configs or []) if c.key != "review_status"]
+    all_columns = [_REVIEW_STATUS] + user_columns
 
     # Get all document paths from start
     doc_paths = get_document_paths(graph, start_prefix)
@@ -527,6 +596,7 @@ def build_full_chain_matrix(
             include_ancestors,
             trace_to_ignore,
             all_test_links,
+            all_columns,
         )
 
         # Filter chain keys to remove ignored documents
@@ -543,6 +613,7 @@ def build_full_chain_matrix(
                 rows=rows,
                 summary=summary,
                 include_ancestors=include_ancestors,
+                column_configs=all_columns,
             )
         )
 

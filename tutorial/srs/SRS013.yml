@@ -1,6 +1,7 @@
 active: true
 header: Alert Generation
 type: requirement
+safety_class: C
 links:
 - RC002: iQYRUfrCVdRM3HlCqFQhTepmGpZfdxV2xdcE0icNcU0
 - SYS006: LbRtIiCYnJrTd7Hzjsr1r9v6PJl4d0AEoL6NlzCejb0

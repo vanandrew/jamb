@@ -1,6 +1,7 @@
 active: true
 header: Alert Severity Indicators
 type: requirement
+safety_class: C
 links:
 - SYS007: Vfpqi8wREMN7pDa-qOyKxZUN7Wqf20053EoE-giMsoM
 text: |

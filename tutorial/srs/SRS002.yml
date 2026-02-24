@@ -1,6 +1,7 @@
 active: true
 header: Password Hashing
 type: requirement
+safety_class: C
 links:
 - SYS001: uZKEiImD_hhgpxT32ApV1NJg8ShEo2WomgaEQNYze3w
 text: |

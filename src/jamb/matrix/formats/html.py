@@ -318,6 +318,8 @@ def render_full_chain_html(
         if matrix.include_ancestors:
             headers.append("Traces To")
         headers.extend(matrix.document_hierarchy)
+        for col_config in matrix.column_configs:
+            headers.append(col_config.header)
         headers.extend(["Tests", "Status"])
 
         header_cells = "".join(f"<th>{_escape_html(h)}</th>" for h in headers)
@@ -350,6 +352,11 @@ def render_full_chain_html(
                     cells.append(f"<td>{cell_html}</td>")
                 else:
                     cells.append("<td>-</td>")
+
+            # Extra columns
+            for col_config in matrix.column_configs:
+                value = row.extra_columns.get(col_config.key, col_config.default)
+                cells.append(f"<td>{_escape_html(value)}</td>")
 
             # Tests column
             tests_html = ""
