@@ -95,6 +95,24 @@ class Item:
 
 
 @dataclass
+class MatrixColumnConfig:
+    """Configuration for an extra column in the full chain matrix.
+
+    Attributes:
+        key: The attribute key (custom_attribute name or built-in column name).
+        header: Display name for the column header.
+        source: Source type: ``"custom_attribute"`` reads from
+            :attr:`Item.custom_attributes`, ``"built_in"`` uses a resolver.
+        default: Default display value when attribute is missing.
+    """
+
+    key: str
+    header: str
+    source: Literal["custom_attribute", "built_in"] = "custom_attribute"
+    default: str = "-"
+
+
+@dataclass
 class LinkedTest:
     """Represents a link from a pytest test to a requirements item.
 
@@ -517,6 +535,9 @@ class ChainRow:
         ancestor_uids (list[str]): UIDs of items that the starting item
             traces to (its ancestors). Only populated when --include-ancestors
             is used.
+        extra_columns (dict[str, str]): Resolved extra column values keyed
+            by :attr:`MatrixColumnConfig.key`. Populated by the chain builder
+            when ``column_configs`` are provided.
     """
 
     chain: dict[str, Item | None] = field(default_factory=dict)
@@ -524,6 +545,7 @@ class ChainRow:
     rollup_status: str = "Not Covered"
     descendant_tests: list[LinkedTest] = field(default_factory=list)
     ancestor_uids: list[str] = field(default_factory=list)
+    extra_columns: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -548,6 +570,8 @@ class FullChainMatrix:
             - na: Items that are not testable
         include_ancestors (bool): Whether this matrix includes the
             "Traces To" column showing ancestors.
+        column_configs (list[MatrixColumnConfig]): Extra column definitions
+            to render between document hierarchy and Tests/Status columns.
     """
 
     path_name: str
@@ -555,3 +579,4 @@ class FullChainMatrix:
     rows: list[ChainRow] = field(default_factory=list)
     summary: dict[str, int] = field(default_factory=dict)
     include_ancestors: bool = False
+    column_configs: list[MatrixColumnConfig] = field(default_factory=list)

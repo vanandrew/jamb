@@ -297,6 +297,8 @@ def render_full_chain_xlsx(
         if matrix.include_ancestors:
             headers.append("Traces To")
         headers.extend(matrix.document_hierarchy)
+        for col_config in matrix.column_configs:
+            headers.append(col_config.header)
         headers.extend(["Tests", "Status"])
 
         header_row = current_row
@@ -325,6 +327,12 @@ def render_full_chain_xlsx(
                     ws.cell(row=row, column=col, value=rich_text)
                 else:
                     ws.cell(row=row, column=col, value="")
+                col += 1
+
+            # Extra columns
+            for col_config in matrix.column_configs:
+                value = chain_row.extra_columns.get(col_config.key, col_config.default)
+                ws.cell(row=row, column=col, value=value)
                 col += 1
 
             # Tests column
@@ -359,11 +367,13 @@ def render_full_chain_xlsx(
             row += 1
 
         # Set variable column widths based on content type
-        col_widths = {
+        col_widths: dict[str, int] = {
             "Traces To": 25,
             "Tests": 50,
             "Status": 12,
         }
+        for col_config in matrix.column_configs:
+            col_widths[col_config.header] = 18
         default_width = 35  # For document columns
 
         for col_idx, header in enumerate(headers, start=1):

@@ -1,6 +1,7 @@
 active: true
 header: PDF Report
 type: requirement
+safety_class: A
 links:
 - SYS008: 2FhupX__wu3bPAAsuuMDHz8colKrxWcPeYq2ZyjQGjo
 text: |

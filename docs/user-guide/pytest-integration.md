@@ -290,5 +290,7 @@ The trace matrix is requirement-centric, showing the full traceability chain fro
 |--------|-------------|
 | Traces To | Ancestor UIDs (optional, enabled with `--include-ancestors`) |
 | [Document Columns] | One column per document in hierarchy (e.g., UN, SYS, SRS), showing UID and requirement text |
+| Review Status | Always present. Shows "Reviewed", "Not Reviewed", or "Suspect" based on the item's review state |
+| [Extra Columns] | Custom attribute columns configured via `[[tool.jamb.matrix_columns]]` in pyproject.toml (see {doc}`configuration`) |
 | Tests | pytest tests linked to leaf items, with TC IDs and outcomes |
 | Status | Passed, Failed, Not Covered, Partial, or N/A |

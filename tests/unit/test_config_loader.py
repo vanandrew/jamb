@@ -639,3 +639,134 @@ test_documents = ["SRS"]
         config = load_config(pyproject)
 
         assert config.tc_id_prefix == "TC"
+
+    def test_load_config_matrix_columns(self, tmp_path):
+        """Test that matrix_columns are parsed from TOML array-of-tables."""
+        content = """
+[tool.jamb]
+test_documents = ["SRS"]
+
+[[tool.jamb.matrix_columns]]
+key = "safety_class"
+header = "Safety Class"
+
+[[tool.jamb.matrix_columns]]
+key = "verification_method"
+header = "Verification Method"
+default = "N/A"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+
+        assert len(config.matrix_columns) == 2
+        assert config.matrix_columns[0].key == "safety_class"
+        assert config.matrix_columns[0].header == "Safety Class"
+        assert config.matrix_columns[0].source == "custom_attribute"
+        assert config.matrix_columns[0].default == "-"
+        assert config.matrix_columns[1].key == "verification_method"
+        assert config.matrix_columns[1].default == "N/A"
+
+    def test_load_config_matrix_columns_built_in(self, tmp_path):
+        """Test that built-in source columns are parsed correctly."""
+        content = """
+[tool.jamb]
+
+[[tool.jamb.matrix_columns]]
+key = "review_status"
+header = "Review Status"
+source = "built_in"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+
+        assert len(config.matrix_columns) == 1
+        assert config.matrix_columns[0].source == "built_in"
+
+    def test_load_config_matrix_columns_empty(self, tmp_path):
+        """Test that absent matrix_columns gives empty list."""
+        content = """
+[tool.jamb]
+test_documents = ["SRS"]
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+
+        assert config.matrix_columns == []
+
+    def test_load_config_matrix_columns_missing_key_warns(self, tmp_path):
+        """Test that an entry without 'key' produces a warning."""
+        content = """
+[tool.jamb]
+
+[[tool.jamb.matrix_columns]]
+header = "Orphan Column"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config = load_config(pyproject)
+
+        assert config.matrix_columns == []
+        assert any("missing required 'key'" in str(warning.message) for warning in w)
+
+    def test_load_config_matrix_columns_unknown_source_warns(self, tmp_path):
+        """Test that an unknown source value produces a warning."""
+        content = """
+[tool.jamb]
+
+[[tool.jamb.matrix_columns]]
+key = "foo"
+source = "magic"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config = load_config(pyproject)
+
+        assert config.matrix_columns == []
+        assert any("unknown source 'magic'" in str(warning.message) for warning in w)
+
+    def test_load_config_matrix_columns_unknown_built_in_warns(self, tmp_path):
+        """Test that an unrecognized built-in key produces a warning."""
+        content = """
+[tool.jamb]
+
+[[tool.jamb.matrix_columns]]
+key = "nonexistent"
+source = "built_in"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            config = load_config(pyproject)
+
+        assert config.matrix_columns == []
+        assert any("not a recognized built-in" in str(warning.message) for warning in w)
+
+    def test_load_config_matrix_columns_default_header(self, tmp_path):
+        """Test that header defaults to key when omitted."""
+        content = """
+[tool.jamb]
+
+[[tool.jamb.matrix_columns]]
+key = "safety_class"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        config = load_config(pyproject)
+
+        assert len(config.matrix_columns) == 1
+        assert config.matrix_columns[0].header == "safety_class"

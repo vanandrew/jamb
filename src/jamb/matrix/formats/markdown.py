@@ -195,6 +195,8 @@ def render_full_chain_markdown(
         if matrix.include_ancestors:
             headers.append("Traces To")
         headers.extend(matrix.document_hierarchy)
+        for col_config in matrix.column_configs:
+            headers.append(col_config.header)
         headers.extend(["Tests", "Status"])
 
         lines.append("| " + " | ".join(headers) + " |")
@@ -223,6 +225,11 @@ def render_full_chain_markdown(
                     cells.append(_truncate_for_table(cell_text))
                 else:
                     cells.append("-")
+
+            # Extra columns
+            for col_config in matrix.column_configs:
+                value = row.extra_columns.get(col_config.key, col_config.default)
+                cells.append(_escape_markdown(value))
 
             # Tests column
             tests = []

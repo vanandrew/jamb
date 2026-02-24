@@ -1,6 +1,7 @@
 active: true
 header: WebSocket Connection
 type: requirement
+safety_class: C
 links:
 - SYS003: w09LYCJsEzfNmeLb1rLmrw5F9gPrp9mkcAy5pOfdO6Y
 text: |

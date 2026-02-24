@@ -1,6 +1,7 @@
 active: true
 header: Data Export
 type: requirement
+safety_class: A
 links:
 - PRJ001: yxrl6T6RUGUGkmtjL_8JRSLyHVix2Q6yC2vuVgwtacg
 text: |

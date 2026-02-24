@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from jamb.core.models import MatrixColumnConfig
+
 try:
     import tomllib  # type: ignore[import-not-found]
 except ImportError:
@@ -44,6 +46,9 @@ class JambConfig:
             to ``"TC"``, producing IDs like ``TC001``, ``TC002``. Custom prefixes
             allow project-specific formats (e.g., ``"TEST-"`` → ``TEST-001``).
             Must contain only alphanumeric characters, hyphens, or underscores.
+        matrix_columns (list[MatrixColumnConfig]): Extra columns to display
+            in the full chain traceability matrix. Each entry defines a column
+            sourced from a custom attribute or a built-in resolver.
 
     Examples:
         Construct a config with custom settings::
@@ -70,6 +75,7 @@ class JambConfig:
     trace_from: str | None = None
     include_ancestors: bool = False
     tc_id_prefix: str = "TC"
+    matrix_columns: list[MatrixColumnConfig] = field(default_factory=list)
 
     def validate(self, available_documents: list[str]) -> list[str]:
         """Validate configuration against available documents.
@@ -245,6 +251,7 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         "trace_from",
         "include_ancestors",
         "tc_id_prefix",
+        "matrix_columns",
     }
     unknown = set(jamb_config.keys()) - RECOGNIZED_KEYS
     if unknown:
@@ -266,6 +273,49 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         if "version" in dynamic:
             software_version = _get_dynamic_version(pyproject, config_path.parent)
 
+    # Parse matrix_columns array-of-tables
+    BUILT_IN_COLUMNS = {"review_status"}
+    raw_columns = jamb_config.get("matrix_columns", [])
+    matrix_columns: list[MatrixColumnConfig] = []
+    for col in raw_columns:
+        if not isinstance(col, dict):
+            warnings.warn(
+                f"Invalid matrix_columns entry (expected table): {col}",
+                stacklevel=2,
+            )
+            continue
+        key = col.get("key")
+        if not key:
+            warnings.warn(
+                "matrix_columns entry missing required 'key' field",
+                stacklevel=2,
+            )
+            continue
+        source = col.get("source", "custom_attribute")
+        if source not in ("custom_attribute", "built_in"):
+            warnings.warn(
+                f"matrix_columns entry '{key}' has unknown source '{source}'. "
+                "Expected 'custom_attribute' or 'built_in'.",
+                stacklevel=2,
+            )
+            continue
+        if source == "built_in" and key not in BUILT_IN_COLUMNS:
+            warnings.warn(
+                f"matrix_columns entry '{key}' uses source 'built_in' but "
+                f"'{key}' is not a recognized built-in column. "
+                f"Available: {', '.join(sorted(BUILT_IN_COLUMNS))}",
+                stacklevel=2,
+            )
+            continue
+        matrix_columns.append(
+            MatrixColumnConfig(
+                key=key,
+                header=col.get("header", key),
+                source=source,
+                default=col.get("default", "-"),
+            )
+        )
+
     return JambConfig(
         test_documents=jamb_config.get("test_documents", []),
         fail_uncovered=jamb_config.get("fail_uncovered", False),
@@ -278,4 +328,5 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         trace_from=jamb_config.get("trace_from"),
         include_ancestors=jamb_config.get("include_ancestors", False),
         tc_id_prefix=jamb_config.get("tc_id_prefix", "TC"),
+        matrix_columns=matrix_columns,
     )

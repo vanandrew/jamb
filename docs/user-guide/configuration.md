@@ -84,6 +84,20 @@ include_ancestors = true
 !!! note "Changing the prefix"
     Changing `tc_id_prefix` only affects newly generated TC IDs. Existing IDs in test files (from `@pytest.mark.tc_id`) and the `.jamb` coverage file must be updated manually.
 
+`matrix_columns`
+: Extra columns to display in the full chain traceability matrix. Each entry defines a column sourced from an item's custom attributes. The built-in **Review Status** column is always present (you do not need to configure it).
+: **Type:** `list` of tables with keys `key`, `header`, `source`, `default`
+: **Default:** `[]`
+
+Each `[[tool.jamb.matrix_columns]]` entry supports:
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `key` | Custom attribute name to read from the item YAML | *(required)* |
+| `header` | Column header displayed in the matrix | same as `key` |
+| `source` | `"custom_attribute"` (read from item YAML) or `"built_in"` (computed) | `"custom_attribute"` |
+| `default` | Value shown when the attribute is missing | `"-"` |
+
 ### Example Configurations
 
 **Minimal (most projects):**
@@ -123,6 +137,25 @@ trace_from = "UN"
 include_ancestors = true
 trace_to_ignore = ["PRJ", "HAZ"]
 ```
+
+**Extra columns in the trace matrix:**
+
+```toml
+[tool.jamb]
+test_documents = ["SRS"]
+trace_from = "UN"
+
+[[tool.jamb.matrix_columns]]
+key = "safety_class"
+header = "Safety Class"
+
+[[tool.jamb.matrix_columns]]
+key = "verification_method"
+header = "Verification Method"
+default = "test"
+```
+
+With this configuration, items with `safety_class: B` in their YAML will display "B" in the Safety Class column. Items without the attribute display the default ("-"). The Review Status column is always included automatically.
 
 ## Document Configuration (`.jamb.yml`)
 

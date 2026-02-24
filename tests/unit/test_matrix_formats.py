@@ -560,3 +560,90 @@ class TestRenderFullChainXlsx:
         # Check for "Traces To" header
         values = [cell.value for row in ws.iter_rows() for cell in row if cell.value]
         assert "Traces To" in values
+
+
+# =============================================================================
+# Extra Column Tests
+# =============================================================================
+
+
+class TestExtraColumnsRendering:
+    """Tests that extra columns appear in all renderer outputs."""
+
+    @pytest.fixture
+    def matrix_with_extra_columns(self):
+        """Matrix with extra column configs and values populated."""
+        from jamb.core.models import MatrixColumnConfig
+
+        item = Item(uid="SRS001", text="Requirement text", document_prefix="SRS")
+        row = ChainRow(
+            chain={"SRS": item},
+            rollup_status="Passed",
+            extra_columns={
+                "review_status": "Not Reviewed",
+                "safety_class": "B",
+            },
+        )
+        return [
+            FullChainMatrix(
+                path_name="SRS",
+                document_hierarchy=["SRS"],
+                rows=[row],
+                summary={"total": 1, "passed": 1, "failed": 0, "not_covered": 0},
+                column_configs=[
+                    MatrixColumnConfig(key="review_status", header="Review Status", source="built_in"),
+                    MatrixColumnConfig(key="safety_class", header="Safety Class"),
+                ],
+            )
+        ]
+
+    def test_html_extra_columns(self, matrix_with_extra_columns):
+        """HTML output contains extra column headers and values."""
+        output = render_full_chain_html(matrix_with_extra_columns)
+        assert "Review Status" in output
+        assert "Safety Class" in output
+        assert "Not Reviewed" in output
+        assert ">B<" in output
+
+    def test_csv_extra_columns(self, matrix_with_extra_columns):
+        """CSV output contains extra column headers and values."""
+        output = render_full_chain_csv(matrix_with_extra_columns)
+        reader = csv.reader(io.StringIO(output))
+        rows = list(reader)
+        # Find the header row that contains "SRS"
+        header_row = next(r for r in rows if "SRS" in r and "Status" in r)
+        assert "Review Status" in header_row
+        assert "Safety Class" in header_row
+        # Find data row with "SRS001"
+        data_row = next(r for r in rows if any("SRS001" in cell for cell in r))
+        assert "Not Reviewed" in data_row
+        assert "B" in data_row
+
+    def test_json_extra_columns(self, matrix_with_extra_columns):
+        """JSON output includes extra_columns on rows and column_configs on matrix."""
+        output = render_full_chain_json(matrix_with_extra_columns)
+        data = json.loads(output)
+        matrix_data = data["matrices"][0]
+        assert len(matrix_data["column_configs"]) == 2
+        assert matrix_data["column_configs"][0]["key"] == "review_status"
+        row_data = matrix_data["rows"][0]
+        assert row_data["extra_columns"]["review_status"] == "Not Reviewed"
+        assert row_data["extra_columns"]["safety_class"] == "B"
+
+    def test_markdown_extra_columns(self, matrix_with_extra_columns):
+        """Markdown output contains extra column headers and values."""
+        output = render_full_chain_markdown(matrix_with_extra_columns)
+        assert "Review Status" in output
+        assert "Safety Class" in output
+        assert "Not Reviewed" in output
+
+    def test_xlsx_extra_columns(self, matrix_with_extra_columns):
+        """XLSX output contains extra column headers and values."""
+        output = render_full_chain_xlsx(matrix_with_extra_columns)
+        wb = load_workbook(io.BytesIO(output))
+        ws = wb.active
+        values = [cell.value for row_data in ws.iter_rows() for cell in row_data if cell.value]
+        assert "Review Status" in values
+        assert "Safety Class" in values
+        assert "Not Reviewed" in values
+        assert "B" in values

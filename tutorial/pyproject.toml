@@ -6,3 +6,7 @@ requires-python = ">=3.10"
 [tool.jamb]
 test_documents = ["SRS"]
 trace_to_ignore = ["PRJ"]
+
+[[tool.jamb.matrix_columns]]
+key = "safety_class"
+header = "Safety Class"

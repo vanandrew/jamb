@@ -2198,7 +2198,6 @@ def matrix(
 
     # Load jamb config for tc_id_prefix
     config = load_config()
-    print(config.tc_id_prefix)
 
     # Load coverage data
     try:
@@ -2253,6 +2252,7 @@ def matrix(
             include_ancestors=include_ancestors,
             tc_mapping=tc_mapping,
             trace_to_ignore=ignore_set,
+            column_configs=config.matrix_columns or None,
         )
         click.echo(f"Generated trace matrix: {output}")
 

@@ -8,6 +8,7 @@ from jamb.core.models import (
     FullChainMatrix,
     ItemCoverage,
     LinkedTest,
+    MatrixColumnConfig,
     MatrixMetadata,
     TestRecord,
     TraceabilityGraph,
@@ -360,6 +361,7 @@ def generate_full_chain_matrix(
     tc_mapping: dict[str, str] | None = None,
     trace_to_ignore: set[str] | None = None,
     all_test_links: dict[str, list[LinkedTest]] | None = None,
+    column_configs: list[MatrixColumnConfig] | None = None,
 ) -> None:
     """Generate full chain trace matrix starting from a document prefix.
 
@@ -378,6 +380,7 @@ def generate_full_chain_matrix(
         trace_to_ignore: Set of document prefixes to exclude from the matrix.
         all_test_links: Optional dict mapping UIDs to LinkedTest lists for
             tests linked to higher-order items not in coverage.
+        column_configs: Optional extra column definitions for the matrix.
 
     Raises:
         ValueError: If trace_from prefix is not found or format is unknown.
@@ -399,6 +402,7 @@ def generate_full_chain_matrix(
         include_ancestors=include_ancestors,
         trace_to_ignore=trace_to_ignore,
         all_test_links=all_test_links,
+        column_configs=column_configs,
     )
 
     formatter = _get_full_chain_formatter(output_format)

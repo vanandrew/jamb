@@ -1,6 +1,7 @@
 active: true
 header: Threshold Check
 type: requirement
+safety_class: C
 links:
 - SYS006: LbRtIiCYnJrTd7Hzjsr1r9v6PJl4d0AEoL6NlzCejb0
 text: |

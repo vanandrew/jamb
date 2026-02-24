@@ -1,6 +1,7 @@
 active: true
 header: User Authentication
 type: requirement
+safety_class: C
 links:
 - PRJ001: yxrl6T6RUGUGkmtjL_8JRSLyHVix2Q6yC2vuVgwtacg
 text: |
