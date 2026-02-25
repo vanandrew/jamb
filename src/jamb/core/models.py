@@ -19,6 +19,12 @@ class Item:
             during validation and coverage checks.
         type (Literal["requirement", "info", "heading"]): Item type.
         header (str | None): Optional heading text displayed instead of body text.
+        level (int | None): Heading depth for ``type="heading"`` items. Controls
+            the rendered heading level: ``<h1>``–``<h6>`` in HTML, heading
+            level in DOCX, and ``#`` depth in markdown. Has no effect on
+            ``requirement`` or ``info`` items (a validation warning is issued
+            if set on those). ``None`` uses the default depth (equivalent to
+            level 2).
         links (list[str]): UIDs of parent items this item traces to.
         reviewed (str | None): Content hash recorded when the item was last reviewed,
             or ``None`` if never reviewed.
@@ -59,6 +65,7 @@ class Item:
     active: bool = True
     type: Literal["requirement", "info", "heading"] = "requirement"
     header: str | None = None
+    level: int | None = None
     links: list[str] = field(default_factory=list)
     reviewed: str | None = None
     derived: bool = False

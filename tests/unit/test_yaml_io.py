@@ -421,6 +421,38 @@ class TestUpdateItem:
         content = yaml.safe_load(item_path.read_text())
         assert "derived" not in content
 
+    def test_update_item_preserves_level(self, tmp_path):
+        """Test _update_item writes the level field when provided."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Original\ntype: heading\n")
+
+        result = _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "Updated", "level": 3},
+            verbose=False,
+            echo=lambda x: None,
+        )
+
+        assert result == "updated"
+        content = yaml.safe_load(item_path.read_text())
+        assert content["level"] == 3
+
+    def test_update_item_removes_level_when_none(self, tmp_path):
+        """Test _update_item removes level field when set to None."""
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Original\ntype: heading\nlevel: 2\n")
+
+        result = _update_item(
+            item_path,
+            {"uid": "SRS001", "text": "Updated", "level": None},
+            verbose=False,
+            echo=lambda x: None,
+        )
+
+        assert result == "updated"
+        content = yaml.safe_load(item_path.read_text())
+        assert "level" not in content
+
     def test_update_item_removes_testable_when_true(self, tmp_path):
         """Test _update_item removes testable field when set to True."""
         item_path = tmp_path / "SRS001.yml"
@@ -803,6 +835,28 @@ class TestCreateItem:
             assert content["derived"] is True
             assert content["testable"] is False
 
+    def test_create_item_preserves_level(self, tmp_path):
+        """Test _create_item writes level field when provided in spec."""
+        with patch("jamb.yaml_io._get_document_path") as mock_path:
+            mock_path.return_value = tmp_path
+
+            result = _create_item(
+                {
+                    "uid": "SRS001",
+                    "text": "Main section",
+                    "type": "heading",
+                    "level": 1,
+                },
+                dry_run=False,
+                update=False,
+                verbose=False,
+                echo=lambda x: None,
+            )
+
+            assert result == "created"
+            content = yaml.safe_load((tmp_path / "SRS001.yml").read_text())
+            assert content["level"] == 1
+
     def test_create_item_skips_default_type(self, tmp_path):
         """Test _create_item does not write type if it's 'requirement' (default)."""
         with patch("jamb.yaml_io._get_document_path") as mock_path:
@@ -1002,6 +1056,18 @@ class TestGraphItemToDict:
         assert result["text"] == "Hello"
         assert result.get("header") == "Section"
         assert result.get("links") == ["SYS001"]
+
+    def test_with_level(self):
+        """Test item conversion includes level when set."""
+        item = Item(uid="SRS001", text="Section", document_prefix="SRS", type="heading", level=1)
+        result = _graph_item_to_dict(item)
+        assert result.get("level") == 1
+
+    def test_without_level_omits_key(self):
+        """Test item conversion omits level when None."""
+        item = Item(uid="SRS001", text="Section", document_prefix="SRS", type="heading")
+        result = _graph_item_to_dict(item)
+        assert "level" not in result
 
 
 @patch("jamb.storage.build_traceability_graph")

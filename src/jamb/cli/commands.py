@@ -1630,7 +1630,8 @@ def _render_markdown_lines(
         item_type = item_obj.type
         if item_type == "heading":
             heading_display = item_obj.header if item_obj.header else item_obj.uid
-            lines.append(f"## {item_obj.uid}: {heading_display}\n")
+            md_level = item_obj.level if item_obj.level else 2
+            lines.append("#" * md_level + f" {item_obj.uid}: {heading_display}\n")
         else:
             if item_obj.header:
                 lines.append(f"## {item_obj.uid}: {item_obj.header}\n")

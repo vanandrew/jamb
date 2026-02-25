@@ -206,9 +206,8 @@ class TestRenderHtml:
 
         assert 'class="item item-heading"' in result
         assert "<h2" in result
-        assert "SRS001" in result
-        # Heading should show header text (badge is appended)
-        assert "SRS001<span" in result
+        # Heading shows "UID: Header" with badge appended
+        assert "SRS001: Safety Requirements<span" in result
 
     def test_render_html_info_item_class(self):
         """Test that info items get item-info class."""
@@ -239,8 +238,8 @@ class TestRenderHtml:
 
         assert 'class="item item-requirement"' in result
 
-    def test_render_html_heading_no_uid_prefix(self):
-        """Test that heading items show only header text, not UID prefix."""
+    def test_render_html_heading_shows_uid_and_header(self):
+        """Test that heading items display 'UID: Header' with UID also in the id attribute."""
         items = [
             Item(
                 uid="SRS001",
@@ -252,10 +251,10 @@ class TestRenderHtml:
         ]
         result = render_html(items, "SRS")
 
-        # Should have "SRS001" in the h2
-        assert "SRS001<span" in result
-        # Header text should appear before the badge span
-        assert "SRS001<span" in result
+        # UID appears in the id attribute for anchor linking
+        assert 'id="SRS001"' in result
+        # Heading shows "UID: Header" with badge appended
+        assert "SRS001: Section Header<span" in result
 
     def test_render_html_child_links_no_graph(self):
         """Child links section not rendered when graph is None."""
@@ -462,9 +461,8 @@ class TestRenderHtmlEdgeCases:
         assert 'class="item item-info"' in result
         assert 'class="item item-requirement"' in result
 
-        # Heading renders as <h2>, others as <h3>
-        # Each item has a type badge appended
-        assert ">SRS001<span" in result
+        # Heading shows "UID: Header"; others show "UID". Each has a type badge appended.
+        assert ">SRS001: Safety Section<span" in result
         assert ">SRS002<span" in result
         assert ">SRS003<span" in result
 

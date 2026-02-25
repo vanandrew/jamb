@@ -815,3 +815,50 @@ text: |
 ```
 
 This tells jamb the requirement is intentionally not linked to the parent document (SYS) because it emerges from outside considerations.
+
+## Heading Levels
+
+For longer documents, use `type: heading` with a `level` field to create nested section structure. The `level` controls the rendered heading depth — `<h1>`–`<h6>` in HTML, the equivalent in DOCX, and `#`-depth in markdown.
+
+```yaml
+# SRS018.yml — top-level section heading
+active: true
+type: heading
+level: 1
+header: Alerting Requirements
+text: |
+  Requirements governing alert delivery, threshold configuration, and severity
+  indicators for the patient monitoring system.
+```
+
+Nest subsections by incrementing `level`:
+
+```yaml
+# SRS019.yml — subsection under SRS018
+active: true
+type: heading
+level: 2
+header: Alert Thresholds
+text: |
+  Configuration of thresholds that trigger alert conditions.
+```
+
+```yaml
+# SRS020.yml — second subsection under SRS018
+active: true
+type: heading
+level: 2
+header: Alert Delivery
+text: |
+  Mechanisms for delivering alerts to clinical staff.
+```
+
+The `level` maps directly to the rendered output:
+
+```
+level: 1  → <h1> / #   in markdown   (major chapter)
+level: 2  → <h2> / ##  in markdown   (section, default)
+level: 3  → <h3> / ### in markdown   (subsection)
+```
+
+When `level` is omitted, heading items default to depth 2. Jamb will warn if `level` is set on a `requirement` or `info` item.

@@ -52,6 +52,10 @@ packages = ["src/jamb"]
 test_documents = ["SRS"]
 trace_to_ignore = ["PRJ"]
 
+[[tool.jamb.matrix_columns]]
+key = "safety_class"
+header = "Safety Class"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=src/jamb"

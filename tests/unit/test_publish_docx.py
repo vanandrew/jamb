@@ -258,8 +258,8 @@ class TestRenderDocx:
         paragraphs = [p.text for p in doc.paragraphs]
         full_text = " ".join(paragraphs)
 
-        # Should contain the header text
-        assert "SRS001" in full_text
+        # Should show "UID: Header"
+        assert "SRS001: Safety Requirements" in full_text
 
     def test_render_docx_info_item_italic(self):
         """Test that info items have italic paragraph text."""

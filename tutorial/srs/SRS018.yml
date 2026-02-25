@@ -1,0 +1,7 @@
+active: true
+header: Alerting Requirements
+type: heading
+level: 1
+text: |
+  Requirements governing alert delivery, threshold configuration, and severity
+  indicators for the patient monitoring system.
