@@ -226,10 +226,11 @@ def render_html(
 
         parts.append(f'<div class="{css_class}">')
         if item_type == "heading":
-            heading_display = item.uid
+            hn = min(item.level, 6) if item.level else 2
+            heading_display = f"{item.uid}: {item.header}" if item.header else item.uid
             parts.append(
-                f'<h2 id="{_esc(item.uid)}">{_esc(heading_display)}'
-                f'<span class="item-type-badge badge-heading">Heading</span></h2>'
+                f'<h{hn} id="{_esc(item.uid)}">{_esc(heading_display)}'
+                f'<span class="item-type-badge badge-heading">Heading</span></h{hn}>'
             )
         elif item_type == "info":
             parts.append(

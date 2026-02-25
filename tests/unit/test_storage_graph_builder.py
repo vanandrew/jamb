@@ -97,6 +97,18 @@ class TestBuildTraceabilityGraph:
         graph = build_traceability_graph(dag)
         assert graph.items["SRS001"].derived is True
 
+    def test_level_field_preserved(self, tmp_path):
+        """Level field on heading items is passed through to the graph."""
+        dag = DocumentDAG()
+        srs_dir = tmp_path / "srs"
+        srs_dir.mkdir()
+        (srs_dir / "SRS001.yml").write_text("active: true\ntext: Section\ntype: heading\nlevel: 1\n")
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS")
+        dag.document_paths["SRS"] = srs_dir
+
+        graph = build_traceability_graph(dag)
+        assert graph.items["SRS001"].level == 1
+
     def test_nonexistent_prefix_filter_ignored(self, tmp_path):
         """Filtering by a prefix that doesn't exist just returns no items for it."""
         dag = self._setup_docs(tmp_path)

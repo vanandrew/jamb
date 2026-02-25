@@ -18,6 +18,7 @@ class _ItemDictOptional(TypedDict, total=False):
     """Optional fields for ItemDict."""
 
     header: str
+    level: int
     links: list[str]
     type: str
     derived: bool
@@ -187,6 +188,8 @@ def _graph_item_to_dict(item: Item) -> ItemDict:
         d["links"] = [str(link) for link in item.links]
     if item.type != "requirement":
         d["type"] = item.type
+    if item.level is not None:
+        d["level"] = item.level
     if item.derived:
         d["derived"] = True
     if not item.testable:
@@ -474,9 +477,11 @@ def _create_item(
         item_data["header"] = header
     if links:
         item_data["links"] = links
-    # Preserve type, derived, and testable fields from import spec
+    # Preserve type, level, derived, and testable fields from import spec
     if spec.get("type") and spec["type"] != "requirement":
         item_data["type"] = spec["type"]
+    if spec.get("level") is not None:
+        item_data["level"] = spec["level"]
     if spec.get("derived"):
         item_data["derived"] = True
     if "testable" in spec and not spec["testable"]:
@@ -595,12 +600,17 @@ def _update_item(item_path: Path, spec: dict[str, Any], verbose: bool, echo: Cal
             existing_data["links"] = spec["links"]
         elif "links" in existing_data:
             del existing_data["links"]
-    # Preserve type, derived, and testable fields from import spec
+    # Preserve type, level, derived, and testable fields from import spec
     if "type" in spec:
         if spec["type"] and spec["type"] != "requirement":
             existing_data["type"] = spec["type"]
         elif "type" in existing_data:
             del existing_data["type"]
+    if "level" in spec:
+        if spec["level"] is not None:
+            existing_data["level"] = spec["level"]
+        elif "level" in existing_data:
+            del existing_data["level"]
     if "derived" in spec:
         if spec["derived"]:
             existing_data["derived"] = True

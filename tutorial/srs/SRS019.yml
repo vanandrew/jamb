@@ -1,0 +1,6 @@
+active: true
+header: Alert Thresholds
+type: heading
+level: 2
+text: |
+  Configuration of thresholds that trigger alert conditions.

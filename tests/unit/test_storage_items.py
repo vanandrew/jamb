@@ -103,6 +103,24 @@ class TestReadItem:
         data = read_item(item_path, "SRS")
         assert data["derived"] is True
 
+    def test_reads_level_field(self, tmp_path):
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\ntype: heading\nlevel: 3\n")
+        data = read_item(item_path, "SRS")
+        assert data["level"] == 3
+
+    def test_reads_missing_level_as_none(self, tmp_path):
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\n")
+        data = read_item(item_path, "SRS")
+        assert data["level"] is None
+
+    def test_level_not_in_custom_attributes(self, tmp_path):
+        item_path = tmp_path / "SRS001.yml"
+        item_path.write_text("active: true\ntext: Test\ntype: heading\nlevel: 2\n")
+        data = read_item(item_path, "SRS")
+        assert "level" not in data["custom_attributes"]
+
     def test_reads_empty_file(self, tmp_path):
         item_path = tmp_path / "SRS001.yml"
         item_path.write_text("")
@@ -299,6 +317,18 @@ class TestWriteItem:
         write_item({"active": True, "text": "Test", "derived": False}, item_path)
         data = yaml.safe_load(item_path.read_text())
         assert "derived" not in data
+
+    def test_writes_level_field(self, tmp_path):
+        item_path = tmp_path / "SRS001.yml"
+        write_item({"active": True, "text": "Test", "type": "heading", "level": 2}, item_path)
+        data = yaml.safe_load(item_path.read_text())
+        assert data["level"] == 2
+
+    def test_omits_level_when_none(self, tmp_path):
+        item_path = tmp_path / "SRS001.yml"
+        write_item({"active": True, "text": "Test", "level": None}, item_path)
+        data = yaml.safe_load(item_path.read_text())
+        assert "level" not in data
 
     def test_creates_parent_directory(self, tmp_path):
         item_path = tmp_path / "subdir" / "SRS001.yml"

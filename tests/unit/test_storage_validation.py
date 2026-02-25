@@ -1048,3 +1048,144 @@ class TestValidate:
         unlinked = [i for i in issues if "normative non-derived item has no links" in str(i)]
         assert len(unlinked) == 1
         assert "SRS001" in str(unlinked[0])
+
+
+class TestCheckHeadingLevel:
+    def _make_dag(self):
+        dag = DocumentDAG()
+        dag.documents["SRS"] = DocumentConfig(prefix="SRS")
+        return dag
+
+    def test_level_on_non_heading_warns(self):
+        """level field on a requirement item produces a warning."""
+        dag = self._make_dag()
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", type="requirement", level=2)
+        graph.add_item(item)
+        issues = validate(
+            dag,
+            graph,
+            check_links=False,
+            check_suspect=False,
+            check_review=False,
+            check_children=False,
+            check_empty_docs=False,
+            check_empty_text=False,
+            check_item_cycles=False,
+            check_unlinked=False,
+        )
+        level_issues = [i for i in issues if "'level' field is only meaningful on heading items" in str(i)]
+        assert len(level_issues) == 1
+        assert "SRS001" in str(level_issues[0])
+
+    def test_level_on_info_item_warns(self):
+        """level field on an info item produces a warning."""
+        dag = self._make_dag()
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="info", document_prefix="SRS", type="info", level=1)
+        graph.add_item(item)
+        issues = validate(
+            dag,
+            graph,
+            check_links=False,
+            check_suspect=False,
+            check_review=False,
+            check_children=False,
+            check_empty_docs=False,
+            check_empty_text=False,
+            check_item_cycles=False,
+            check_unlinked=False,
+        )
+        level_issues = [i for i in issues if "'level' field is only meaningful on heading items" in str(i)]
+        assert len(level_issues) == 1
+
+    def test_level_on_heading_no_warn(self):
+        """level field on a heading item does not produce a warning."""
+        dag = self._make_dag()
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="Section", document_prefix="SRS", type="heading", level=2)
+        graph.add_item(item)
+        issues = validate(
+            dag,
+            graph,
+            check_links=False,
+            check_suspect=False,
+            check_review=False,
+            check_children=False,
+            check_empty_docs=False,
+            check_empty_text=False,
+            check_item_cycles=False,
+            check_unlinked=False,
+        )
+        level_issues = [i for i in issues if "'level'" in str(i)]
+        assert len(level_issues) == 0
+
+    def test_level_less_than_1_warns(self):
+        """level < 1 on a heading item produces a warning."""
+        dag = self._make_dag()
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="Section", document_prefix="SRS", type="heading", level=0)
+        graph.add_item(item)
+        issues = validate(
+            dag,
+            graph,
+            check_links=False,
+            check_suspect=False,
+            check_review=False,
+            check_children=False,
+            check_empty_docs=False,
+            check_empty_text=False,
+            check_item_cycles=False,
+            check_unlinked=False,
+        )
+        level_issues = [i for i in issues if "'level' must be >= 1" in str(i)]
+        assert len(level_issues) == 1
+        assert "SRS001" in str(level_issues[0])
+
+    def test_none_level_no_warn(self):
+        """Heading item without a level field produces no warning."""
+        dag = self._make_dag()
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="Section", document_prefix="SRS", type="heading")
+        graph.add_item(item)
+        issues = validate(
+            dag,
+            graph,
+            check_links=False,
+            check_suspect=False,
+            check_review=False,
+            check_children=False,
+            check_empty_docs=False,
+            check_empty_text=False,
+            check_item_cycles=False,
+            check_unlinked=False,
+        )
+        level_issues = [i for i in issues if "'level'" in str(i)]
+        assert len(level_issues) == 0
+
+    def test_inactive_item_with_bad_level_no_warn(self):
+        """Inactive items are skipped even if they have an invalid level."""
+        dag = self._make_dag()
+        graph = TraceabilityGraph()
+        graph.set_document_parents("SRS", [])
+        item = Item(uid="SRS001", text="req", document_prefix="SRS", active=False, level=2)
+        graph.add_item(item)
+        issues = validate(
+            dag,
+            graph,
+            check_links=False,
+            check_suspect=False,
+            check_review=False,
+            check_children=False,
+            check_empty_docs=False,
+            check_empty_text=False,
+            check_item_cycles=False,
+            check_unlinked=False,
+        )
+        level_issues = [i for i in issues if "'level'" in str(i)]
+        assert len(level_issues) == 0

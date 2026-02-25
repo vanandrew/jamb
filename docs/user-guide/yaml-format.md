@@ -59,6 +59,11 @@ text: |
 : **Type:** `str`
 : **Default:** `"requirement"`
 
+`level`
+: Heading depth for `type: heading` items. Controls the rendered heading level: `<h1>`–`<h6>` in HTML, heading level in DOCX, and `#`-depth in markdown. Has no effect on `requirement` or `info` items (a validation warning is issued if set on those). When omitted, heading items default to level 2.
+: **Type:** `int | null`
+: **Default:** `null`
+
 ### Link Format
 
 Links can appear in two forms:
@@ -95,7 +100,7 @@ Non-testable items show "N/A" status in the traceability matrix instead of "Not 
 
 ### Custom Attributes
 
-Any YAML keys in an item file that are not part of the standard fields (`active`, `text`, `header`, `links`, `reviewed`, `derived`, `testable`, `type`) are preserved as custom attributes. This allows you to attach project-specific metadata to items:
+Any YAML keys in an item file that are not part of the standard fields (`active`, `text`, `header`, `level`, `links`, `reviewed`, `derived`, `testable`, `type`) are preserved as custom attributes. This allows you to attach project-specific metadata to items:
 
 ```yaml
 active: true

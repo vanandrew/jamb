@@ -116,6 +116,47 @@ def validate(
     if check_unlinked:
         issues.extend(_check_unlinked_items(dag, graph, skip))
 
+    # 10. Heading level field validity
+    issues.extend(_check_heading_level(graph, skip))
+
+    return issues
+
+
+def _check_heading_level(graph: TraceabilityGraph, skip: set[str]) -> list[ValidationIssue]:
+    """Check that the 'level' field is only used on heading items and is >= 1.
+
+    Args:
+        graph: The traceability graph containing all items.
+        skip: Set of document prefixes to exclude from validation.
+
+    Returns:
+        A list of ``ValidationIssue`` objects with level ``warning`` for
+        each item with an invalid or misplaced ``level`` field.
+    """
+    issues = []
+    for uid, item in graph.items.items():
+        if item.document_prefix in skip or not item.active:
+            continue
+        if item.level is None:
+            continue
+        if item.type != "heading":
+            issues.append(
+                ValidationIssue(
+                    "warning",
+                    uid,
+                    item.document_prefix,
+                    "'level' field is only meaningful on heading items",
+                )
+            )
+        elif item.level < 1:
+            issues.append(
+                ValidationIssue(
+                    "warning",
+                    uid,
+                    item.document_prefix,
+                    f"'level' must be >= 1, got {item.level}",
+                )
+            )
     return issues
 
 

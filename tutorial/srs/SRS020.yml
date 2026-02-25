@@ -1,0 +1,6 @@
+active: true
+header: Alert Delivery
+type: heading
+level: 2
+text: |
+  Mechanisms for delivering alerts to clinical staff.

@@ -61,6 +61,7 @@ def build_traceability_graph(
                 active=raw["active"],
                 type=raw["type"],
                 header=raw["header"] or None,
+                level=raw.get("level"),
                 links=raw["links"],
                 reviewed=raw["reviewed"],
                 derived=raw["derived"],

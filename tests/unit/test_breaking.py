@@ -156,7 +156,7 @@ class TestMalformedYaml:
         """Every field set to null — item created with safe defaults."""
         item_file = tmp_path / "SRS001.yml"
         item_file.write_text(
-            "text: null\nactive: null\ntype: null\nheader: null\nlinks: null\nreviewed: null\nderived: null\n"
+            "text: null\nactive: null\ntype: null\nheader: null\nlinks: null\nreviewed: null\nderived: null\nlevel: null\n"
         )
         result = read_item(item_file, "SRS")
         assert result["uid"] == "SRS001"
@@ -167,6 +167,7 @@ class TestMalformedYaml:
         assert result["links"] == []  # None is not a list
         assert result["reviewed"] is None
         assert result["derived"] is None
+        assert result["level"] is None
 
     def test_read_item_extra_unknown_fields(self, tmp_path: Path) -> None:
         """50 unknown fields all become custom_attributes."""

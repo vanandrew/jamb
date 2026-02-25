@@ -245,8 +245,9 @@ def render_docx(
         item_type = item.type
 
         if item_type == "heading":
-            heading_display = item.uid
-            heading = doc.add_heading(heading_display, level=1)
+            heading_display = f"{item.uid}: {item.header}" if item.header else item.uid
+            docx_level = min(item.level, 9) if item.level else 1
+            heading = doc.add_heading(heading_display, level=docx_level)
         else:
             if item.header:
                 heading_text = f"{item.uid}: {item.header}"

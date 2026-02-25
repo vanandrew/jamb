@@ -59,7 +59,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
 
     Returns:
         Dict with keys: uid, text, document_prefix, active, type,
-        header, links, link_hashes, reviewed, derived, testable,
+        header, level, links, link_hashes, reviewed, derived, testable,
         custom_attributes.
 
     Raises:
@@ -147,6 +147,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         "type",
         "text",
         "header",
+        "level",
         "links",
         "reviewed",
         "derived",
@@ -173,6 +174,7 @@ def read_item(path: Path, document_prefix: str) -> dict[str, Any]:
         "links": links,
         "link_hashes": link_hashes,
         "reviewed": reviewed,
+        "level": data.get("level") or None,
         "derived": data.get("derived", False),
         "testable": data.get("testable", True),
         "custom_attributes": custom_attributes,
@@ -194,6 +196,9 @@ def write_item(item_data: dict[str, Any], path: Path, extra_fields: dict[str, An
         output["header"] = header
     output["active"] = item_data.get("active", True)
     output["type"] = item_data.get("type", "requirement")
+
+    if item_data.get("level") is not None:
+        output["level"] = item_data["level"]
 
     links = item_data.get("links", [])
     link_hashes = item_data.get("link_hashes", {})
