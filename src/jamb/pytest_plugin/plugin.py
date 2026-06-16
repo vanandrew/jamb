@@ -98,9 +98,28 @@ def pytest_configure(config: pytest.Config) -> None:
     Registers the ``requirement`` marker for linking tests to requirement UIDs
     and creates a ``RequirementCollector`` instance when ``--jamb`` is enabled.
 
+    Raises a usage error when ``--jamb`` is combined with pytest-xdist, since
+    coverage state is accumulated per-process and is not aggregated across
+    workers; a distributed run would silently produce an incomplete or empty
+    traceability matrix.
+
     Args:
         config: The pytest configuration object.
     """
+    # pytest-xdist runs tests on worker processes (which expose ``workerinput``)
+    # coordinated by a controller (whose ``dist`` mode is non-"no" under
+    # -n/--dist). jamb collects coverage per-process and does not aggregate it
+    # across workers, so a distributed run would silently produce an incomplete
+    # matrix. A serial run (-n0) keeps ``dist == "no"`` and is allowed.
+    distributed = hasattr(config, "workerinput") or getattr(config.option, "dist", "no") != "no"
+    if config.option.jamb and distributed:
+        raise pytest.UsageError(
+            "jamb does not support pytest-xdist (distributed test runs). "
+            "Test coverage is collected per-process and is not aggregated "
+            "across workers, so the traceability matrix would be incomplete. "
+            "Re-run without '-n'/'--dist' (or with '-n0') when using --jamb."
+        )
+
     # Register the requirement marker
     config.addinivalue_line(
         "markers",

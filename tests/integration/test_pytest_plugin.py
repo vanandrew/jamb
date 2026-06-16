@@ -26,6 +26,34 @@ class TestPluginRegistration:
         result.stdout.fnmatch_lines(["*--jamb-test-matrix*"])
 
 
+class TestXdistGuard:
+    """End-to-end check of the pytest-xdist incompatibility guard.
+
+    The guard logic itself is unit-tested in
+    ``tests/unit/test_pytest_plugin_plugin.py`` without requiring xdist.
+    This test exercises the real ``-n`` code path and self-skips when
+    pytest-xdist is not installed (it is not a jamb dependency).
+    """
+
+    def test_jamb_with_xdist_errors(self, pytester):
+        """--jamb combined with -n should fail loudly rather than misreport."""
+        import pytest
+
+        pytest.importorskip("xdist")
+
+        pytester.makepyfile(
+            """
+            def test_simple():
+                assert True
+            """
+        )
+
+        result = pytester.runpytest("--jamb", "-n", "2")
+
+        assert result.ret != 0
+        result.stderr.fnmatch_lines(["*does not support pytest-xdist*"])
+
+
 class TestMarkerCollection:
     """Tests for requirement marker collection."""
 
