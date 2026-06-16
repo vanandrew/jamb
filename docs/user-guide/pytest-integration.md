@@ -92,6 +92,8 @@ To convert auto-generated IDs to permanent manual IDs, use `jamb lock-tc` after 
 
 **Format inference:** Matrix format is automatically inferred from the file extension: `.html` for HTML, `.json` for JSON, `.csv` for CSV, `.md` for Markdown, `.xlsx` for Excel.
 
+**pytest-xdist:** `--jamb` is not compatible with distributed test runs (`pytest -n …`/`--dist`). Coverage is collected per-process and is not aggregated across workers, so a distributed run would produce an incomplete traceability matrix. jamb detects this and stops with a usage error rather than emitting a misleading matrix — run without `-n` (or with `-n0`) when using `--jamb`.
+
 ### Examples
 
 ```bash

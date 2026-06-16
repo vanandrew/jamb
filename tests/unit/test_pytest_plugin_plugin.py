@@ -111,6 +111,9 @@ class TestPytestConfigure:
 
         mock_config = MagicMock()
         mock_config.option.jamb = True
+        # Not a distributed run: no xdist worker, no --dist mode.
+        del mock_config.workerinput
+        mock_config.option.dist = "no"
 
         pytest_configure(mock_config)
 
@@ -124,6 +127,97 @@ class TestPytestConfigure:
         mock_config = MagicMock()
         mock_config.option.jamb = False
 
+        pytest_configure(mock_config)
+
+        mock_config.pluginmanager.register.assert_not_called()
+
+
+class TestXdistActive:
+    """Tests for the _xdist_active helper.
+
+    Uses SimpleNamespace rather than MagicMock so attribute presence is
+    explicit (MagicMock auto-creates any attribute, including workerinput).
+    """
+
+    def test_worker_process_is_active(self):
+        """A worker process exposes workerinput and is treated as distributed."""
+        from types import SimpleNamespace
+
+        from jamb.pytest_plugin.plugin import _xdist_active
+
+        config = SimpleNamespace(workerinput={}, option=SimpleNamespace(dist="no"))
+
+        assert _xdist_active(config) is True
+
+    def test_controller_with_dist_is_active(self):
+        """The controller has no workerinput but a non-'no' dist mode."""
+        from types import SimpleNamespace
+
+        from jamb.pytest_plugin.plugin import _xdist_active
+
+        config = SimpleNamespace(option=SimpleNamespace(dist="load"))
+
+        assert _xdist_active(config) is True
+
+    def test_serial_run_is_inactive(self):
+        """A serial run (-n0 / no -n) keeps dist == 'no'."""
+        from types import SimpleNamespace
+
+        from jamb.pytest_plugin.plugin import _xdist_active
+
+        config = SimpleNamespace(option=SimpleNamespace(dist="no"))
+
+        assert _xdist_active(config) is False
+
+    def test_xdist_not_installed_is_inactive(self):
+        """Without xdist installed there is no 'dist' option at all."""
+        from types import SimpleNamespace
+
+        from jamb.pytest_plugin.plugin import _xdist_active
+
+        config = SimpleNamespace(option=SimpleNamespace())
+
+        assert _xdist_active(config) is False
+
+
+class TestXdistGuard:
+    """Tests for the pytest-xdist guard in pytest_configure."""
+
+    def test_raises_when_jamb_and_distributed(self):
+        """--jamb with a distributed run is rejected with a usage error."""
+        from types import SimpleNamespace
+
+        import pytest as pytest_mod
+
+        from jamb.pytest_plugin.plugin import pytest_configure
+
+        config = SimpleNamespace(option=SimpleNamespace(jamb=True, dist="load"))
+
+        with pytest_mod.raises(pytest_mod.UsageError, match="does not support pytest-xdist"):
+            pytest_configure(config)
+
+    def test_raises_for_worker_process(self):
+        """A worker process running --jamb is also rejected."""
+        from types import SimpleNamespace
+
+        import pytest as pytest_mod
+
+        from jamb.pytest_plugin.plugin import pytest_configure
+
+        config = SimpleNamespace(workerinput={}, option=SimpleNamespace(jamb=True, dist="no"))
+
+        with pytest_mod.raises(pytest_mod.UsageError, match="does not support pytest-xdist"):
+            pytest_configure(config)
+
+    def test_no_raise_when_jamb_disabled_under_xdist(self):
+        """Distributed runs without --jamb are unaffected by the guard."""
+        from jamb.pytest_plugin.plugin import pytest_configure
+
+        mock_config = MagicMock()
+        mock_config.option.jamb = False
+        mock_config.option.dist = "load"
+
+        # Should not raise; jamb is off so the collector is never created.
         pytest_configure(mock_config)
 
         mock_config.pluginmanager.register.assert_not_called()
