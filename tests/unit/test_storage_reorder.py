@@ -137,7 +137,7 @@ class TestReorderDocument:
 
         import pytest
 
-        with pytest.raises(ValueError, match="Broken links found.*SRS001 -> NONEXIST"):
+        with pytest.raises(ValueError, match=r"Broken links found.*SRS001 -> NONEXIST"):
             reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
 
         # No files should have been renamed (aborted before any rename)
@@ -339,7 +339,7 @@ class TestInsertItems:
         _write_item(doc_path, "SRS001", links=["NONEXIST"])
         _write_item(doc_path, "SRS002")
 
-        with pytest.raises(ValueError, match="Broken links found.*SRS001 -> NONEXIST"):
+        with pytest.raises(ValueError, match=r"Broken links found.*SRS001 -> NONEXIST"):
             insert_items(
                 doc_path,
                 "SRS",
@@ -503,9 +503,11 @@ class TestReorderEdgeCases:
                 raise OSError("Simulated rename failure")
             return original_rename(self, target)
 
-        with patch.object(type(doc_path / "x"), "rename", failing_rename):
-            with pytest.raises(OSError, match="Simulated rename failure"):
-                reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
+        with (
+            patch.object(type(doc_path / "x"), "rename", failing_rename),
+            pytest.raises(OSError, match="Simulated rename failure"),
+        ):
+            reorder_document(doc_path, "SRS", 3, "", {"SRS": doc_path})
 
         # Temp files should be cleaned up
         temp_files = list(doc_path.glob(".tmp_*.yml"))

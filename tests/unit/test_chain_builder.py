@@ -165,7 +165,7 @@ class TestCalculateRollupStatus:
             ),
         }
 
-        status, tests = calculate_rollup_status(graph, item, coverage)
+        status, _tests = calculate_rollup_status(graph, item, coverage)
 
         assert status == "Failed"
 
@@ -223,7 +223,7 @@ class TestCalculateRollupStatus:
             "SRS001": ItemCoverage(item=item, linked_tests=[]),
         }
 
-        status, tests = calculate_rollup_status(graph, item, coverage)
+        status, _tests = calculate_rollup_status(graph, item, coverage)
 
         assert status == "N/A"
 
@@ -1027,19 +1027,21 @@ class TestDeepHierarchyTraversal:
             # Return empty so traverse never terminates early
             return []
 
-        with patch.object(graph, "get_document_children", side_effect=mock_get_children):
-            with patch.object(graph, "get_leaf_documents", side_effect=mock_get_leaf_documents):
-                # This should trigger the max recursion depth warning
-                with warnings.catch_warnings(record=True) as w:
-                    warnings.simplefilter("always")
-                    paths = get_document_paths(graph, "A")
+        # This should trigger the max recursion depth warning
+        with (
+            patch.object(graph, "get_document_children", side_effect=mock_get_children),
+            patch.object(graph, "get_leaf_documents", side_effect=mock_get_leaf_documents),
+            warnings.catch_warnings(record=True) as w,
+        ):
+            warnings.simplefilter("always")
+            paths = get_document_paths(graph, "A")
 
-                    # Due to the cycle, should emit warning when MAX_RECURSION_DEPTH is hit
-                    assert paths is not None  # Should not crash
+            # Due to the cycle, should emit warning when MAX_RECURSION_DEPTH is hit
+            assert paths is not None  # Should not crash
 
-                    # Check that warning was emitted about max recursion depth
-                    depth_warnings = [x for x in w if "Maximum recursion depth" in str(x.message)]
-                    assert len(depth_warnings) > 0
+            # Check that warning was emitted about max recursion depth
+            depth_warnings = [x for x in w if "Maximum recursion depth" in str(x.message)]
+            assert len(depth_warnings) > 0
 
 
 class TestStatusUnknownOutcome:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -20,7 +21,7 @@ class Item:
         type (Literal["requirement", "info", "heading"]): Item type.
         header (str | None): Optional heading text displayed instead of body text.
         level (int | None): Heading depth for ``type="heading"`` items. Controls
-            the rendered heading level: ``<h1>``–``<h6>`` in HTML, heading
+            the rendered heading level: ``<h1>``-``<h6>`` in HTML, heading
             level in DOCX, and ``#`` depth in markdown. Has no effect on
             ``requirement`` or ``info`` items (a validation warning is issued
             if set on those). ``None`` uses the default depth (equivalent to
@@ -314,10 +315,8 @@ class TraceabilityGraph:
         if item.uid in self.items:
             for old_parent in self.item_parents.get(item.uid, []):
                 if old_parent in self.item_children:
-                    try:
+                    with contextlib.suppress(ValueError):
                         self.item_children[old_parent].remove(item.uid)
-                    except ValueError:
-                        pass
         self.items[item.uid] = item
         self.item_parents[item.uid] = item.links.copy()
         # Initialize children list for this item if not exists
@@ -507,7 +506,7 @@ class TraceabilityGraph:
         all_parents: set[str] = set()
         for parents in self.document_parents.values():
             all_parents.update(parents)
-        return [prefix for prefix in self.document_parents.keys() if prefix not in all_parents]
+        return [prefix for prefix in self.document_parents if prefix not in all_parents]
 
     def get_document_children(self, prefix: str) -> list[str]:
         """Get child document prefixes for a document.

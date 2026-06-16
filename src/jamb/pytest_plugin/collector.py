@@ -161,7 +161,7 @@ class RequirementCollector:
     def pytest_runtest_makereport(
         self,
         item: pytest.Item,
-        call: pytest.CallInfo[None],  # noqa: ARG002
+        call: pytest.CallInfo[None],
     ) -> Generator[None, Any, None]:
         """Record test outcomes, notes, test actions, and expected results.
 
@@ -245,12 +245,11 @@ class RequirementCollector:
                 link.expected_results = list(expected_results)
                 link.actual_results = list(actual_results)
                 link.execution_timestamp = test_timestamp
-        elif report.when == "teardown":
-            if report.failed:
-                for link in links_for_node:
-                    if link.test_outcome not in ("failed", "error"):
-                        link.test_outcome = "error"
-                        link.notes.append(f"[TEARDOWN FAILURE] {report.longreprtext or ''}")
+        elif report.when == "teardown" and report.failed:
+            for link in links_for_node:
+                if link.test_outcome not in ("failed", "error"):
+                    link.test_outcome = "error"
+                    link.notes.append(f"[TEARDOWN FAILURE] {report.longreprtext or ''}")
 
     def get_coverage(self) -> dict[str, ItemCoverage]:
         """Build coverage report for all items in test documents.

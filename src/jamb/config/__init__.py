@@ -2,4 +2,4 @@
 
 from jamb.config.loader import JambConfig, load_config
 
-__all__ = ["load_config", "JambConfig"]
+__all__ = ["JambConfig", "load_config"]

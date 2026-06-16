@@ -1,5 +1,6 @@
 """Unit tests for the pytest plugin collector module."""
 
+import contextlib
 import socket
 from unittest.mock import MagicMock, patch
 
@@ -41,11 +42,11 @@ class TestLoadRequirementsErrorHandling:
             next(generator)  # Advance to yield
 
             # Should raise UsageError
-            with pytest.raises(pytest.UsageError, match="Cannot run with --jamb"):
-                try:
-                    next(generator)
-                except StopIteration:
-                    pass
+            with (
+                pytest.raises(pytest.UsageError, match="Cannot run with --jamb"),
+                contextlib.suppress(StopIteration),
+            ):
+                next(generator)
 
     def test_malformed_config_raises_value_error(self):
         """Test that malformed config raises appropriate error."""
@@ -124,10 +125,8 @@ class TestOutcomeHandling:
             # Run the hook wrapper
             generator = collector.pytest_runtest_makereport(mock_item, mock_call)
             next(generator)
-            try:
+            with contextlib.suppress(StopIteration):
                 generator.send(mock_outcome)
-            except StopIteration:
-                pass
 
             # Verify outcome is 'error' with setup failure note
             assert test_link.test_outcome == "error"
@@ -184,10 +183,8 @@ class TestOutcomeHandling:
             # Run the hook wrapper
             generator = collector.pytest_runtest_makereport(mock_item, mock_call)
             next(generator)
-            try:
+            with contextlib.suppress(StopIteration):
                 generator.send(mock_outcome)
-            except StopIteration:
-                pass
 
             # Verify outcome is 'skipped' with xfail reason
             assert test_link.test_outcome == "skipped"
@@ -246,10 +243,8 @@ class TestOutcomeHandling:
             # Run the hook wrapper
             generator = collector.pytest_runtest_makereport(mock_item, mock_call)
             next(generator)
-            try:
+            with contextlib.suppress(StopIteration):
                 generator.send(mock_outcome)
-            except StopIteration:
-                pass
 
             # Verify outcome changed to 'error' with teardown failure note
             assert test_link.test_outcome == "error"
@@ -309,11 +304,11 @@ class TestOutcomeHandling:
             next(generator)  # Advance to yield
 
             # Should warn about unknown outcome
-            with pytest.warns(UserWarning, match="Unknown test outcome"):
-                try:
-                    generator.send(mock_outcome)
-                except StopIteration:
-                    pass
+            with (
+                pytest.warns(UserWarning, match="Unknown test outcome"),
+                contextlib.suppress(StopIteration),
+            ):
+                generator.send(mock_outcome)
 
             # Outcome should default to "error"
             assert test_link.test_outcome == "error"
@@ -373,10 +368,8 @@ class TestFailureMessageTruncation:
             # Run the hook wrapper
             generator = collector.pytest_runtest_makereport(mock_item, mock_call)
             next(generator)
-            try:
+            with contextlib.suppress(StopIteration):
                 generator.send(mock_outcome)
-            except StopIteration:
-                pass
 
             # Check that failure message was truncated
             assert len(test_link.notes) == 1
@@ -756,10 +749,8 @@ class TestManualTcIdCollection:
             # Run collection hook - exhaust the generator to execute code after yield
             generator = collector.pytest_collection_modifyitems(items=[mock_item])
             next(generator)  # Advance to yield
-            try:
+            with contextlib.suppress(StopIteration):
                 next(generator)  # Execute code after yield
-            except StopIteration:
-                pass
 
             # Verify TC ID was collected
             assert "test_foo.py::test_bar" in collector.manual_tc_ids
@@ -802,7 +793,7 @@ class TestManualTcIdCollection:
             # Run collection hook - exhaust generator to execute code after yield
             generator = collector.pytest_collection_modifyitems(items=[mock_item1, mock_item2])
             next(generator)  # Advance to yield
-            with pytest.raises(pytest.UsageError, match="Duplicate tc_id.*TC001"):
+            with pytest.raises(pytest.UsageError, match=r"Duplicate tc_id.*TC001"):
                 next(generator)  # Execute code after yield - should raise
 
     def test_parameterized_test_all_params_get_same_base_id(self):
@@ -857,10 +848,8 @@ class TestManualTcIdCollection:
             # Run collection hook - exhaust generator to execute code after yield
             generator = collector.pytest_collection_modifyitems(items=items)
             next(generator)  # Advance to yield
-            try:
+            with contextlib.suppress(StopIteration):
                 next(generator)  # Execute code after yield
-            except StopIteration:
-                pass
 
             # Verify all parameter variations have the same base TC ID
             assert collector.manual_tc_ids["test_foo.py::test_bar[param1]"] == "TC-PARAM"
@@ -949,11 +938,11 @@ class TestDuplicateTcIdDetection:
             generator = collector.pytest_collection_modifyitems([mock_item1, mock_item2])
             next(generator)  # Advance past yield
 
-            with pytest.raises(pytest.UsageError, match="Duplicate tc_id 'TC001'"):
-                try:
-                    next(generator)
-                except StopIteration:
-                    pass
+            with (
+                pytest.raises(pytest.UsageError, match="Duplicate tc_id 'TC001'"),
+                contextlib.suppress(StopIteration),
+            ):
+                next(generator)
 
     def test_parameterized_tests_share_tc_id(self):
         """Parameterized tests can share the same tc_id without error."""
@@ -993,10 +982,8 @@ class TestDuplicateTcIdDetection:
             # Run collection - should NOT raise
             generator = collector.pytest_collection_modifyitems([mock_item1, mock_item2])
             next(generator)  # Advance past yield
-            try:
+            with contextlib.suppress(StopIteration):
                 next(generator)
-            except StopIteration:
-                pass
 
             # Both should have the same tc_id recorded
             assert collector.manual_tc_ids["test.py::test_foo[param1]"] == "TC001"

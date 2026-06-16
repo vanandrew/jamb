@@ -300,7 +300,7 @@ class TestLoadCoverage:
         bad_file = tmp_path / ".jamb"
         bad_file.write_text(json.dumps({"version": 999, "coverage": {}, "graph": {}}))
 
-        with pytest.raises(ValueError, match="Unsupported .jamb file version"):
+        with pytest.raises(ValueError, match=r"Unsupported \.jamb file version"):
             load_coverage(str(bad_file))
 
     def test_load_raises_on_missing_required_fields(self, tmp_path: Path):

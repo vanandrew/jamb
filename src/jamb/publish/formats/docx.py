@@ -218,10 +218,7 @@ def render_docx(
     doc.add_paragraph()
 
     # Build document order index for sorting
-    if document_order:
-        doc_order_index = {prefix: i for i, prefix in enumerate(document_order)}
-    else:
-        doc_order_index = {}
+    doc_order_index = {prefix: i for i, prefix in enumerate(document_order)} if document_order else {}
 
     fallback_order = len(document_order) if document_order else 0
 
@@ -249,10 +246,7 @@ def render_docx(
             docx_level = min(item.level, 9) if item.level else 1
             heading = doc.add_heading(heading_display, level=docx_level)
         else:
-            if item.header:
-                heading_text = f"{item.uid}: {item.header}"
-            else:
-                heading_text = item.uid
+            heading_text = f"{item.uid}: {item.header}" if item.header else item.uid
             heading = doc.add_heading(heading_text, level=2)
 
         # Add bookmark for this item so links can reference it

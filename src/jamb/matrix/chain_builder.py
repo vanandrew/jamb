@@ -60,7 +60,7 @@ def get_document_paths(
             )
             return
 
-        current_path = path + [current]
+        current_path = [*path, current]
 
         # Get children of this document
         children = graph.get_document_children(current)
@@ -560,13 +560,13 @@ def build_full_chain_matrix(
 
     # Always include the built-in review_status column, followed by user-configured columns.
     # Filter out any user-supplied review_status to avoid duplicates.
-    _REVIEW_STATUS = MatrixColumnConfig(
+    review_status = MatrixColumnConfig(
         key="review_status",
         header="Review Status",
         source="built_in",
     )
     user_columns = [c for c in (column_configs or []) if c.key != "review_status"]
-    all_columns = [_REVIEW_STATUS] + user_columns
+    all_columns = [review_status, *user_columns]
 
     # Get all document paths from start
     doc_paths = get_document_paths(graph, start_prefix)

@@ -140,7 +140,7 @@ class TestLoadImportFile:
         yaml_file = tmp_path / "test.yml"
         yaml_file.write_text("items:\n  - uid: SRS001\n    text: First\n  - uid: SRS001\n    text: Second\n")
 
-        with pytest.raises(ValueError, match="Duplicate UIDs.*SRS001"):
+        with pytest.raises(ValueError, match=r"Duplicate UIDs.*SRS001"):
             load_import_file(yaml_file)
 
     def test_multiple_duplicate_uids_raises(self, tmp_path):
@@ -158,7 +158,7 @@ class TestLoadImportFile:
             "    text: Fourth\n"
         )
 
-        with pytest.raises(ValueError, match="Duplicate UIDs.*SRS001.*SRS002"):
+        with pytest.raises(ValueError, match=r"Duplicate UIDs.*SRS001.*SRS002"):
             load_import_file(yaml_file)
 
     def test_raises_on_invalid_yaml(self, tmp_path):
@@ -175,9 +175,11 @@ class TestLoadImportFile:
         yaml_file.write_text("documents: []")
 
         # Mock open to raise OSError
-        with patch("builtins.open", side_effect=OSError("Permission denied")):
-            with pytest.raises(OSError, match="Failed to read file"):
-                load_import_file(yaml_file)
+        with (
+            patch("builtins.open", side_effect=OSError("Permission denied")),
+            pytest.raises(OSError, match="Failed to read file"),
+        ):
+            load_import_file(yaml_file)
 
     def test_load_import_file_yaml_error(self, tmp_path):
         """Test load_import_file handles YAML syntax errors."""

@@ -6,8 +6,8 @@ from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.graph_builder import build_traceability_graph
 
 __all__ = [
-    "discover_documents",
-    "build_traceability_graph",
     "DocumentConfig",
     "DocumentDAG",
+    "build_traceability_graph",
+    "discover_documents",
 ]

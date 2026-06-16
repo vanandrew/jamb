@@ -794,7 +794,7 @@ def test_feature():
         assert '@pytest.mark.tc_id("TC001")' in content
         # Verify indentation - should have no leading spaces
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         assert tc_id_line == '@pytest.mark.tc_id("TC001")'
 
     def test_inserts_marker_with_existing_decorator_no_indent(self, tmp_path):
@@ -818,7 +818,7 @@ def test_feature():
         assert tc_id_idx < req_idx
         # Verify no extra indentation
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         assert tc_id_line == '@pytest.mark.tc_id("TC001")'
 
     def test_inserts_marker_with_4_space_indent(self, tmp_path):
@@ -839,7 +839,7 @@ class TestFeature:
         assert '@pytest.mark.tc_id("TC001")' in content
         # Verify 4-space indentation matches existing decorator
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         assert tc_id_line == '    @pytest.mark.tc_id("TC001")'
 
     def test_inserts_marker_with_8_space_indent(self, tmp_path):
@@ -859,7 +859,7 @@ class TestOuter:
         assert test_file in changes
         content = test_file.read_text()
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         assert tc_id_line == '        @pytest.mark.tc_id("TC001")'
 
     def test_inserts_marker_class_method_no_existing_decorator(self, tmp_path):
@@ -877,7 +877,7 @@ class TestFeature:
         assert test_file in changes
         content = test_file.read_text()
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         # Should match the def indentation
         assert tc_id_line == '    @pytest.mark.tc_id("TC001")'
 
@@ -1051,7 +1051,7 @@ class TestFeature:
         assert test_file in changes
         content = test_file.read_text()
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         assert tc_id_line == '  @pytest.mark.tc_id("TC001")'
 
     def test_handles_mark_style_decorator(self, tmp_path):
@@ -1069,7 +1069,7 @@ def test_feature():
         assert test_file in changes
         content = test_file.read_text()
         lines = content.split("\n")
-        tc_id_line = [line for line in lines if "tc_id" in line][0]
+        tc_id_line = next(line for line in lines if "tc_id" in line)
         assert tc_id_line == '@pytest.mark.tc_id("TC001")'
 
     def test_skips_nodeid_without_function_name(self, tmp_path):

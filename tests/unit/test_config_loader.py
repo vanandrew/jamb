@@ -283,7 +283,7 @@ class TestExtractVersionFromFile:
         version_file.write_text("__version__ = version = '1.2.3'\n")
         assert _extract_version_from_file(version_file) == "1.2.3"
 
-    def test_extracts_VERSION_constant(self, tmp_path):
+    def test_extracts_version_constant(self, tmp_path):
         """Extract VERSION = "1.2.3"."""
         version_file = tmp_path / "_version.py"
         version_file.write_text('VERSION = "1.2.3"\n')
