@@ -1630,10 +1630,11 @@ def template(path: str) -> None:
     theme_path = target / "theme.scss"
     reference_path = target / "reference.docx"
 
-    if theme_path.exists() or reference_path.exists():
-        if not click.confirm(f"Assets exist in '{target}'. Overwrite?"):
-            click.echo("Aborted.")
-            return
+    if (theme_path.exists() or reference_path.exists()) and not click.confirm(
+        f"Assets exist in '{target}'. Overwrite?"
+    ):
+        click.echo("Aborted.")
+        return
 
     target.mkdir(parents=True, exist_ok=True)
     theme_path.write_text(default_theme())

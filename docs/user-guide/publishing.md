@@ -14,6 +14,14 @@ The `jamb publish` command renders requirement documents through [Quarto](https:
 
 Quarto ships with jamb, so HTML, DOCX, and PDF work out of the box with no extra tools to install.
 
+### How item types render
+
+Each item type gets its own treatment, consistently across formats:
+
+- **`requirement`** — a level-2 heading (the item UID/header) followed by its text.
+- **`heading`** — a section heading whose depth follows the item's `level` field, mapping to `<h1>`–`<h6>` (values are clamped to that range; the default is level 2). Heading items appear in the table of contents and structure the document.
+- **`info`** — an anchored heading followed by a [callout](https://quarto.org/docs/authoring/callouts.html) (note) block, giving informational items a distinct, boxed style separate from normative requirements.
+
 ## Output Formats
 
 ### HTML

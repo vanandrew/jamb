@@ -3,18 +3,26 @@
 
 {% for item in section.items %}
 {% if item.type == "heading" %}
-{{ "#" * (item.level or 2) }} {{ item.heading_text | mdescape }} {#{{ item.uid }}}
-{% else %}
-## {{ item.heading_text | mdescape }} {#{{ item.uid }}}
-{% endif %}
+{{ item.level | hmarker }} {{ item.heading_text | mdescape }} {#{{ item.uid }}}
 
 {% if item.body %}
-{% if item.type == "info" %}
-*{{ item.body | mdescape }}*
-{% else %}
 {{ item.body | mdescape }}
-{% endif %}
 
+{% endif %}
+{% elif item.type == "info" %}
+## {{ item.heading_text | mdescape }} {#{{ item.uid }}}
+
+::: {.callout-note}
+{{ (item.body if item.body else item.heading_text) | mdescape }}
+:::
+
+{% else %}
+## {{ item.heading_text | mdescape }} {#{{ item.uid }}}
+
+{% if item.body %}
+{{ item.body | mdescape }}
+
+{% endif %}
 {% endif %}
 {% if include_links and item.parent_links %}
 **Links:** {% for uid in item.parent_links %}{% if uid in known_uids %}[{{ uid }}](#{{ uid }}){% else %}{{ uid | mdescape }}{% endif %}{{ ", " if not loop.last else "" }}{% endfor %}

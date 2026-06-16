@@ -911,7 +911,9 @@ class TestPublishCommand:
         r = _invoke(runner, ["publish", "SRS"], cwd=tmp_path)
         assert r.exit_code == 0
         assert "## SRS001: Overview" in r.output
-        assert "*Informational note*" in r.output
+        # Info items render as note callouts.
+        assert "::: {.callout-note}" in r.output
+        assert "Informational note" in r.output
         assert "Links:" in r.output
         assert "Linked from:" in r.output
 

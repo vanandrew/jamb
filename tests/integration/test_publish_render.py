@@ -24,9 +24,11 @@ def sample_document():
             uid="SRS001",
             text="The system shall authenticate via OAuth 2.0.",
             document_prefix="SRS",
-            links=["UN001"],
+            # Link to the info item to exercise cross-references into a callout.
+            links=["UN001", "SRS003"],
         ),
         Item(uid="SRS002", text="Overview.", document_prefix="SRS", type="heading", header="Security", level=2),
+        Item(uid="SRS003", text="Tokens expire after one hour.", document_prefix="SRS", type="info", header="Policy"),
     ]
     graph = TraceabilityGraph()
     for item in items:
@@ -49,6 +51,17 @@ def test_render_html(sample_document, tmp_path):
     assert 'id="SRS001"' in content
     assert 'href="#UN001"' in content
     assert 'id="doc-SRS"' in content
+
+
+def test_render_html_info_item_is_callout(sample_document, tmp_path):
+    out = tmp_path / "out.html"
+    render_document(sample_document, OutputFormat.HTML, out)
+    content = out.read_text()
+    # Info items render as note callouts with their own distinct style.
+    assert "callout-note" in content
+    # The info item stays anchored and linkable.
+    assert 'id="SRS003"' in content
+    assert 'href="#SRS003"' in content
 
 
 def test_render_pdf(sample_document, tmp_path):

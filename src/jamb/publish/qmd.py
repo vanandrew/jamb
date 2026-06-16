@@ -45,6 +45,18 @@ def _md_escape(text: str) -> str:
     return escaped
 
 
+def _heading_marker(level: int | None) -> str:
+    """Return the ``#`` marker for a heading item, clamped to depths 1-6.
+
+    Args:
+        level: The requested heading depth, or ``None`` for the default.
+
+    Returns:
+        A run of ``#`` characters between one and six long.
+    """
+    return "#" * max(1, min(6, level or 2))
+
+
 @lru_cache(maxsize=1)
 def _template():
     """Compile and cache the document body template."""
@@ -60,6 +72,7 @@ def _template():
         comment_end_string="--!}",
     )
     env.filters["mdescape"] = _md_escape
+    env.filters["hmarker"] = _heading_marker
     return env.from_string(source)
 
 

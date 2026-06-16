@@ -208,9 +208,31 @@ class TestRenderQmd:
         src = render_qmd(self._sample(), OutputFormat.MD)
         assert "### SRS002: Security {#SRS002}" in src
 
-    def test_info_item_emphasized(self):
+    def test_heading_level_defaults_to_two(self):
+        item = Item(uid="SRS001", text="t", document_prefix="SRS", type="heading", header="H")
+        src = render_qmd(_doc([item], order=["SRS"]), OutputFormat.MD)
+        assert "## SRS001: H {#SRS001}" in src
+
+    def test_heading_level_clamped_to_six(self):
+        item = Item(uid="SRS001", text="t", document_prefix="SRS", type="heading", header="Deep", level=9)
+        src = render_qmd(_doc([item], order=["SRS"]), OutputFormat.MD)
+        assert "###### SRS001: Deep {#SRS001}" in src
+        assert "####### " not in src  # never more than six
+
+    def test_info_item_renders_callout(self):
         src = render_qmd(self._sample(), OutputFormat.MD)
-        assert "*An informational note.*" in src
+        # The info item is an anchored heading followed by a note callout.
+        assert "## SRS003 {#SRS003}" in src
+        assert "::: {.callout-note}" in src
+        assert "An informational note." in src
+        # It is a callout, not the old italic-emphasis rendering.
+        assert "*An informational note.*" not in src
+
+    def test_info_callout_uses_heading_when_body_empty(self):
+        item = Item(uid="SRS001", text="", document_prefix="SRS", type="info", header="Note")
+        src = render_qmd(_doc([item], order=["SRS"]), OutputFormat.MD)
+        assert "::: {.callout-note}" in src
+        assert "SRS001: Note" in src
 
     def test_known_link_is_anchored(self):
         src = render_qmd(self._sample(), OutputFormat.MD)
