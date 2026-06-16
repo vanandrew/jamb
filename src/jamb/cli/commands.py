@@ -429,15 +429,14 @@ def _scan_tests_for_requirements(root: Path) -> set[str]:
                 tree = ast.parse(source)
 
                 for node in ast.walk(tree):
-                    if isinstance(node, ast.Call):
-                        # Look for pytest.mark.requirement(...)
-                        if _is_requirement_marker(node):
-                            for arg in node.args:
-                                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                                    linked.add(arg.value)
-                            for kw in node.keywords:
-                                if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
-                                    linked.add(kw.value.value)
+                    # Look for pytest.mark.requirement(...)
+                    if isinstance(node, ast.Call) and _is_requirement_marker(node):
+                        for arg in node.args:
+                            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                                linked.add(arg.value)
+                        for kw in node.keywords:
+                            if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                                linked.add(kw.value.value)
             except SyntaxError as e:
                 click.echo(f"Warning: Skipping {test_file} (syntax error: {e})", err=True)
                 continue
@@ -470,18 +469,19 @@ def _is_requirement_marker(node: ast.Call) -> bool:
 
     # @pytest.mark.requirement(...)
     if isinstance(func, ast.Attribute) and func.attr == "requirement":
-        if isinstance(func.value, ast.Attribute) and func.value.attr == "mark":
-            if isinstance(func.value.value, ast.Name) and func.value.value.id == "pytest":
-                return True
+        if (
+            isinstance(func.value, ast.Attribute)
+            and func.value.attr == "mark"
+            and isinstance(func.value.value, ast.Name)
+            and func.value.value.id == "pytest"
+        ):
+            return True
         # @mark.requirement(...)
         if isinstance(func.value, ast.Name) and func.value.id == "mark":
             return True
 
     # @requirement(...)
-    if isinstance(func, ast.Name) and func.id == "requirement":
-        return True
-
-    return False
+    return bool(isinstance(func, ast.Name) and func.id == "requirement")
 
 
 # =============================================================================
@@ -1117,7 +1117,7 @@ def link_add(child: str, parent: str) -> None:
 
     dag = discover_documents()
 
-    item_path, prefix = _find_item_path(child, dag=dag)
+    item_path, _prefix = _find_item_path(child, dag=dag)
     if item_path is None:
         click.echo(f"Error: Item '{child}' not found", err=True)
         sys.exit(1)
@@ -1170,7 +1170,7 @@ def link_remove(child: str, parent: str) -> None:
     CHILD is the child item UID (e.g., SRS001).
     PARENT is the parent item UID (e.g., SYS001).
     """
-    item_path, prefix = _find_item_path(child)
+    item_path, _prefix = _find_item_path(child)
     if item_path is None:
         click.echo(f"Error: Item '{child}' not found", err=True)
         sys.exit(1)
@@ -1501,10 +1501,9 @@ def publish(
     include_links = not no_links
 
     # Validate template option
-    if template:
-        if not str(template).lower().endswith(".docx"):
-            click.echo("Error: --template must be a .docx file", err=True)
-            sys.exit(1)
+    if template and not str(template).lower().endswith(".docx"):
+        click.echo("Error: --template must be a .docx file", err=True)
+        sys.exit(1)
 
     # Handle DOCX export
     if docx:
@@ -1643,18 +1642,12 @@ def _render_markdown_lines(
                 else:
                     lines.append(f"{item_obj.text}\n")
         if include_links and item_obj.links:
-            if use_anchors:
-                link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links]
-            else:
-                link_parts = list(item_obj.links)
+            link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links] if use_anchors else list(item_obj.links)
             lines.append(f"*Links: {', '.join(link_parts)}*\n")
         if include_links:
             children = graph.item_children.get(item_obj.uid, [])
             if children:
-                if use_anchors:
-                    child_parts = [f"[{uid}](#{uid})" for uid in children]
-                else:
-                    child_parts = list(children)
+                child_parts = [f"[{uid}](#{uid})" for uid in children] if use_anchors else list(children)
                 lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
         if use_anchors:
             lines.append("")
@@ -1702,10 +1695,7 @@ def _publish_markdown(prefix: str, path: str, include_links: bool = True) -> Non
     graph = build_traceability_graph(dag)
     output_path = Path(path)
 
-    if prefix.lower() == "all":
-        prefixes = dag.topological_sort()
-    else:
-        prefixes = [prefix]
+    prefixes = dag.topological_sort() if prefix.lower() == "all" else [prefix]
 
     lines: list[str] = []
     for p in prefixes:
@@ -1785,10 +1775,9 @@ def template(path: str) -> None:
 
     output_path = Path(path)
 
-    if output_path.exists():
-        if not click.confirm(f"File '{path}' exists. Overwrite?"):
-            click.echo("Aborted.")
-            return
+    if output_path.exists() and not click.confirm(f"File '{path}' exists. Overwrite?"):
+        click.echo("Aborted.")
+        return
 
     try:
         generate_template(str(output_path))

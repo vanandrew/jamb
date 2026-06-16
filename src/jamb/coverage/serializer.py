@@ -337,7 +337,7 @@ def _serialize_metadata(metadata: MatrixMetadata) -> dict[str, Any]:
 def _deserialize_metadata(data: dict[str, Any]) -> MatrixMetadata:
     """Deserialize a dictionary to MatrixMetadata."""
     environment = None
-    if "environment" in data and data["environment"]:
+    if data.get("environment"):
         env_data = data["environment"]
         environment = TestEnvironment(
             os_name=env_data.get("os_name", ""),

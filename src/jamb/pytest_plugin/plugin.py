@@ -203,10 +203,8 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
     # Check coverage and potentially modify exit status
     fail_uncovered = session.config.option.jamb_fail_uncovered or collector.jamb_config.fail_uncovered
-    if fail_uncovered:
-        if not collector.all_test_items_covered():
-            if session.exitstatus == 0:
-                session.exitstatus = 1
+    if fail_uncovered and not collector.all_test_items_covered() and session.exitstatus == 0:
+        session.exitstatus = 1
 
 
 def pytest_report_header(config: pytest.Config) -> list[str] | None:

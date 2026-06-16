@@ -239,7 +239,7 @@ def load_config(config_path: Path | None = None) -> JambConfig:
 
     jamb_config = pyproject.get("tool", {}).get("jamb", {})
 
-    RECOGNIZED_KEYS = {
+    recognized_keys = {
         "test_documents",
         "fail_uncovered",
         "require_all_pass",
@@ -253,7 +253,7 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         "tc_id_prefix",
         "matrix_columns",
     }
-    unknown = set(jamb_config.keys()) - RECOGNIZED_KEYS
+    unknown = set(jamb_config.keys()) - recognized_keys
     if unknown:
         warnings.warn(
             f"Unrecognized keys in [tool.jamb]: {', '.join(sorted(unknown))}",
@@ -274,7 +274,7 @@ def load_config(config_path: Path | None = None) -> JambConfig:
             software_version = _get_dynamic_version(pyproject, config_path.parent)
 
     # Parse matrix_columns array-of-tables
-    BUILT_IN_COLUMNS = {"review_status"}
+    built_in_columns = {"review_status"}
     raw_columns = jamb_config.get("matrix_columns", [])
     matrix_columns: list[MatrixColumnConfig] = []
     for col in raw_columns:
@@ -299,11 +299,11 @@ def load_config(config_path: Path | None = None) -> JambConfig:
                 stacklevel=2,
             )
             continue
-        if source == "built_in" and key not in BUILT_IN_COLUMNS:
+        if source == "built_in" and key not in built_in_columns:
             warnings.warn(
                 f"matrix_columns entry '{key}' uses source 'built_in' but "
                 f"'{key}' is not a recognized built-in column. "
-                f"Available: {', '.join(sorted(BUILT_IN_COLUMNS))}",
+                f"Available: {', '.join(sorted(built_in_columns))}",
                 stacklevel=2,
             )
             continue

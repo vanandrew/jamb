@@ -1,5 +1,6 @@
 """Tests for jamb.pytest_plugin.collector module."""
 
+import contextlib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -685,10 +686,8 @@ class TestPytestCollectionModifyItems:
         # Execute the hook
         gen = collector.pytest_collection_modifyitems([mock_item])
         next(gen)  # Resume after yield
-        try:
+        with contextlib.suppress(StopIteration):
             next(gen)
-        except StopIteration:
-            pass
 
         assert len(collector.test_links) == 2
         assert collector.test_links[0].item_uid == "SRS001"
@@ -715,10 +714,8 @@ class TestPytestCollectionModifyItems:
 
         gen = collector.pytest_collection_modifyitems([mock_item])
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             next(gen)
-        except StopIteration:
-            pass
 
         assert "UNKNOWN001" in collector.unknown_items
 
@@ -761,10 +758,8 @@ class TestPytestRunTestMakeReport:
         # Execute hook
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         assert collector.test_links[0].test_outcome == "passed"
 
@@ -801,10 +796,8 @@ class TestPytestRunTestMakeReport:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         assert collector.test_links[0].test_outcome == "failed"
         assert any("[FAILURE]" in msg for msg in collector.test_links[0].notes)
@@ -842,13 +835,11 @@ class TestPytestRunTestMakeReport:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         # Message should be truncated
-        failure_msg = [m for m in collector.test_links[0].notes if "[FAILURE]" in m][0]
+        failure_msg = next(m for m in collector.test_links[0].notes if "[FAILURE]" in m)
         assert "(truncated)" in failure_msg
 
     @patch("jamb.storage.discover_documents")
@@ -885,10 +876,8 @@ class TestPytestRunTestMakeReport:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         assert any("[SKIPPED]" in msg for msg in collector.test_links[0].notes)
 
@@ -925,10 +914,8 @@ class TestPytestRunTestMakeReport:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         assert any("[XFAIL]" in msg for msg in collector.test_links[0].notes)
 
@@ -970,10 +957,8 @@ class TestPytestRunTestMakeReport:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         assert "Custom verification message" in collector.test_links[0].notes
 
@@ -1025,12 +1010,10 @@ class TestMakeReportTruncationPrecision:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
-        failure_note = [m for m in collector.test_links[0].notes if "[FAILURE]" in m][0]
+        failure_note = next(m for m in collector.test_links[0].notes if "[FAILURE]" in m)
         assert "A" * 500 in failure_note
         assert "(truncated)" in failure_note
         assert "B" not in failure_note
@@ -1083,10 +1066,8 @@ class TestMakeReportXfailEmptyReason:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
         notes = collector.test_links[0].notes
         assert any("[SKIPPED]" in n for n in notes)
@@ -1132,10 +1113,8 @@ class TestMakeReportSetupTeardown:
 
         gen = collector.pytest_runtest_makereport(mock_item, mock_call)
         next(gen)
-        try:
+        with contextlib.suppress(StopIteration):
             gen.send(mock_outcome)
-        except StopIteration:
-            pass
 
     @patch("jamb.storage.discover_documents")
     @patch("jamb.storage.build_traceability_graph")

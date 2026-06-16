@@ -5,7 +5,6 @@ from __future__ import annotations
 from jamb.core.models import Item, MatrixColumnConfig
 from jamb.storage.items import compute_content_hash
 
-
 #: Built-in column keys recognised by :func:`resolve_column`.
 BUILT_IN_COLUMNS: frozenset[str] = frozenset({"review_status"})
 

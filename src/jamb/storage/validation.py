@@ -265,18 +265,17 @@ def _check_links(
                 )
 
             # Check link conformance (links to parent document)
-            if parents:
-                if target.document_prefix not in parents:
-                    issues.append(
-                        ValidationIssue(
-                            "warning",
-                            uid,
-                            item.document_prefix,
-                            f"links to {link} in document {target.document_prefix}, "
-                            f"which is not a parent document "
-                            f"(expected: {', '.join(parents)})",
-                        )
+            if parents and target.document_prefix not in parents:
+                issues.append(
+                    ValidationIssue(
+                        "warning",
+                        uid,
+                        item.document_prefix,
+                        f"links to {link} in document {target.document_prefix}, "
+                        f"which is not a parent document "
+                        f"(expected: {', '.join(parents)})",
                     )
+                )
 
     return issues
 
@@ -590,17 +589,17 @@ def _check_item_link_cycles(graph: TraceabilityGraph, skip: set[str]) -> list[Va
     for uid in active_uids:
         adjacency[uid] = [lk for lk in graph.items[uid].links if lk in active_uids]
 
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color: dict[str, int] = {uid: WHITE for uid in active_uids}
+    white, gray, black = 0, 1, 2
+    color: dict[str, int] = {uid: white for uid in active_uids}
     path: list[str] = []
 
     for start_uid in active_uids:
-        if color[start_uid] != WHITE:
+        if color[start_uid] != white:
             continue
 
         # Stack of (uid, iterator_over_links)
         stack: list[tuple[str, int]] = [(start_uid, 0)]
-        color[start_uid] = GRAY
+        color[start_uid] = gray
         path.append(start_uid)
 
         while stack:
@@ -612,7 +611,7 @@ def _check_item_link_cycles(graph: TraceabilityGraph, skip: set[str]) -> list[Va
                 stack[-1] = (uid, link_idx + 1)
                 link = active_links[link_idx]
 
-                if color[link] == GRAY:
+                if color[link] == gray:
                     # Found a cycle — extract it
                     cycle_start = path.index(link)
                     cycle_members = frozenset(path[cycle_start:])
@@ -629,15 +628,15 @@ def _check_item_link_cycles(graph: TraceabilityGraph, skip: set[str]) -> list[Va
                                 f"cycle in item links: {' -> '.join(cycle_uids)} -> {link} (affects: {affected_uids})",
                             )
                         )
-                elif color[link] == WHITE:
-                    color[link] = GRAY
+                elif color[link] == white:
+                    color[link] = gray
                     path.append(link)
                     stack.append((link, 0))
             else:
                 # All links processed, backtrack
                 stack.pop()
                 path.pop()
-                color[uid] = BLACK
+                color[uid] = black
 
     return issues
 

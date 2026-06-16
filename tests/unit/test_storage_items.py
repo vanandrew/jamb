@@ -30,9 +30,11 @@ class TestReadItemErrorHandling:
                 raise OSError("Permission denied")
             return original_open(*args, **kwargs)
 
-        with patch("builtins.open", side_effect=mock_open_wrapper):
-            with pytest.raises(OSError, match="Permission denied"):
-                read_item(item_path, "SRS")
+        with (
+            patch("builtins.open", side_effect=mock_open_wrapper),
+            pytest.raises(OSError, match="Permission denied"),
+        ):
+            read_item(item_path, "SRS")
 
     def test_read_item_yaml_error(self, tmp_path):
         """Test read_item raises ValueError on YAML syntax error."""

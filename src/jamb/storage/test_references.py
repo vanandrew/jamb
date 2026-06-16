@@ -51,18 +51,19 @@ def _is_requirement_marker(node: ast.Call) -> bool:
 
     # @pytest.mark.requirement(...)
     if isinstance(func, ast.Attribute) and func.attr == "requirement":
-        if isinstance(func.value, ast.Attribute) and func.value.attr == "mark":
-            if isinstance(func.value.value, ast.Name) and func.value.value.id == "pytest":
-                return True
+        if (
+            isinstance(func.value, ast.Attribute)
+            and func.value.attr == "mark"
+            and isinstance(func.value.value, ast.Name)
+            and func.value.value.id == "pytest"
+        ):
+            return True
         # @mark.requirement(...)
         if isinstance(func.value, ast.Name) and func.value.id == "mark":
             return True
 
     # @requirement(...)
-    if isinstance(func, ast.Name) and func.id == "requirement":
-        return True
-
-    return False
+    return bool(isinstance(func, ast.Name) and func.id == "requirement")
 
 
 def _find_enclosing_function(tree: ast.AST, target_line: int) -> str | None:
@@ -412,9 +413,13 @@ def _is_tc_id_marker(node: ast.Call) -> bool:
 
     # @pytest.mark.tc_id(...)
     if isinstance(func, ast.Attribute) and func.attr == "tc_id":
-        if isinstance(func.value, ast.Attribute) and func.value.attr == "mark":
-            if isinstance(func.value.value, ast.Name) and func.value.value.id == "pytest":
-                return True
+        if (
+            isinstance(func.value, ast.Attribute)
+            and func.value.attr == "mark"
+            and isinstance(func.value.value, ast.Name)
+            and func.value.value.id == "pytest"
+        ):
+            return True
         # @mark.tc_id(...)
         if isinstance(func.value, ast.Name) and func.value.id == "mark":
             return True
@@ -515,22 +520,25 @@ def insert_tc_id_markers(
         insertions: list[tuple[int, str, str]] = []  # (line, indent, tc_id)
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-                if node.name in func_tc_ids and not _has_tc_id_marker(node):
-                    # Find insertion point (before first decorator or function def)
-                    if node.decorator_list:
-                        insert_line = min(d.lineno for d in node.decorator_list)
-                        # Get indentation from first decorator
-                        # col_offset points to the expression after @, so subtract 1
-                        first_dec = node.decorator_list[0]
-                        indent_col = max(0, first_dec.col_offset - 1)
-                    else:
-                        insert_line = node.lineno
-                        indent_col = node.col_offset
+            if (
+                isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+                and node.name in func_tc_ids
+                and not _has_tc_id_marker(node)
+            ):
+                # Find insertion point (before first decorator or function def)
+                if node.decorator_list:
+                    insert_line = min(d.lineno for d in node.decorator_list)
+                    # Get indentation from first decorator
+                    # col_offset points to the expression after @, so subtract 1
+                    first_dec = node.decorator_list[0]
+                    indent_col = max(0, first_dec.col_offset - 1)
+                else:
+                    insert_line = node.lineno
+                    indent_col = node.col_offset
 
-                    tc_id = func_tc_ids[node.name]
-                    indent = " " * indent_col
-                    insertions.append((insert_line, indent, tc_id))
+                tc_id = func_tc_ids[node.name]
+                indent = " " * indent_col
+                insertions.append((insert_line, indent, tc_id))
 
         if not insertions:
             continue

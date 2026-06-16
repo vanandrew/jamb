@@ -182,10 +182,7 @@ def render_html(
     all_uids = {item.uid for item in items}
 
     # Build document order index for sorting
-    if document_order:
-        doc_order_index = {prefix: i for i, prefix in enumerate(document_order)}
-    else:
-        doc_order_index = {}
+    doc_order_index = {prefix: i for i, prefix in enumerate(document_order)} if document_order else {}
 
     fallback_order = len(document_order) if document_order else 0
 

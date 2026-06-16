@@ -28,10 +28,7 @@ def build_traceability_graph(
     """
     graph = TraceabilityGraph()
 
-    if document_prefixes is not None:
-        prefixes_to_load = document_prefixes
-    else:
-        prefixes_to_load = list(dag.documents.keys())
+    prefixes_to_load = document_prefixes if document_prefixes is not None else list(dag.documents.keys())
 
     # Filter out excluded document prefixes
     if exclude_patterns:
