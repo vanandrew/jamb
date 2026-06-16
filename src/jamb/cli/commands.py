@@ -1624,7 +1624,7 @@ def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument
     if prefix.lower() == "all":
         items: list[Item] = list(graph.items.values())
         title = "Requirements Document"
-        document_label = "All documents"
+        document_label = None
     else:
         items = graph.get_items_by_document(prefix)
         title = f"{prefix} Requirements Document"
@@ -1635,7 +1635,7 @@ def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument
         sys.exit(1)
 
     config = load_config()
-    parts = [document_label]
+    parts = [document_label] if document_label else []
     if config.software_version:
         parts.append(f"Version {config.software_version}")
     parts.append(date.today().isoformat())
