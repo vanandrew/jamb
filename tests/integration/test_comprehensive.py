@@ -1344,6 +1344,7 @@ class TestPhase12Publish:
         assert "SRS001" in r.output
         assert "SRS002" in r.output
 
+    @pytest.mark.quarto
     def test_12_2_publish_all_html(self, runner, pub_project):
         """12.2 - Publish all documents as HTML."""
         out = pub_project / "docs" / "all.html"
@@ -1369,6 +1370,7 @@ class TestPhase12Publish:
         assert out.exists()
         assert "SRS001" in out.read_text()
 
+    @pytest.mark.quarto
     def test_12_4_publish_srs_docx(self, runner, pub_project):
         """12.4 - Publish SRS as Word document."""
         out = pub_project / "srs.docx"

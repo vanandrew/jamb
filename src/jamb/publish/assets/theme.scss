@@ -1,0 +1,38 @@
+/*-- scss:defaults --*/
+
+// Brand palette for published requirement documents.
+$primary:        #1a365d;
+$secondary:      #2c5282;
+$body-color:     #1a202c;
+$link-color:     #3182ce;
+$border-color:   #e2e8f0;
+
+$font-size-root: 16px;
+$line-height-base: 1.7;
+$toc-color:      $secondary;
+
+$h1-color:       $primary;
+$h2-color:       $secondary;
+
+/*-- scss:rules --*/
+
+.quarto-title-block .title {
+  color: $primary;
+  border-bottom: 3px solid $primary;
+  padding-bottom: 0.5rem;
+}
+
+// Document-section headers (one level-1 heading per document prefix).
+h1[id^="doc-"] {
+  color: $primary;
+  border-bottom: 2px solid $primary;
+  padding-bottom: 0.4rem;
+}
+
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}

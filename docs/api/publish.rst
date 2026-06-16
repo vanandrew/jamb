@@ -1,18 +1,46 @@
 Publishing
 ==========
 
-Document rendering for regulatory submissions.
+Document rendering for regulatory submissions, built on Quarto.
 
-HTML Renderer
--------------
-
-.. module:: jamb.publish.formats.html
-
-.. autofunction:: render_html
-
-DOCX Renderer
+Document model
 --------------
 
-.. module:: jamb.publish.formats.docx
+.. module:: jamb.publish.document
 
-.. autofunction:: render_docx
+.. autofunction:: build_publish_document
+
+.. autoclass:: PublishDocument
+
+.. autoclass:: RenderSection
+
+.. autoclass:: RenderItem
+
+Quarto source
+-------------
+
+.. module:: jamb.publish.qmd
+
+.. autofunction:: render_qmd
+
+Formats
+-------
+
+.. module:: jamb.publish.formats
+
+.. autoclass:: OutputFormat
+
+.. autofunction:: format_from_path
+
+Rendering
+---------
+
+.. module:: jamb.publish.render
+
+.. autofunction:: render_document
+
+.. module:: jamb.publish.quarto
+
+.. autofunction:: find_quarto
+
+.. autofunction:: quarto_version

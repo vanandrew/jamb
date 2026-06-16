@@ -103,13 +103,21 @@ These errors are printed by `jamb` commands.
 : Both `--after` and `--before` were passed to `jamb item add`.
 : **Fix:** Use only one of `--after` or `--before`.
 
-**"Error: --html requires an output PATH" / "--markdown requires an output PATH" / "--docx requires an output PATH"**
+**"Error: --html requires an output PATH" / "--markdown requires an output PATH" / "--docx requires an output PATH" / "--pdf requires an output PATH"**
 : A format flag was used with `jamb publish` but no output path was provided.
 : **Fix:** Provide an output path, e.g. `jamb publish SRS output.html --html`.
 
 **"Error: 'all' requires an output PATH"**
 : `jamb publish all` was called without a format flag or output path.
-: **Fix:** Provide both a path and format, e.g. `jamb publish all docs/all.html --html`.
+: **Fix:** Provide both a path and format, e.g. `jamb publish all docs/all.pdf --pdf`.
+
+**"Error: Quarto is required to render HTML, DOCX, and PDF output but was not found."**
+: Publishing HTML, DOCX, or PDF needs the Quarto binary, which normally ships with jamb via the `quarto-cli` dependency.
+: **Fix:** Reinstall jamb so `quarto-cli` is present, or point `JAMB_QUARTO` at an existing Quarto binary. Markdown (`--markdown`) and `.qmd` output do not require Quarto.
+
+**"Error: Quarto failed to render ..."**
+: Quarto was found but the render failed; the underlying Quarto diagnostics follow the message.
+: **Fix:** Check the reported error. A common cause is an invalid `--template` file (the SCSS, reference `.docx`, or Typst template). Set `JAMB_DEBUG=1` to preserve the generated `.qmd` next to the output for inspection.
 
 **"Error: --neighbors requires --items to be specified"**
 : The `--neighbors` flag was used with `jamb export` without specifying `--items`.

@@ -242,45 +242,54 @@ jamb validate --error-all
 ```
 Usage: jamb publish [OPTIONS] PREFIX [PATH]
 
-  Publish a document.
+  Publish a document to HTML, DOCX, PDF, or Markdown.
 
   PREFIX is the document prefix (e.g., SRS) or 'all' for all documents.
-  PATH is the output file or directory (optional).
+  PATH is the output file; its extension selects the format when no format
+  flag is given. With no PATH, Markdown is written to stdout.
 
-  Use --template with a .docx file to apply custom styles.
-  Generate a starter template with: jamb template
-
-  For a traceability matrix with test coverage, use:
+  Customize styling with --template (and scaffold a starter with
+  `jamb template`). For a traceability matrix with test coverage, use:
   pytest --jamb --jamb-trace-matrix PATH
 
 Options:
-  -H, --html            Output HTML (standalone document with inline CSS and hyperlinks)
+  -H, --html            Output HTML
   -m, --markdown        Output Markdown
   -d, --docx            Output DOCX (Word document)
+  -p, --pdf             Output PDF
   -L, --no-links        Do not include link sections in output
-  -t, --template PATH   DOCX template file to use for styling (use with --docx)
+  -t, --template PATH   Styling override for the target format: an SCSS file
+                        for HTML, a reference .docx for DOCX, or a Typst
+                        template for PDF
   --help                Show this message and exit.
 ```
+
+Rendering to HTML, DOCX, and PDF uses [Quarto](https://quarto.org), which
+ships with jamb. Markdown and `.qmd` output are written directly without
+invoking Quarto.
 
 **Example:**
 ```bash
 # Publish SRS document to HTML
 jamb publish SRS docs/srs.html --html
 
-# Publish all documents to HTML
-jamb publish all docs/all.html --html
+# Publish all documents to a single PDF
+jamb publish all docs/all.pdf --pdf
 
-# Publish to markdown file
+# Publish to a markdown file
 jamb publish SRS docs/srs.md --markdown
 
 # Print markdown to stdout (default when no format flag and no path)
 jamb publish SRS
 
-# Publish to Word document
+# Publish to a Word document
 jamb publish SRS docs/srs.docx --docx
 
-# Publish to Word document with custom template
-jamb publish SRS docs/srs.docx --template my-company-template.docx
+# Publish to a Word document with a custom reference document
+jamb publish SRS docs/srs.docx --template jamb-assets/reference.docx
+
+# Emit the raw Quarto source
+jamb publish SRS docs/srs.qmd
 
 # Auto-detect format from file extension
 jamb publish SRS docs/srs.html
@@ -293,15 +302,15 @@ jamb publish SRS docs/srs.html
 ```
 Usage: jamb template [OPTIONS] [PATH]
 
-  Generate a DOCX template file with jamb styles.
+  Scaffold customizable styling assets for publishing.
 
-  PATH is the output file path (default: jamb-template.docx).
+  PATH is the output directory (default: jamb-assets).
 
-  The generated template contains all styles used by jamb when publishing
-  DOCX documents. Open it in Microsoft Word, customize the styles (fonts,
-  colors, spacing), then use it with:
+  Writes the default HTML theme and a Word reference document. Edit them and
+  pass them back when publishing:
 
-      jamb publish SRS output.docx --template jamb-template.docx
+      jamb publish SRS out.html --template jamb-assets/theme.scss
+      jamb publish SRS out.docx --template jamb-assets/reference.docx
 
 Options:
   --help  Show this message and exit.
@@ -309,16 +318,16 @@ Options:
 
 **Example:**
 ```bash
-# Generate default template
+# Scaffold styling assets into ./jamb-assets
 jamb template
 
-# Generate template with custom name
-jamb template my-company-template.docx
+# Scaffold into a custom directory
+jamb template ./my-styles
 
-# Workflow: generate, customize, then use
+# Workflow: scaffold, customize, then use
 jamb template
-# Open jamb-template.docx in Word, customize styles, save
-jamb publish SRS output.docx --template jamb-template.docx
+# Edit jamb-assets/theme.scss or jamb-assets/reference.docx, then:
+jamb publish SRS output.docx --template jamb-assets/reference.docx
 ```
 
 ---

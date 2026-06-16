@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 from click.testing import CliRunner
 
@@ -852,6 +853,7 @@ class TestPublishCommand:
         assert "SRS001" in r.output
         assert "SRS002" in r.output
 
+    @pytest.mark.quarto
     def test_publish_html_flag(self, tmp_path):
         """publish --html writes an HTML file."""
         runner = self._setup_publish_project(tmp_path)
@@ -953,6 +955,7 @@ class TestPublishCommand:
         r = _invoke(runner, ["publish", "SRS", "--html"], cwd=tmp_path)
         assert r.exit_code == 1
 
+    @pytest.mark.quarto
     def test_publish_docx_creates_file(self, tmp_path):
         """publish --docx writes a non-empty DOCX file."""
         runner = self._setup_publish_project(tmp_path)
@@ -1581,6 +1584,7 @@ class TestCheckUnknownItems:
 class TestPublishAutoDetect:
     """Tests for publish command auto-detecting format from extension."""
 
+    @pytest.mark.quarto
     def test_publish_html_extension_auto_detect(self, tmp_path):
         """publish auto-detects HTML format from .html extension."""
         _init_project(tmp_path)
@@ -1597,6 +1601,7 @@ class TestPublishAutoDetect:
         assert out.exists()
         assert "<html" in out.read_text().lower()
 
+    @pytest.mark.quarto
     def test_publish_htm_extension_auto_detect(self, tmp_path):
         """publish auto-detects HTML format from .htm extension."""
         _init_project(tmp_path)
@@ -1613,6 +1618,7 @@ class TestPublishAutoDetect:
         assert out.exists()
         assert "<html" in out.read_text().lower()
 
+    @pytest.mark.quarto
     def test_publish_docx_extension_auto_detect(self, tmp_path):
         """publish auto-detects DOCX format from .docx extension."""
         _init_project(tmp_path)
@@ -1712,6 +1718,7 @@ class TestPublishAllMarkdown:
 class TestPublishAllHtml:
     """Tests for publish all command with HTML format."""
 
+    @pytest.mark.quarto
     def test_publish_all_html_to_file(self, tmp_path):
         """publish all to HTML file includes all documents."""
         _init_project(tmp_path)
@@ -1735,6 +1742,7 @@ class TestPublishAllHtml:
 class TestPublishAllDocx:
     """Tests for publish all command with DOCX format."""
 
+    @pytest.mark.quarto
     def test_publish_all_docx_to_file(self, tmp_path):
         """publish all to DOCX file creates non-empty file."""
         _init_project(tmp_path)
@@ -1755,10 +1763,10 @@ class TestPublishAllDocx:
 
 
 class TestPublishTemplateWarning:
-    """Tests for publish template warning with non-DOCX output."""
+    """Tests for the --template warning with non-rendered output."""
 
-    def test_publish_template_warning_with_html(self, tmp_path):
-        """publish --template warns when used with HTML output."""
+    def test_publish_template_warning_with_markdown(self, tmp_path):
+        """publish --template warns when used with Markdown output."""
         _init_project(tmp_path)
         runner = CliRunner()
         _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
@@ -1767,39 +1775,14 @@ class TestPublishTemplateWarning:
         data["text"] = "requirement"
         _write_yaml(p, data)
 
-        # Create a dummy template file
-        template = tmp_path / "template.docx"
-        template.write_bytes(b"dummy")
+        template = tmp_path / "theme.scss"
+        template.write_text("/* theme */")
 
-        out = tmp_path / "out.html"
+        out = tmp_path / "out.md"
         r = _invoke(runner, ["publish", "SRS", str(out), "--template", str(template)], cwd=tmp_path)
         assert r.exit_code == 0
         assert "Warning" in r.output
         assert "template" in r.output.lower()
-
-
-class TestPublishTemplateInvalidExtension:
-    """Tests for publish --template with invalid file extension."""
-
-    def test_publish_template_invalid_extension(self, tmp_path):
-        """publish --template exits with error for non-.docx template."""
-        _init_project(tmp_path)
-        runner = CliRunner()
-        _invoke(runner, ["item", "add", "SRS"], cwd=tmp_path)
-        p = tmp_path / "reqs" / "srs" / "SRS001.yml"
-        data = _read_yaml(p)
-        data["text"] = "requirement"
-        _write_yaml(p, data)
-
-        # Create a dummy template file with wrong extension
-        template = tmp_path / "template.txt"
-        template.write_text("dummy")
-
-        out = tmp_path / "out.docx"
-        r = _invoke(runner, ["publish", "SRS", str(out), "--docx", "--template", str(template)], cwd=tmp_path)
-        assert r.exit_code == 1
-        assert "template" in r.output.lower()
-        assert ".docx" in r.output
 
 
 class TestMatrixTraceFromAutoDetect:

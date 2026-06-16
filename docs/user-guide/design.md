@@ -12,7 +12,7 @@ jamb is organized into focused packages, each with a single responsibility:
 | `storage` | Filesystem I/O: discovery, YAML reading/writing, graph building, validation |
 | `pytest_plugin` | pytest hooks, marker extraction, test-outcome recording |
 | `matrix` | Traceability-matrix generation in multiple formats |
-| `publish` | Human-readable document rendering (HTML, Markdown, DOCX) |
+| `publish` | Human-readable document rendering via Quarto (HTML, DOCX, PDF, Markdown) |
 | `cli` | Click-based command-line interface |
 
 Shared modules at the package root include `config` (configuration loading from `pyproject.toml`) and `yaml_io` (YAML utilities).
@@ -156,7 +156,7 @@ The matrix generator (`matrix/generator.py`) dispatches to format-specific rende
 
 Format modules are imported lazily inside the dispatch function. This avoids requiring optional dependencies (like `openpyxl` for XLSX) when they aren't used.
 
-The publish package renders human-readable requirement documents in **HTML**, **Markdown**, and **DOCX** formats, with internal hyperlinks between items and document-order grouping. HTML and DOCX renderers live in `publish/formats/`; Markdown rendering is handled in the CLI layer.
+The publish package renders human-readable requirement documents in **HTML**, **DOCX**, **PDF**, and **Markdown** formats from a single source via [Quarto](https://quarto.org). It is split into a pure layer and a render layer: `publish/document.py` assembles requirement items into an ordered `PublishDocument`, and `publish/qmd.py` turns that into Quarto markdown (`.qmd`) source — both deterministic and free of any binary dependency. `publish/render.py` then invokes Quarto (located via `publish/quarto.py`) to produce HTML, DOCX, and PDF, while Markdown and raw `.qmd` are written directly. Cross-references between items use Markdown anchors that Quarto resolves to HTML anchors, DOCX bookmarks, and PDF links. Default styling assets (an SCSS theme) live in `publish/assets/` and can be overridden per format.
 
 ## Validation Architecture
 

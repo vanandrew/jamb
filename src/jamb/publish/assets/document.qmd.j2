@@ -1,0 +1,30 @@
+{% for section in sections %}
+# {{ section.prefix }} {#doc-{{ section.prefix }}}
+
+{% for item in section.items %}
+{% if item.type == "heading" %}
+{{ "#" * (item.level or 2) }} {{ item.heading_text | mdescape }} {#{{ item.uid }}}
+{% else %}
+## {{ item.heading_text | mdescape }} {#{{ item.uid }}}
+{% endif %}
+
+{% if item.body %}
+{% if item.type == "info" %}
+*{{ item.body | mdescape }}*
+{% else %}
+{{ item.body | mdescape }}
+{% endif %}
+
+{% endif %}
+{% if include_links and item.parent_links %}
+**Links:** {% for uid in item.parent_links %}{% if uid in known_uids %}[{{ uid }}](#{{ uid }}){% else %}{{ uid | mdescape }}{% endif %}{{ ", " if not loop.last else "" }}{% endfor %}
+
+
+{% endif %}
+{% if include_links and item.child_links %}
+**Linked from:** {% for uid in item.child_links %}[{{ uid }}](#{{ uid }}){{ ", " if not loop.last else "" }}{% endfor %}
+
+
+{% endif %}
+{% endfor %}
+{% endfor %}

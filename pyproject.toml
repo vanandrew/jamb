@@ -23,7 +23,7 @@ dependencies = [
     "click>=8.0",
     "jinja2>=3.0",
     "openpyxl>=3.0",
-    "python-docx>=1.0",
+    "quarto-cli>=1.5",
     "tomlkit>=0.12",
     "tomli>=2.0; python_version < '3.11'",
 ]
@@ -59,6 +59,9 @@ header = "Safety Class"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=src/jamb"
+markers = [
+    "quarto: tests that invoke the Quarto binary to render output (skipped when unavailable)",
+]
 filterwarnings = [
     "ignore:Could not load requirements:UserWarning:jamb.pytest_plugin.collector",
     "ignore:cannot collect test class 'TestEnvironment':pytest.PytestCollectionWarning",
