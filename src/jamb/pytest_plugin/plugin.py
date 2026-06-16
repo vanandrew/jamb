@@ -92,26 +92,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-def _xdist_active(config: pytest.Config) -> bool:
-    """Return True if the run is distributed across pytest-xdist workers.
-
-    Detects both sides of an xdist run: worker processes expose a
-    ``workerinput`` attribute, while the controlling process has a
-    distribution mode other than ``"no"`` (set by ``-n``/``--dist``).
-    A serial run with ``-n0`` keeps ``dist == "no"`` and is not treated
-    as distributed.
-
-    Args:
-        config: The pytest configuration object.
-
-    Returns:
-        True if tests are distributed to xdist workers, False otherwise.
-    """
-    if hasattr(config, "workerinput"):
-        return True
-    return getattr(config.option, "dist", "no") != "no"
-
-
 def pytest_configure(config: pytest.Config) -> None:
     """Register the requirement marker and initialize the jamb collector plugin.
 
@@ -126,7 +106,13 @@ def pytest_configure(config: pytest.Config) -> None:
     Args:
         config: The pytest configuration object.
     """
-    if config.option.jamb and _xdist_active(config):
+    # pytest-xdist runs tests on worker processes (which expose ``workerinput``)
+    # coordinated by a controller (whose ``dist`` mode is non-"no" under
+    # -n/--dist). jamb collects coverage per-process and does not aggregate it
+    # across workers, so a distributed run would silently produce an incomplete
+    # matrix. A serial run (-n0) keeps ``dist == "no"`` and is allowed.
+    distributed = hasattr(config, "workerinput") or getattr(config.option, "dist", "no") != "no"
+    if config.option.jamb and distributed:
         raise pytest.UsageError(
             "jamb does not support pytest-xdist (distributed test runs). "
             "Test coverage is collected per-process and is not aggregated "

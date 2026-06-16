@@ -132,59 +132,16 @@ class TestPytestConfigure:
         mock_config.pluginmanager.register.assert_not_called()
 
 
-class TestXdistActive:
-    """Tests for the _xdist_active helper.
+class TestXdistGuard:
+    """Tests for the pytest-xdist guard in pytest_configure.
 
-    Uses SimpleNamespace rather than MagicMock so attribute presence is
-    explicit (MagicMock auto-creates any attribute, including workerinput).
+    SimpleNamespace is used for the raising cases so attribute presence is
+    explicit — MagicMock auto-creates any attribute, including ``workerinput``,
+    which would make every config look like an xdist worker.
     """
 
-    def test_worker_process_is_active(self):
-        """A worker process exposes workerinput and is treated as distributed."""
-        from types import SimpleNamespace
-
-        from jamb.pytest_plugin.plugin import _xdist_active
-
-        config = SimpleNamespace(workerinput={}, option=SimpleNamespace(dist="no"))
-
-        assert _xdist_active(config) is True
-
-    def test_controller_with_dist_is_active(self):
-        """The controller has no workerinput but a non-'no' dist mode."""
-        from types import SimpleNamespace
-
-        from jamb.pytest_plugin.plugin import _xdist_active
-
-        config = SimpleNamespace(option=SimpleNamespace(dist="load"))
-
-        assert _xdist_active(config) is True
-
-    def test_serial_run_is_inactive(self):
-        """A serial run (-n0 / no -n) keeps dist == 'no'."""
-        from types import SimpleNamespace
-
-        from jamb.pytest_plugin.plugin import _xdist_active
-
-        config = SimpleNamespace(option=SimpleNamespace(dist="no"))
-
-        assert _xdist_active(config) is False
-
-    def test_xdist_not_installed_is_inactive(self):
-        """Without xdist installed there is no 'dist' option at all."""
-        from types import SimpleNamespace
-
-        from jamb.pytest_plugin.plugin import _xdist_active
-
-        config = SimpleNamespace(option=SimpleNamespace())
-
-        assert _xdist_active(config) is False
-
-
-class TestXdistGuard:
-    """Tests for the pytest-xdist guard in pytest_configure."""
-
-    def test_raises_when_jamb_and_distributed(self):
-        """--jamb with a distributed run is rejected with a usage error."""
+    def test_raises_when_controller_distributed(self):
+        """--jamb on a distributing controller (dist != 'no') is rejected."""
         from types import SimpleNamespace
 
         import pytest as pytest_mod
@@ -197,7 +154,7 @@ class TestXdistGuard:
             pytest_configure(config)
 
     def test_raises_for_worker_process(self):
-        """A worker process running --jamb is also rejected."""
+        """A worker process (exposes workerinput) running --jamb is rejected."""
         from types import SimpleNamespace
 
         import pytest as pytest_mod
