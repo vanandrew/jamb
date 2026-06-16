@@ -121,16 +121,22 @@ jamb publish SRS output.md   --markdown
 `-t, --template PATH`
 : Apply a styling override appropriate to the target format — an SCSS file for HTML, a reference `.docx` for DOCX, or a Typst template for PDF
 
-## Using Custom Styling
+## Styling
 
-Each format has its own styling input — they are independent mechanisms, so an
-HTML SCSS theme does **not** affect Word, and vice versa:
+By default jamb applies a consistent, clean look across **all three** formats —
+the same near-black text, blue accent, and sans-serif typeface. Each format
+reaches that look through its own styling mechanism (they are independent — an
+SCSS theme does not affect Word, and vice versa):
 
 | Format | Styling input | Override flag |
 |--------|---------------|---------------|
-| HTML   | An SCSS theme file | `--template theme.scss` |
+| HTML   | An SCSS theme | `--template theme.scss` |
 | DOCX   | A Word reference document | `--template reference.docx` |
-| PDF    | A Typst template | `--template template.typ` |
+| PDF    | A Typst preamble | `--template typst-theme.typ` |
+
+Because the mechanisms differ, the match is on typography and color; some
+HTML-only touches (the pill-shaped UID chips, rounded callout cards) do not
+carry over to Word or PDF.
 
 ### Scaffold the styling assets
 
@@ -138,24 +144,25 @@ HTML SCSS theme does **not** affect Word, and vice versa:
 jamb template
 ```
 
-By default this writes `./jamb-assets/theme.scss` — the HTML theme (colors,
-fonts, headings). Because SCSS only styles HTML, the Word reference document is
-opt-in:
+This writes the editable text themes into `./jamb-assets/` — `theme.scss` (HTML)
+and `typst-theme.typ` (PDF). Word is styled by a binary reference document, so
+that one is opt-in:
 
 ```bash
 jamb template --docx
 ```
 
-That adds `./jamb-assets/reference.docx` (Word paragraph/heading styles, page
-numbers). Pass a directory to choose a different location: `jamb template ./my-styles`.
+That adds `./jamb-assets/reference.docx`. Pass a directory to choose a different
+location: `jamb template ./my-styles`.
 
 ### Apply your styling
 
-Edit `theme.scss` (SCSS variables and rules), or open `reference.docx` in Word
-and modify its named styles. Then apply it either **per command**:
+Edit `theme.scss` / `typst-theme.typ`, or open `reference.docx` in Word and
+modify its named styles. Then apply it either **per command**:
 
 ```bash
 jamb publish SRS output.html --template jamb-assets/theme.scss
+jamb publish SRS output.pdf  --template jamb-assets/typst-theme.typ
 jamb publish SRS output.docx --template jamb-assets/reference.docx
 ```
 
@@ -164,8 +171,8 @@ jamb publish SRS output.docx --template jamb-assets/reference.docx
 ```toml
 [tool.jamb]
 publish_html_theme = "jamb-assets/theme.scss"
+publish_pdf_template = "jamb-assets/typst-theme.typ"
 publish_docx_reference = "jamb-assets/reference.docx"
-publish_pdf_template = "jamb-assets/template.typ"
 ```
 
 A `--template` passed on the command line always overrides the configured value.

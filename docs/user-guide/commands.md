@@ -306,11 +306,13 @@ Usage: jamb template [OPTIONS] [PATH]
 
   PATH is the output directory (default: jamb-assets).
 
-  Writes the HTML theme (theme.scss). HTML styling uses SCSS; SCSS does not
-  apply to Word, so pass --docx to also scaffold a reference document that
-  styles DOCX output. Apply assets per command:
+  Writes the HTML theme (theme.scss) and the PDF Typst preamble
+  (typst-theme.typ). Word is styled by a binary reference document, so pass
+  --docx to also scaffold reference.docx. All three match the default look.
+  Apply assets per command:
 
       jamb publish SRS out.html --template jamb-assets/theme.scss
+      jamb publish SRS out.pdf  --template jamb-assets/typst-theme.typ
       jamb publish SRS out.docx --template jamb-assets/reference.docx
 
 Options:
@@ -320,7 +322,7 @@ Options:
 
 **Example:**
 ```bash
-# Scaffold the HTML theme into ./jamb-assets
+# Scaffold the HTML and PDF themes into ./jamb-assets
 jamb template
 
 # Also scaffold the Word reference document for DOCX styling
@@ -332,6 +334,7 @@ jamb template ./my-styles
 # Apply once for every publish (instead of passing --template each time):
 #   [tool.jamb]
 #   publish_html_theme = "jamb-assets/theme.scss"
+#   publish_pdf_template = "jamb-assets/typst-theme.typ"
 #   publish_docx_reference = "jamb-assets/reference.docx"
 ```
 

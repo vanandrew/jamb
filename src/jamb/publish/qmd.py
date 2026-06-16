@@ -93,7 +93,7 @@ def _front_matter(
     *,
     theme: str | None,
     reference_doc: str | None,
-    typst_template: str | None,
+    typst_header: str | None,
 ) -> str:
     """Build the YAML front matter block for a renderable format."""
     targets = [OutputFormat.HTML, OutputFormat.DOCX, OutputFormat.PDF] if fmt is OutputFormat.QMD else [fmt]
@@ -111,9 +111,13 @@ def _front_matter(
                 docx["reference-doc"] = reference_doc
             blocks["docx"] = docx or "default"
         elif target is OutputFormat.PDF:
-            typst: dict[str, object] = {"papersize": "us-letter"}
-            if typst_template:
-                typst["template"] = typst_template
+            typst: dict[str, object] = {
+                "papersize": "us-letter",
+                "fontsize": "11pt",
+                "margin": {"x": "2cm", "y": "2.5cm"},
+            }
+            if typst_header:
+                typst["include-in-header"] = typst_header
             blocks["typst"] = typst
 
     front_matter: dict[str, object] = {
@@ -132,7 +136,7 @@ def render_qmd(
     *,
     theme: str | None = None,
     reference_doc: str | None = None,
-    typst_template: str | None = None,
+    typst_header: str | None = None,
 ) -> str:
     """Render a publish document to ``.qmd`` source.
 
@@ -143,7 +147,7 @@ def render_qmd(
             carrying the appropriate Quarto ``format`` block.
         theme: HTML theme filename to reference in the front matter.
         reference_doc: DOCX reference-doc filename to reference.
-        typst_template: Typst template filename to reference for PDF output.
+        typst_header: Typst preamble filename to include for PDF output.
 
     Returns:
         The ``.qmd`` (or plain markdown) source.
@@ -156,6 +160,6 @@ def render_qmd(
         fmt,
         theme=theme,
         reference_doc=reference_doc,
-        typst_template=typst_template,
+        typst_header=typst_header,
     )
     return f"---\n{front_matter}---\n\n{body}"

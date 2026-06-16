@@ -81,6 +81,19 @@ def test_render_docx(sample_document, tmp_path):
     assert "SRS001" in document_xml
 
 
+def test_render_docx_matches_theme_palette(sample_document, tmp_path):
+    """DOCX output is restyled to the same palette/typeface as the HTML theme."""
+    out = tmp_path / "out.docx"
+    render_document(sample_document, OutputFormat.DOCX, out)
+    with zipfile.ZipFile(out) as zf:
+        styles = zf.read("word/styles.xml").decode("utf-8")
+        theme = zf.read("word/theme/theme1.xml").decode("utf-8")
+    assert "0071E3" in styles  # accent applied to hyperlinks
+    assert "1D1D1F" in styles  # near-black body/heading text
+    assert "0F4761" not in styles  # Pandoc's default heading color is gone
+    assert "Helvetica Neue" in theme
+
+
 def test_render_html_with_custom_theme(sample_document, tmp_path):
     theme = tmp_path / "custom.scss"
     theme.write_text("/*-- scss:defaults --*/\n$primary: #ff0000;\n")

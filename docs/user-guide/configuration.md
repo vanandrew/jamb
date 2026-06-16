@@ -95,9 +95,9 @@ include_ancestors = true
 : **Example:** `publish_docx_reference = "jamb-assets/reference.docx"`
 
 `publish_pdf_template`
-: Path to a Typst template applied to published PDF output.
-: **Type:** `str` (path) — **Default:** Quarto's default Typst template
-: **Example:** `publish_pdf_template = "jamb-assets/template.typ"`
+: Path to a Typst preamble (set/show rules) applied to published PDF output, included in the document header. Scaffold one with `jamb template`.
+: **Type:** `str` (path) — **Default:** the bundled default Typst preamble
+: **Example:** `publish_pdf_template = "jamb-assets/typst-theme.typ"`
 
 `matrix_columns`
 : Extra columns to display in the full chain traceability matrix. Each entry defines a column sourced from an item's custom attributes. The built-in **Review Status** column is always present (you do not need to configure it).

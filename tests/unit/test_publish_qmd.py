@@ -185,6 +185,14 @@ class TestRenderQmd:
         src = render_qmd(self._sample(), OutputFormat.PDF)
         front = yaml.safe_load(src.split("---", 2)[1])
         assert "typst" in front["format"]
+        typst = front["format"]["typst"]
+        assert typst["papersize"] == "us-letter"
+        assert "margin" in typst
+
+    def test_pdf_includes_typst_header_when_given(self):
+        src = render_qmd(self._sample(), OutputFormat.PDF, typst_header="typst-theme.typ")
+        front = yaml.safe_load(src.split("---", 2)[1])
+        assert front["format"]["typst"]["include-in-header"] == "typst-theme.typ"
 
     def test_qmd_includes_all_format_blocks(self):
         src = render_qmd(self._sample(), OutputFormat.QMD)

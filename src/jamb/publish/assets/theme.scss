@@ -1,123 +1,174 @@
 /*-- scss:defaults --*/
 
 // ============================================================================
-// jamb default publishing theme (HTML output).
+// jamb default publishing theme (HTML output) — a clean, modern, Apple-inspired
+// look: SF Pro system type, near-black text on white with a single blue accent,
+// hairline dividers, soft rounded cards, and generous whitespace.
 //
-// Scaffold an editable copy with `jamb template`, then apply it either per
-// command (`jamb publish SRS out.html --template my-theme.scss`) or once in
+// Scaffold an editable copy with `jamb template`, then apply it per command
+// (`jamb publish SRS out.html --template my-theme.scss`) or once in
 // pyproject.toml:
 //
 //     [tool.jamb]
 //     publish_html_theme = "jamb-assets/theme.scss"
 //
-// Uses only system fonts so single-file HTML stays self-contained offline.
+// Uses only system fonts so single-file HTML stays self-contained offline (on
+// Apple devices this resolves to SF Pro).
 // ============================================================================
 
 // --- Palette ---------------------------------------------------------------
-$primary:            #1a365d; // deep navy (brand)
-$secondary:          #2c5282; // mid blue
-$body-color:         #1f2733; // near-black body text
-$link-color:         #2b6cb0;
-$link-hover-color:   #1a365d;
-$border-color:       #e2e8f0;
+$primary:          #0071e3; // Apple blue — links and accents
+$body-color:       #1d1d1f; // near-black
+$body-bg:          #ffffff;
+$link-color:       #0071e3;
+$link-hover-color: #0077ed;
+$border-color:     #d2d2d7; // hairline gray
+$gray-50:          #f5f5f7; // soft section / card fill
+$gray-hover:       #e8e8ed;
+$text-secondary:   #6e6e73;
 
-// --- Typography ------------------------------------------------------------
+// --- Typography (SF Pro via the system stack) ------------------------------
 $font-family-sans-serif:
-  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-$font-family-monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+$font-family-monospace: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-$font-size-root: 16px;
-$line-height-base: 1.65;
+$font-size-root: 17px;
+$line-height-base: 1.61;
 
+$headings-color: #1d1d1f;
 $headings-font-weight: 600;
-$headings-line-height: 1.25;
-$headings-color: $primary;
+$headings-line-height: 1.1;
 
-$h1-font-size: 2.1rem;
-$h2-font-size: 1.55rem;
-$h3-font-size: 1.25rem;
-$h4-font-size: 1.05rem;
+$h1-font-size: 2.6rem;
+$h2-font-size: 1.75rem;
+$h3-font-size: 1.3rem;
+$h4-font-size: 1.1rem;
 $h5-font-size: 0.95rem;
 $h6-font-size: 0.85rem;
 
 // --- Table of contents -----------------------------------------------------
-$toc-color: $secondary;
+$toc-color: $text-secondary;
 $toc-active-border: $primary;
 
 // --- Inline code -----------------------------------------------------------
-$code-color: #2c5282;
-$code-bg: #f7fafc;
+$code-color: #1d1d1f;
+$code-bg: $gray-50;
 
 // --- Callouts (info / note blocks) -----------------------------------------
-$callout-color-note: $secondary;
+$callout-color-note: $primary;
 
 /*-- scss:rules --*/
 
-// Title block ----------------------------------------------------------------
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.003em;
+}
+
+// Title — large, tight, airy.
 .quarto-title-block .title {
+  font-size: 3rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  border-bottom: 3px solid $primary;
-  padding-bottom: 0.5rem;
-  margin-bottom: 1.75rem;
-}
-
-// Document-section headers (one level-1 heading per document prefix), rendered
-// as prominent section banners with a navy accent bar.
-h1[id^="doc-"] {
-  margin-top: 3rem;
-  margin-bottom: 1.25rem;
-  padding: 0.4rem 0 0.4rem 0.9rem;
-  border-left: 5px solid $primary;
-  border-bottom: 2px solid $border-color;
-  background: linear-gradient(90deg, rgba($primary, 0.06), rgba($primary, 0));
-}
-
-// Content headings (requirements, info items, sub-headings).
-h2 {
-  margin-top: 2.25rem;
-  padding-bottom: 0.25rem;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.25rem;
   border-bottom: 1px solid $border-color;
+}
+
+// Document-section headers (one level-1 heading per document prefix): big and
+// clean, separated by whitespace and a single hairline.
+h1[id^="doc-"] {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  margin-top: 4rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid $border-color;
+}
+
+// Content headings — near-black, generous spacing, no heavy rules.
+h2 {
+  letter-spacing: -0.015em;
+  margin-top: 2.75rem;
+  margin-bottom: 0.6rem;
 }
 
 h3,
 h4,
 h5,
 h6 {
-  margin-top: 1.75rem;
+  letter-spacing: -0.01em;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
 }
 
-// Links -----------------------------------------------------------------------
+p {
+  margin-bottom: 1rem;
+}
+
+// Links — Apple blue, underline on hover only.
 a {
+  color: $link-color;
   text-decoration: none;
 }
 
 a:hover {
+  color: $link-hover-color;
   text-decoration: underline;
 }
 
 // Cross-reference UID links (the "Links:" / "Linked from:" lines) render as
-// monospace chips. Scoped to paragraph links so the TOC and heading self-anchors
-// keep their normal styling.
+// soft rounded pills. Scoped to paragraph links so the TOC and heading
+// self-anchors keep their normal styling.
 p a[href^="#"] {
-  font-family: $font-family-monospace;
-  font-size: 0.85em;
-  color: $secondary;
-  background: rgba($primary, 0.07);
-  padding: 0.08em 0.4em;
-  border-radius: 4px;
-  white-space: nowrap;
+  display: inline-block;
+  font-size: 0.82em;
+  font-weight: 500;
+  color: $primary;
+  background: $gray-50;
+  border-radius: 980px;
+  padding: 0.12em 0.7em;
+  line-height: 1.4;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
 }
 
 p a[href^="#"]:hover {
-  background: rgba($primary, 0.14);
+  background: $gray-hover;
   text-decoration: none;
 }
 
-// Tables ----------------------------------------------------------------------
+// Callouts (info / note blocks) — soft rounded cards with a hairline border and
+// a light header, instead of a heavy accent bar.
+.callout {
+  border: 1px solid $border-color !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.callout.callout-style-default > .callout-header {
+  background: $gray-50 !important;
+  border-bottom: 1px solid $border-color;
+  font-weight: 600;
+}
+
+.callout-note {
+  border-left-color: $border-color !important;
+}
+
+// Tables — hairlines and a light header.
 thead th {
-  background: rgba($primary, 0.06);
-  border-bottom: 2px solid $border-color;
+  background: $gray-50;
+  border-bottom: 1px solid $border-color;
+  font-weight: 600;
+}
+
+td,
+th {
+  border-color: $border-color;
 }
 
 // Print -----------------------------------------------------------------------

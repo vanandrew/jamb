@@ -1646,56 +1646,52 @@ def template(path: str, include_docx: bool) -> None:
 
     PATH is the output directory (default: jamb-assets).
 
-    Writes the HTML theme (``theme.scss``). HTML styling uses SCSS; SCSS does
-    not apply to Word, so pass ``--docx`` to also scaffold a reference document
-    that styles DOCX output. Apply assets per command:
+    Writes the HTML theme (``theme.scss``) and the PDF Typst preamble
+    (``typst-theme.typ``). Word is styled by a binary reference document rather
+    than text, so pass ``--docx`` to also scaffold ``reference.docx``. All three
+    match the default look. Apply assets per command:
 
     \b
         jamb publish SRS out.html --template jamb-assets/theme.scss
+        jamb publish SRS out.pdf  --template jamb-assets/typst-theme.typ
         jamb publish SRS out.docx --template jamb-assets/reference.docx
     """
-    import subprocess
-
-    from jamb.publish import default_theme
-    from jamb.publish.quarto import QuartoNotFoundError, find_quarto
+    from jamb.publish import build_reference_docx, default_theme, default_typst_theme
 
     target = Path(path)
     theme_path = target / "theme.scss"
+    typst_path = target / "typst-theme.typ"
     reference_path = target / "reference.docx"
 
-    planned = [theme_path] + ([reference_path] if include_docx else [])
+    planned = [theme_path, typst_path] + ([reference_path] if include_docx else [])
     if any(p.exists() for p in planned) and not click.confirm(f"Assets exist in '{target}'. Overwrite?"):
         click.echo("Aborted.")
         return
 
     target.mkdir(parents=True, exist_ok=True)
     theme_path.write_text(default_theme())
-    written = [theme_path]
+    typst_path.write_text(default_typst_theme())
+    written = [theme_path, typst_path]
 
     if include_docx:
-        try:
-            executable = find_quarto()
-            result = subprocess.run(
-                [executable, "pandoc", "--print-default-data-file", "reference.docx"],
-                capture_output=True,
-            )
-            if result.returncode == 0 and result.stdout:
-                reference_path.write_bytes(result.stdout)
-                written.append(reference_path)
-            else:
-                click.echo("Warning: could not generate reference.docx", err=True)
-        except QuartoNotFoundError:
+        reference_bytes = build_reference_docx()
+        if reference_bytes is not None:
+            reference_path.write_bytes(reference_bytes)
+            written.append(reference_path)
+        else:
             click.echo("Warning: Quarto not found; skipped reference.docx", err=True)
 
     for item in written:
         click.echo(f"Wrote {item}")
     click.echo("\nCustomize these files, then apply them per command:")
     click.echo(f"  jamb publish SRS out.html --template {theme_path}")
+    click.echo(f"  jamb publish SRS out.pdf  --template {typst_path}")
     if reference_path in written:
         click.echo(f"  jamb publish SRS out.docx --template {reference_path}")
     click.echo("\nOr apply them to every publish by adding to pyproject.toml:")
     click.echo("  [tool.jamb]")
     click.echo(f'  publish_html_theme = "{theme_path}"')
+    click.echo(f'  publish_pdf_template = "{typst_path}"')
     if reference_path in written:
         click.echo(f'  publish_docx_reference = "{reference_path}"')
     if not include_docx:
