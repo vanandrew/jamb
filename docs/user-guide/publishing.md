@@ -123,13 +123,14 @@ jamb publish SRS output.md   --markdown
 
 ## Using Custom Styling
 
-Each rendered format has a styling input you can override with `--template`:
+Each format has its own styling input — they are independent mechanisms, so an
+HTML SCSS theme does **not** affect Word, and vice versa:
 
-| Format | Styling input |
-|--------|---------------|
-| HTML   | An SCSS theme file |
-| DOCX   | A Word reference document |
-| PDF    | A Typst template |
+| Format | Styling input | Override flag |
+|--------|---------------|---------------|
+| HTML   | An SCSS theme file | `--template theme.scss` |
+| DOCX   | A Word reference document | `--template reference.docx` |
+| PDF    | A Typst template | `--template template.typ` |
 
 ### Scaffold the styling assets
 
@@ -137,22 +138,37 @@ Each rendered format has a styling input you can override with `--template`:
 jamb template
 ```
 
-This writes editable starting points into `./jamb-assets/`:
+By default this writes `./jamb-assets/theme.scss` — the HTML theme (colors,
+fonts, headings). Because SCSS only styles HTML, the Word reference document is
+opt-in:
 
-- `theme.scss` — the default HTML theme (colors, fonts, headings)
-- `reference.docx` — the Word reference document (paragraph and heading styles, page numbers)
+```bash
+jamb template --docx
+```
 
-Pass a directory to choose a different location: `jamb template ./my-styles`.
+That adds `./jamb-assets/reference.docx` (Word paragraph/heading styles, page
+numbers). Pass a directory to choose a different location: `jamb template ./my-styles`.
 
-### Customize and use
+### Apply your styling
 
-1. Edit `theme.scss` (SCSS variables and rules) or open `reference.docx` in Word and modify its styles.
-2. Pass the file back when publishing:
+Edit `theme.scss` (SCSS variables and rules), or open `reference.docx` in Word
+and modify its named styles. Then apply it either **per command**:
 
 ```bash
 jamb publish SRS output.html --template jamb-assets/theme.scss
 jamb publish SRS output.docx --template jamb-assets/reference.docx
 ```
+
+…or **once for every publish** via `pyproject.toml` (no `--template` needed):
+
+```toml
+[tool.jamb]
+publish_html_theme = "jamb-assets/theme.scss"
+publish_docx_reference = "jamb-assets/reference.docx"
+publish_pdf_template = "jamb-assets/template.typ"
+```
+
+A `--template` passed on the command line always overrides the configured value.
 
 ## Publishing Multiple Documents
 

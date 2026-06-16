@@ -1,38 +1,142 @@
 /*-- scss:defaults --*/
 
-// Brand palette for published requirement documents.
-$primary:        #1a365d;
-$secondary:      #2c5282;
-$body-color:     #1a202c;
-$link-color:     #3182ce;
-$border-color:   #e2e8f0;
+// ============================================================================
+// jamb default publishing theme (HTML output).
+//
+// Scaffold an editable copy with `jamb template`, then apply it either per
+// command (`jamb publish SRS out.html --template my-theme.scss`) or once in
+// pyproject.toml:
+//
+//     [tool.jamb]
+//     publish_html_theme = "jamb-assets/theme.scss"
+//
+// Uses only system fonts so single-file HTML stays self-contained offline.
+// ============================================================================
+
+// --- Palette ---------------------------------------------------------------
+$primary:            #1a365d; // deep navy (brand)
+$secondary:          #2c5282; // mid blue
+$body-color:         #1f2733; // near-black body text
+$link-color:         #2b6cb0;
+$link-hover-color:   #1a365d;
+$border-color:       #e2e8f0;
+
+// --- Typography ------------------------------------------------------------
+$font-family-sans-serif:
+  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+$font-family-monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
 $font-size-root: 16px;
-$line-height-base: 1.7;
-$toc-color:      $secondary;
+$line-height-base: 1.65;
 
-$h1-color:       $primary;
-$h2-color:       $secondary;
+$headings-font-weight: 600;
+$headings-line-height: 1.25;
+$headings-color: $primary;
+
+$h1-font-size: 2.1rem;
+$h2-font-size: 1.55rem;
+$h3-font-size: 1.25rem;
+$h4-font-size: 1.05rem;
+$h5-font-size: 0.95rem;
+$h6-font-size: 0.85rem;
+
+// --- Table of contents -----------------------------------------------------
+$toc-color: $secondary;
+$toc-active-border: $primary;
+
+// --- Inline code -----------------------------------------------------------
+$code-color: #2c5282;
+$code-bg: #f7fafc;
+
+// --- Callouts (info / note blocks) -----------------------------------------
+$callout-color-note: $secondary;
 
 /*-- scss:rules --*/
 
+// Title block ----------------------------------------------------------------
 .quarto-title-block .title {
-  color: $primary;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   border-bottom: 3px solid $primary;
   padding-bottom: 0.5rem;
+  margin-bottom: 1.75rem;
 }
 
-// Document-section headers (one level-1 heading per document prefix).
+// Document-section headers (one level-1 heading per document prefix), rendered
+// as prominent section banners with a navy accent bar.
 h1[id^="doc-"] {
-  color: $primary;
-  border-bottom: 2px solid $primary;
-  padding-bottom: 0.4rem;
+  margin-top: 3rem;
+  margin-bottom: 1.25rem;
+  padding: 0.4rem 0 0.4rem 0.9rem;
+  border-left: 5px solid $primary;
+  border-bottom: 2px solid $border-color;
+  background: linear-gradient(90deg, rgba($primary, 0.06), rgba($primary, 0));
 }
 
+// Content headings (requirements, info items, sub-headings).
+h2 {
+  margin-top: 2.25rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid $border-color;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 1.75rem;
+}
+
+// Links -----------------------------------------------------------------------
 a {
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
+}
+
+// Cross-reference UID links (the "Links:" / "Linked from:" lines) render as
+// monospace chips. Scoped to paragraph links so the TOC and heading self-anchors
+// keep their normal styling.
+p a[href^="#"] {
+  font-family: $font-family-monospace;
+  font-size: 0.85em;
+  color: $secondary;
+  background: rgba($primary, 0.07);
+  padding: 0.08em 0.4em;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+p a[href^="#"]:hover {
+  background: rgba($primary, 0.14);
+  text-decoration: none;
+}
+
+// Tables ----------------------------------------------------------------------
+thead th {
+  background: rgba($primary, 0.06);
+  border-bottom: 2px solid $border-color;
+}
+
+// Print -----------------------------------------------------------------------
+@media print {
+  h1[id^="doc-"] {
+    break-before: page;
+  }
+
+  h1[id^="doc-"]:first-of-type {
+    break-before: auto;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .callout {
+    break-inside: avoid;
+  }
 }

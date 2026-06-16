@@ -19,7 +19,7 @@ from jamb.storage.items import dump_yaml
 
 if TYPE_CHECKING:
     from jamb.core.models import Item
-    from jamb.publish import PublishDocument
+    from jamb.publish import OutputFormat, PublishDocument
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -1553,9 +1553,10 @@ def publish(
 
     assert path is not None
     doc = _build_publish_document(prefix, include_links)
+    style = template or _configured_style(fmt)
 
     try:
-        render_document(doc, fmt, path, template=template)
+        render_document(doc, fmt, path, template=style)
     except QuartoNotFoundError as exc:
         click.echo(f"Error: {exc}", err=True)
         sys.exit(1)
@@ -1566,6 +1567,37 @@ def publish(
         sys.exit(1)
 
     click.echo(f"Published to {path}")
+
+
+def _configured_style(fmt: OutputFormat) -> Path | None:
+    """Return the styling file configured in ``[tool.jamb]`` for a format.
+
+    Args:
+        fmt: The output format being rendered.
+
+    Returns:
+        The configured styling path for HTML/DOCX/PDF, or ``None`` when no
+        styling is configured for the format. Exits with an error if a
+        configured file is missing.
+    """
+    from jamb.config.loader import load_config
+    from jamb.publish import OutputFormat
+
+    config = load_config()
+    configured = {
+        OutputFormat.HTML: config.publish_html_theme,
+        OutputFormat.DOCX: config.publish_docx_reference,
+        OutputFormat.PDF: config.publish_pdf_template,
+    }.get(fmt)
+
+    if not configured:
+        return None
+
+    path = Path(configured)
+    if not path.exists():
+        click.echo(f"Error: configured styling file not found: {configured}", err=True)
+        sys.exit(1)
+    return path
 
 
 def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument:
@@ -1608,13 +1640,15 @@ def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument
 
 @cli.command("template")
 @click.argument("path", required=False, default="jamb-assets")
-def template(path: str) -> None:
+@click.option("--docx", "include_docx", is_flag=True, help="Also scaffold a Word reference document for DOCX styling")
+def template(path: str, include_docx: bool) -> None:
     """Scaffold customizable styling assets for publishing.
 
     PATH is the output directory (default: jamb-assets).
 
-    Writes the default HTML theme and a Word reference document. Edit them and
-    pass them back when publishing:
+    Writes the HTML theme (``theme.scss``). HTML styling uses SCSS; SCSS does
+    not apply to Word, so pass ``--docx`` to also scaffold a reference document
+    that styles DOCX output. Apply assets per command:
 
     \b
         jamb publish SRS out.html --template jamb-assets/theme.scss
@@ -1626,13 +1660,11 @@ def template(path: str) -> None:
     from jamb.publish.quarto import QuartoNotFoundError, find_quarto
 
     target = Path(path)
-
     theme_path = target / "theme.scss"
     reference_path = target / "reference.docx"
 
-    if (theme_path.exists() or reference_path.exists()) and not click.confirm(
-        f"Assets exist in '{target}'. Overwrite?"
-    ):
+    planned = [theme_path] + ([reference_path] if include_docx else [])
+    if any(p.exists() for p in planned) and not click.confirm(f"Assets exist in '{target}'. Overwrite?"):
         click.echo("Aborted.")
         return
 
@@ -1640,24 +1672,34 @@ def template(path: str) -> None:
     theme_path.write_text(default_theme())
     written = [theme_path]
 
-    try:
-        executable = find_quarto()
-        result = subprocess.run(
-            [executable, "pandoc", "--print-default-data-file", "reference.docx"],
-            capture_output=True,
-        )
-        if result.returncode == 0 and result.stdout:
-            reference_path.write_bytes(result.stdout)
-            written.append(reference_path)
-    except QuartoNotFoundError:
-        pass
+    if include_docx:
+        try:
+            executable = find_quarto()
+            result = subprocess.run(
+                [executable, "pandoc", "--print-default-data-file", "reference.docx"],
+                capture_output=True,
+            )
+            if result.returncode == 0 and result.stdout:
+                reference_path.write_bytes(result.stdout)
+                written.append(reference_path)
+            else:
+                click.echo("Warning: could not generate reference.docx", err=True)
+        except QuartoNotFoundError:
+            click.echo("Warning: Quarto not found; skipped reference.docx", err=True)
 
     for item in written:
         click.echo(f"Wrote {item}")
-    click.echo("\nCustomize these files, then publish with:")
+    click.echo("\nCustomize these files, then apply them per command:")
     click.echo(f"  jamb publish SRS out.html --template {theme_path}")
     if reference_path in written:
         click.echo(f"  jamb publish SRS out.docx --template {reference_path}")
+    click.echo("\nOr apply them to every publish by adding to pyproject.toml:")
+    click.echo("  [tool.jamb]")
+    click.echo(f'  publish_html_theme = "{theme_path}"')
+    if reference_path in written:
+        click.echo(f'  publish_docx_reference = "{reference_path}"')
+    if not include_docx:
+        click.echo("\nFor Word (DOCX) styling, run: jamb template --docx")
 
 
 # =============================================================================
