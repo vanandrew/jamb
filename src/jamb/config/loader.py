@@ -53,8 +53,10 @@ class JambConfig:
             published HTML, or ``None`` to use the bundled default theme.
         publish_docx_reference (str | None): Path to a Word reference document
             applied to published DOCX, or ``None`` for Quarto's default styling.
-        publish_pdf_template (str | None): Path to a Typst template applied to
-            published PDF, or ``None`` for Quarto's default Typst template.
+        publish_pdf_template (str | None): Path to a Typst preamble applied to
+            published PDF, or ``None`` to use the bundled default.
+        publish_status (str | None): Document status (e.g. ``"Draft"``,
+            ``"Approved"``) shown on the published title page, or ``None`` to omit.
 
     Examples:
         Construct a config with custom settings::
@@ -85,6 +87,7 @@ class JambConfig:
     publish_html_theme: str | None = None
     publish_docx_reference: str | None = None
     publish_pdf_template: str | None = None
+    publish_status: str | None = None
 
     def validate(self, available_documents: list[str]) -> list[str]:
         """Validate configuration against available documents.
@@ -264,6 +267,7 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         "publish_html_theme",
         "publish_docx_reference",
         "publish_pdf_template",
+        "publish_status",
     }
     unknown = set(jamb_config.keys()) - recognized_keys
     if unknown:
@@ -344,4 +348,5 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         publish_html_theme=jamb_config.get("publish_html_theme"),
         publish_docx_reference=jamb_config.get("publish_docx_reference"),
         publish_pdf_template=jamb_config.get("publish_pdf_template"),
+        publish_status=jamb_config.get("publish_status"),
     )

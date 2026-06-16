@@ -92,6 +92,15 @@ class TestBuildPublishDocument:
         doc = _doc(items, order=["UN", "SRS"])
         assert doc.known_uids == frozenset({"UN001", "SRS001"})
 
+    def test_subtitle_carried(self):
+        doc = build_publish_document(
+            [Item(uid="SRS001", text="t", document_prefix="SRS")],
+            "Title",
+            subtitle="Document SRS  ·  Version 1.0.0",
+            document_order=["SRS"],
+        )
+        assert doc.subtitle == "Document SRS  ·  Version 1.0.0"
+
 
 # ---------------------------------------------------------------------------
 # format_from_path
@@ -167,6 +176,31 @@ class TestRenderQmd:
         front = yaml.safe_load(src.split("---", 2)[1])
         assert front["title"] == "SRS Requirements Document"
         assert front["toc"] is True
+
+    def test_front_matter_is_numbered_with_contents(self):
+        src = render_qmd(self._sample(), OutputFormat.HTML)
+        front = yaml.safe_load(src.split("---", 2)[1])
+        assert front["number-sections"] is True
+        assert front["toc-title"] == "Contents"
+
+    def test_subtitle_in_front_matter_when_set(self):
+        doc = self._sample()
+        doc = build_publish_document(
+            [Item(uid="SRS001", text="t", document_prefix="SRS")],
+            "Title",
+            subtitle="Document SRS  ·  Version 2.0",
+            document_order=["SRS"],
+        )
+        front = yaml.safe_load(render_qmd(doc, OutputFormat.HTML).split("---", 2)[1])
+        assert front["subtitle"] == "Document SRS  ·  Version 2.0"
+
+    def test_no_subtitle_key_when_absent(self):
+        front = yaml.safe_load(render_qmd(self._sample(), OutputFormat.HTML).split("---", 2)[1])
+        assert "subtitle" not in front
+
+    def test_html_toc_rendered_in_body(self):
+        front = yaml.safe_load(render_qmd(self._sample(), OutputFormat.HTML).split("---", 2)[1])
+        assert front["format"]["html"]["toc-location"] == "body"
 
     def test_html_front_matter_block(self):
         src = render_qmd(self._sample(), OutputFormat.HTML, theme="theme.scss")

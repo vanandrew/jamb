@@ -101,7 +101,9 @@ def _front_matter(
     blocks: dict[str, object] = {}
     for target in targets:
         if target is OutputFormat.HTML:
-            html: dict[str, object] = {"embed-resources": True}
+            # Render the table of contents inline so HTML reads like a document
+            # (a Contents section) rather than a web-app sidebar.
+            html: dict[str, object] = {"embed-resources": True, "toc-location": "body"}
             if theme:
                 html["theme"] = theme
             blocks["html"] = html
@@ -120,13 +122,18 @@ def _front_matter(
                 typst["include-in-header"] = typst_header
             blocks["typst"] = typst
 
-    front_matter: dict[str, object] = {
-        "title": doc.title,
-        "toc": True,
-        "toc-depth": 4,
-        "number-sections": False,
-        "format": blocks,
-    }
+    front_matter: dict[str, object] = {"title": doc.title}
+    if doc.subtitle:
+        front_matter["subtitle"] = doc.subtitle
+    front_matter.update(
+        {
+            "toc": True,
+            "toc-title": "Contents",
+            "toc-depth": 4,
+            "number-sections": True,
+            "format": blocks,
+        }
+    )
     return yaml.safe_dump(front_matter, sort_keys=False, allow_unicode=True, default_flow_style=False)
 
 

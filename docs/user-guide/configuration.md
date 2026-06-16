@@ -99,6 +99,11 @@ include_ancestors = true
 : **Type:** `str` (path) — **Default:** the bundled default Typst preamble
 : **Example:** `publish_pdf_template = "jamb-assets/typst-theme.typ"`
 
+`publish_status`
+: Document status shown on the published title block (e.g. `Draft`, `In Review`, `Approved`). Omitted when unset.
+: **Type:** `str` — **Default:** none
+: **Example:** `publish_status = "Approved"`
+
 `matrix_columns`
 : Extra columns to display in the full chain traceability matrix. Each entry defines a column sourced from an item's custom attributes. The built-in **Review Status** column is always present (you do not need to configure it).
 : **Type:** `list` of tables with keys `key`, `header`, `source`, `default`

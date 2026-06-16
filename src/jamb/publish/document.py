@@ -55,6 +55,8 @@ class PublishDocument:
 
     Attributes:
         title: The document title shown on the title block.
+        subtitle: Optional metadata line shown under the title (e.g. document
+            id, version, date, status), or ``None`` to omit.
         sections: Document sections in hierarchy order.
         total_items: The number of items across all sections.
         include_links: Whether parent and child link references render.
@@ -63,6 +65,7 @@ class PublishDocument:
     """
 
     title: str
+    subtitle: str | None
     sections: tuple[RenderSection, ...]
     total_items: int
     include_links: bool
@@ -73,6 +76,7 @@ def build_publish_document(
     items: list[Item],
     title: str,
     *,
+    subtitle: str | None = None,
     include_links: bool = True,
     document_order: list[str] | None = None,
     graph: TraceabilityGraph | None = None,
@@ -85,6 +89,7 @@ def build_publish_document(
     Args:
         items: The items to publish.
         title: The document title.
+        subtitle: Optional metadata line shown under the title.
         include_links: Whether to carry parent and child link references.
         document_order: Document prefixes in hierarchy order; used to sort
             sections. Prefixes outside the list sort last, alphabetically.
@@ -140,6 +145,7 @@ def build_publish_document(
 
     return PublishDocument(
         title=title,
+        subtitle=subtitle,
         sections=tuple(sections),
         total_items=len(items),
         include_links=include_links,

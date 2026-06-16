@@ -19,10 +19,12 @@ import zipfile
 
 from jamb.publish.quarto import QuartoNotFoundError, find_quarto
 
-# Shared with the HTML theme (see assets/theme.scss).
+# Shared with the HTML theme (see assets/theme.scss): a formal look with a
+# serif body, sans-serif headings, and a conservative blue accent.
 _BODY_COLOR = "1D1D1F"
-_ACCENT_COLOR = "0071E3"
-_FONT = "Helvetica Neue"
+_ACCENT_COLOR = "0A52A3"
+_BODY_FONT = "Georgia"  # serif body, widely available on Word platforms
+_HEADING_FONT = "Helvetica Neue"  # sans-serif headings
 
 # Defaults baked into Pandoc's reference document that we recolor.
 _PANDOC_HEADING_COLOR = "0F4761"
@@ -48,16 +50,16 @@ def _pandoc_reference_bytes() -> bytes | None:
 
 
 def _restyle_theme(theme_xml: str) -> str:
-    """Point the major and minor theme fonts at the body typeface."""
+    """Point the major (heading) and minor (body) theme fonts at our typefaces."""
     theme_xml = re.sub(
         r'(<a:majorFont>\s*<a:latin typeface=")[^"]*(")',
-        rf"\g<1>{_FONT}\g<2>",
+        rf"\g<1>{_HEADING_FONT}\g<2>",
         theme_xml,
         count=1,
     )
     theme_xml = re.sub(
         r'(<a:minorFont>\s*<a:latin typeface=")[^"]*(")',
-        rf"\g<1>{_FONT}\g<2>",
+        rf"\g<1>{_BODY_FONT}\g<2>",
         theme_xml,
         count=1,
     )

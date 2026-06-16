@@ -4,15 +4,18 @@ jamb can publish your requirements documents in multiple formats for sharing wit
 
 ## Overview
 
-The `jamb publish` command renders requirement documents through [Quarto](https://quarto.org), producing polished HTML, Word, PDF, and Markdown output from a single source. Every format includes:
+The `jamb publish` command renders requirement documents through [Quarto](https://quarto.org), producing polished HTML, Word, PDF, and Markdown output from a single source — styled as a formal specification. Every format includes:
 
+- A **title block** with document metadata (document id, version, date, status)
+- **Numbered sections** (1, 1.1, 1.1.1)
+- A **table of contents** ("Contents")
 - Complete item content (UID, header, text)
 - Traceability links (parent and child references) as working cross-references
-- Document hierarchy organization with section headings
-- A table of contents
-- Consistent, professional styling across formats
+- A serif body with sans-serif headings and a conservative accent, applied consistently across formats
 
 Quarto ships with jamb, so HTML, DOCX, and PDF work out of the box with no extra tools to install.
+
+The title metadata is drawn from your project: the version comes from `[project].version` (or `[tool.jamb].software_version`), the date is the render date, and the status comes from `[tool.jamb].publish_status` (omitted if unset).
 
 ### How item types render
 

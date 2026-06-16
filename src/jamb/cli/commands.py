@@ -1611,6 +1611,9 @@ def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument
     Returns:
         The assembled :class:`~jamb.publish.PublishDocument`.
     """
+    from datetime import date
+
+    from jamb.config.loader import load_config
     from jamb.publish import build_publish_document
     from jamb.storage import build_traceability_graph, discover_documents
 
@@ -1621,17 +1624,29 @@ def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument
     if prefix.lower() == "all":
         items: list[Item] = list(graph.items.values())
         title = "Requirements Document"
+        document_label = "All documents"
     else:
         items = graph.get_items_by_document(prefix)
         title = f"{prefix} Requirements Document"
+        document_label = f"Document {prefix}"
 
     if not items:
         click.echo(f"Error: No items found for '{prefix}'", err=True)
         sys.exit(1)
 
+    config = load_config()
+    parts = [document_label]
+    if config.software_version:
+        parts.append(f"Version {config.software_version}")
+    parts.append(date.today().isoformat())
+    if config.publish_status:
+        parts.append(f"Status: {config.publish_status}")
+    subtitle = "  ·  ".join(parts)
+
     return build_publish_document(
         items,
         title,
+        subtitle=subtitle,
         include_links=include_links,
         document_order=doc_order,
         graph=graph,

@@ -88,10 +88,11 @@ def test_render_docx_matches_theme_palette(sample_document, tmp_path):
     with zipfile.ZipFile(out) as zf:
         styles = zf.read("word/styles.xml").decode("utf-8")
         theme = zf.read("word/theme/theme1.xml").decode("utf-8")
-    assert "0071E3" in styles  # accent applied to hyperlinks
+    assert "0A52A3" in styles  # accent applied to hyperlinks
     assert "1D1D1F" in styles  # near-black body/heading text
     assert "0F4761" not in styles  # Pandoc's default heading color is gone
-    assert "Helvetica Neue" in theme
+    assert "Georgia" in theme  # serif body font
+    assert "Helvetica Neue" in theme  # sans-serif heading font
 
 
 def test_render_html_with_custom_theme(sample_document, tmp_path):
