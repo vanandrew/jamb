@@ -4,29 +4,36 @@ jamb can publish your requirements documents in multiple formats for sharing wit
 
 ## Overview
 
-The `jamb publish` command renders requirement documents as standalone files with:
+The `jamb publish` command renders requirement documents through [Quarto](https://quarto.org), producing polished HTML, Word, PDF, and Markdown output from a single source — styled as a formal specification. Every format includes:
 
+- A **title block** with document metadata (document id, version, date, status)
+- **Numbered sections** (1, 1.1, 1.1.1)
+- A **table of contents** ("Contents")
 - Complete item content (UID, header, text)
-- Traceability links (parent and child references)
-- Document hierarchy organization
-- Format-specific styling and navigation
+- Traceability links (parent and child references) as working cross-references
+- A serif body with sans-serif headings and a conservative accent, applied consistently across formats
+
+Quarto ships with jamb, so HTML, DOCX, and PDF work out of the box with no extra tools to install.
+
+The title metadata is drawn from your project: the version comes from `[project].version` (or `[tool.jamb].software_version`), the date is the render date, and the status comes from `[tool.jamb].publish_status` (omitted if unset).
+
+### How item types render
+
+Each item type gets its own treatment, consistently across formats:
+
+- **`requirement`** — a level-2 heading (the item UID/header) followed by its text.
+- **`heading`** — a section heading whose depth follows the item's `level` field, mapping to `<h1>`–`<h6>` (values are clamped to that range; the default is level 2). Heading items appear in the table of contents and structure the document.
+- **`info`** — an anchored heading followed by a [callout](https://quarto.org/docs/authoring/callouts.html) (note) block, giving informational items a distinct, boxed style separate from normative requirements.
 
 ## Output Formats
 
 ### HTML
 
-Standalone HTML document with embedded CSS. Best for:
+A standalone, single-file HTML document (all styles and assets embedded). Best for:
 
 - Regulatory submissions requiring human-readable documents
-- Sharing with stakeholders who need to view in a browser
-- Printing (includes print-optimized CSS)
-
-Features:
-- Inline CSS (no external dependencies)
-- Internal hyperlinks between items
-- Color-coded item types (requirement, heading, info)
-- Responsive layout for different screen sizes
-- Print styles for clean hardcopy output
+- Sharing with stakeholders who view in a browser
+- A navigable document with a table of contents
 
 ```bash
 jamb publish SRS docs/srs.html --html
@@ -34,38 +41,26 @@ jamb publish SRS docs/srs.html --html
 jamb publish SRS docs/srs.html
 ```
 
-### Markdown
+### PDF
 
-Plain text Markdown suitable for version control and documentation systems. Best for:
+A print-ready PDF rendered with Quarto's built-in [Typst](https://typst.app) engine (no LaTeX required). Best for:
 
-- GitHub/GitLab rendering
-- Integration with documentation generators (MkDocs, Sphinx)
-- Diff-friendly format for code review
-
-Features:
-- Standard CommonMark syntax
-- Heading hierarchy matches document structure
-- Link references as plain text UIDs
+- Fixed-layout deliverables and archival
+- Formal submissions where a paginated document is expected
 
 ```bash
-jamb publish SRS docs/srs.md --markdown
+jamb publish SRS docs/srs.pdf --pdf
 # Or auto-detect from extension:
-jamb publish SRS docs/srs.md
+jamb publish SRS docs/srs.pdf
 ```
 
 ### DOCX (Word)
 
-Microsoft Word document with styled content. Best for:
+A Microsoft Word document styled from a reference document. Best for:
 
 - Stakeholder review with tracked changes
 - Formal document control systems
-- Organizations requiring Word format deliverables
-
-Features:
-- Configurable styles via templates
-- Internal hyperlinks between items
-- Page numbers in footer
-- Print-ready formatting
+- Organizations requiring Word deliverables
 
 ```bash
 jamb publish SRS docs/srs.docx --docx
@@ -73,78 +68,127 @@ jamb publish SRS docs/srs.docx --docx
 jamb publish SRS docs/srs.docx
 ```
 
+### Markdown and Quarto source
+
+Plain Markdown for version control and documentation systems, or the raw Quarto `.qmd` source if you want to render it yourself. Best for:
+
+- GitHub/GitLab rendering and diff-friendly review
+- Feeding into your own Quarto pipeline or documentation generator
+
+```bash
+jamb publish SRS docs/srs.md --markdown
+# Print Markdown to stdout (useful for piping):
+jamb publish SRS
+# Emit the Quarto source to render or inspect yourself:
+jamb publish SRS docs/srs.qmd
+```
+
+Markdown and `.qmd` output are written directly and do not invoke Quarto.
+
 ## Basic Usage
 
 ```bash
-# Publish single document (format auto-detected from extension)
+# Publish a single document (format auto-detected from extension)
 jamb publish SRS output.html
 
 # Publish all documents to a single file
-jamb publish all docs/requirements.html
+jamb publish all docs/requirements.pdf
 
 # Print to stdout (Markdown format, useful for piping)
 jamb publish SRS
 
 # Specify format explicitly
 jamb publish SRS output.html --html
-jamb publish SRS output.md --markdown
+jamb publish SRS output.pdf  --pdf
 jamb publish SRS output.docx --docx
+jamb publish SRS output.md   --markdown
 ```
 
 ## Options
 
 `-H, --html`
-: Output HTML format (standalone document with inline CSS)
+: Output HTML format (standalone, embedded resources)
 
-`-m, --markdown`
-: Output Markdown format
+`-p, --pdf`
+: Output PDF format (rendered with Typst)
 
 `-d, --docx`
 : Output DOCX (Word) format
+
+`-m, --markdown`
+: Output Markdown format
 
 `-L, --no-links`
 : Omit link sections from output (parent and child references)
 
 `-t, --template PATH`
-: Use a custom DOCX template for styling (only with `--docx`)
+: Apply a styling override appropriate to the target format — an SCSS file for HTML, a reference `.docx` for DOCX, or a Typst template for PDF
 
-## Using Custom Templates
+## Styling
 
-For DOCX output, you can customize fonts, colors, and spacing using a template document.
+By default jamb applies a consistent, clean look across **all three** formats —
+the same near-black text, blue accent, and sans-serif typeface. Each format
+reaches that look through its own styling mechanism (they are independent — an
+SCSS theme does not affect Word, and vice versa):
 
-### Generate a Starter Template
+| Format | Styling input | Override flag |
+|--------|---------------|---------------|
+| HTML   | An SCSS theme | `--template theme.scss` |
+| DOCX   | A Word reference document | `--template reference.docx` |
+| PDF    | A Typst preamble | `--template typst-theme.typ` |
 
-```bash
-jamb template my-company-template.docx
-```
+Because the mechanisms differ, the match is on typography and color; some
+HTML-only touches (the pill-shaped UID chips, rounded callout cards) do not
+carry over to Word or PDF.
 
-This creates a template with all styles used by jamb:
-
-- **Heading 1**: Document sections and heading-type items
-- **Heading 2**: Requirement item headings
-- **Normal**: Body text for requirements
-
-### Customize the Template
-
-1. Open the template in Microsoft Word
-2. Modify styles via the Styles pane (don't just format text directly)
-3. Save your customized template
-
-### Use the Template
+### Scaffold the styling assets
 
 ```bash
-jamb publish SRS output.docx --template my-company-template.docx
+jamb template
 ```
+
+This writes the editable text themes into `./jamb-assets/` — `theme.scss` (HTML)
+and `typst-theme.typ` (PDF). Word is styled by a binary reference document, so
+that one is opt-in:
+
+```bash
+jamb template --docx
+```
+
+That adds `./jamb-assets/reference.docx`. Pass a directory to choose a different
+location: `jamb template ./my-styles`.
+
+### Apply your styling
+
+Edit `theme.scss` / `typst-theme.typ`, or open `reference.docx` in Word and
+modify its named styles. Then apply it either **per command**:
+
+```bash
+jamb publish SRS output.html --template jamb-assets/theme.scss
+jamb publish SRS output.pdf  --template jamb-assets/typst-theme.typ
+jamb publish SRS output.docx --template jamb-assets/reference.docx
+```
+
+…or **once for every publish** via `pyproject.toml` (no `--template` needed):
+
+```toml
+[tool.jamb]
+publish_html_theme = "jamb-assets/theme.scss"
+publish_pdf_template = "jamb-assets/typst-theme.typ"
+publish_docx_reference = "jamb-assets/reference.docx"
+```
+
+A `--template` passed on the command line always overrides the configured value.
 
 ## Publishing Multiple Documents
 
-Use `all` to publish all documents in a single file:
+Use `all` to publish every document in a single file:
 
 ```bash
-jamb publish all docs/all-requirements.html
+jamb publish all docs/all-requirements.pdf
 ```
 
-Items are organized by document in hierarchy order, with section headers separating each document.
+Items are organized by document in hierarchy order, with a section heading per document.
 
 ## Excluding Links
 
@@ -156,33 +200,18 @@ jamb publish SRS output.html --no-links
 
 This omits both parent links ("Links:") and child links ("Linked from:") sections.
 
-## Format Comparison
-
-| Feature | HTML | Markdown | DOCX |
-|---------|------|----------|------|
-| Standalone file | Yes | Yes | Yes |
-| Internal hyperlinks | Yes | No | Yes |
-| Custom styling | CSS variables | N/A | Templates |
-| Print support | Yes (CSS) | Via conversion | Yes |
-| Diff-friendly | No | Yes | No |
-| File size | Small | Smallest | Larger |
-
 ## When to Use Each Format
 
-**HTML** is the default choice for most use cases. It produces self-contained documents that anyone can open in a browser, with good visual styling and navigation.
+**PDF** is ideal for fixed-layout, paginated deliverables and archival.
 
-**Markdown** is ideal when you need:
-- Version-controlled documentation
-- Integration with documentation pipelines
-- Plain text that can be reviewed in pull requests
+**HTML** produces a self-contained, navigable document anyone can open in a browser.
 
-**DOCX** is best when you need:
-- Documents for formal review with tracked changes
-- Output matching organizational templates
-- Integration with document control systems that require Word format
+**DOCX** is best for formal review with tracked changes and document control systems that require Word.
+
+**Markdown / `.qmd`** suit version-controlled documentation and custom rendering pipelines.
 
 ## Related Commands
 
-- [`jamb template`](commands.md#jamb-template) - Generate a DOCX template
+- [`jamb template`](commands.md#jamb-template) - Scaffold styling assets for publishing
 - [`jamb matrix`](commands.md#jamb-matrix) - Generate traceability matrices
 - [`jamb export`](commands.md#jamb-export) - Export to machine-readable YAML

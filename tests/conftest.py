@@ -12,6 +12,23 @@ from click.testing import CliRunner
 from jamb.cli.commands import cli
 from jamb.core.models import Item, ItemCoverage, LinkedTest, TraceabilityGraph
 
+
+def pytest_collection_modifyitems(config, items):
+    """Skip ``quarto``-marked tests when the Quarto binary is unavailable."""
+    from jamb.publish.quarto import QuartoNotFoundError, find_quarto
+
+    try:
+        find_quarto()
+        return
+    except QuartoNotFoundError:
+        pass
+
+    skip_quarto = pytest.mark.skip(reason="Quarto binary not available")
+    for item in items:
+        if "quarto" in item.keywords:
+            item.add_marker(skip_quarto)
+
+
 # =============================================================================
 # Warning Suppression Utilities
 # =============================================================================

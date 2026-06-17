@@ -96,6 +96,32 @@ exclude_patterns = ["test_*.py", "*_test.py"]
 
         assert config.exclude_patterns == ["test_*.py", "*_test.py"]
 
+    def test_publish_styling_defaults_to_none(self):
+        """Publish styling keys default to None."""
+        config = JambConfig()
+        assert config.publish_html_theme is None
+        assert config.publish_docx_reference is None
+        assert config.publish_pdf_template is None
+
+    def test_load_config_publish_styling(self, tmp_path):
+        """Publish styling paths load from [tool.jamb] without warnings."""
+        content = """
+[tool.jamb]
+publish_html_theme = "assets/theme.scss"
+publish_docx_reference = "assets/reference.docx"
+publish_pdf_template = "assets/template.typ"
+"""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(content)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            config = load_config(pyproject)
+
+        assert config.publish_html_theme == "assets/theme.scss"
+        assert config.publish_docx_reference == "assets/reference.docx"
+        assert config.publish_pdf_template == "assets/template.typ"
+
     def test_load_config_with_require_all_pass_false(self, tmp_path):
         """Test loading config with require_all_pass set to false."""
         content = """

@@ -84,6 +84,26 @@ include_ancestors = true
 !!! note "Changing the prefix"
     Changing `tc_id_prefix` only affects newly generated TC IDs. Existing IDs in test files (from `@pytest.mark.tc_id`) and the `.jamb` coverage file must be updated manually.
 
+`publish_html_theme`
+: Path to a Quarto SCSS theme applied to published HTML output, so you don't need to pass `--template` on every `jamb publish`. Scaffold a starting point with `jamb template`. A `--template` on the command line overrides this.
+: **Type:** `str` (path) — **Default:** the bundled default theme
+: **Example:** `publish_html_theme = "jamb-assets/theme.scss"`
+
+`publish_docx_reference`
+: Path to a Word reference document applied to published DOCX output. Scaffold one with `jamb template --docx`. (SCSS themes do not affect Word; DOCX is styled by a reference document.)
+: **Type:** `str` (path) — **Default:** Quarto's default Word styling
+: **Example:** `publish_docx_reference = "jamb-assets/reference.docx"`
+
+`publish_pdf_template`
+: Path to a Typst preamble (set/show rules) applied to published PDF output, included in the document header. Scaffold one with `jamb template`.
+: **Type:** `str` (path) — **Default:** the bundled default Typst preamble
+: **Example:** `publish_pdf_template = "jamb-assets/typst-theme.typ"`
+
+`publish_status`
+: Document status shown on the published title block (e.g. `Draft`, `In Review`, `Approved`). Omitted when unset.
+: **Type:** `str` — **Default:** none
+: **Example:** `publish_status = "Approved"`
+
 `matrix_columns`
 : Extra columns to display in the full chain traceability matrix. Each entry defines a column sourced from an item's custom attributes. The built-in **Review Status** column is always present (you do not need to configure it).
 : **Type:** `list` of tables with keys `key`, `header`, `source`, `default`

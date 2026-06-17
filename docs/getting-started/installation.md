@@ -17,7 +17,7 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add jamb
 ```
 
-This installs jamb along with its dependencies (pytest, click, pyyaml, jinja2, openpyxl, python-docx, tomlkit).
+This installs jamb along with its dependencies (pytest, click, pyyaml, jinja2, openpyxl, tomlkit, and quarto-cli). The `quarto-cli` dependency bundles the [Quarto](https://quarto.org) binary used to render published HTML, Word, and PDF documents, so publishing works out of the box.
 
 ## Verify Installation
 

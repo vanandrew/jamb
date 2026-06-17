@@ -18,7 +18,8 @@ from jamb.storage.document_dag import DocumentDAG
 from jamb.storage.items import dump_yaml
 
 if TYPE_CHECKING:
-    from jamb.core.models import Item, TraceabilityGraph
+    from jamb.core.models import Item
+    from jamb.publish import OutputFormat, PublishDocument
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -1471,12 +1472,14 @@ def _resolve_label_to_item_paths(label: str, dag: DocumentDAG) -> list[tuple[Pat
 @click.option("--html", "-H", is_flag=True, help="Output HTML")
 @click.option("--markdown", "-m", is_flag=True, help="Output Markdown")
 @click.option("--docx", "-d", is_flag=True, help="Output DOCX (Word document)")
+@click.option("--pdf", "-p", is_flag=True, help="Output PDF")
 @click.option("--no-links", "-L", is_flag=True, help="Do not include link sections in output")
 @click.option(
     "--template",
     "-t",
     type=click.Path(exists=True, path_type=Path),
-    help="DOCX template file to use for styling (use with --docx)",
+    help="Styling override for the target format: an SCSS file for HTML, a "
+    "reference .docx for DOCX, or a Typst template for PDF",
 )
 @_cli_error_handler
 def publish(
@@ -1485,311 +1488,229 @@ def publish(
     html: bool,
     markdown: bool,
     docx: bool,
+    pdf: bool,
     no_links: bool,
     template: Path | None,
 ) -> None:
-    """Publish a document.
+    """Publish a document to HTML, DOCX, PDF, or Markdown.
 
     PREFIX is the document prefix (e.g., SRS) or 'all' for all documents.
-    PATH is the output file or directory (optional).
+    PATH is the output file; its extension selects the format when no format
+    flag is given. With no PATH, Markdown is written to stdout.
 
-    Use --template with a .docx file to apply custom styles.
-    Generate a starter template with: jamb template
-
-    For a traceability matrix with test coverage, use: pytest --jamb --jamb-trace-matrix PATH
+    Customize styling with --template (and scaffold a starter with
+    `jamb template`). For a traceability matrix with test coverage, use:
+    pytest --jamb --jamb-trace-matrix PATH
     """
+    from jamb.publish import (
+        OutputFormat,
+        QuartoNotFoundError,
+        QuartoRenderError,
+        format_from_path,
+        render_document,
+        render_qmd,
+    )
+
     include_links = not no_links
 
-    # Validate template option
-    if template and not str(template).lower().endswith(".docx"):
-        click.echo("Error: --template must be a .docx file", err=True)
-        sys.exit(1)
-
-    # Handle DOCX export
-    if docx:
-        if not path:
-            click.echo(
-                "Error: --docx requires an output PATH",
-                err=True,
-            )
-            click.echo("Example: jamb publish SRS output.docx --docx", err=True)
-            sys.exit(1)
-
-        # Type narrowing after null check
-        assert path is not None
-        _publish_docx(prefix, path, include_links, template)
-        return
-
-    # Handle HTML export
-    if html:
-        if template:
-            click.echo("Warning: --template is only used with DOCX output", err=True)
-        if not path:
-            click.echo("Error: --html requires an output PATH", err=True)
-            sys.exit(1)
-        # Type narrowing after null check
-        assert path is not None
-        _publish_html(prefix, path, include_links)
-        return
-
-    # Handle Markdown export natively
-    if markdown:
-        if not path:
-            click.echo("Error: --markdown requires an output PATH", err=True)
-            sys.exit(1)
-        # Type narrowing after null check
-        assert path is not None
-        _publish_markdown(prefix, path, include_links)
-        return
-
-    # Validate: "all" requires an output path
-    if prefix.lower() == "all" and not path:
-        click.echo(
-            "Error: 'all' requires an output PATH",
-            err=True,
-        )
-        click.echo("Example: jamb publish all ./docs --docx", err=True)
-        sys.exit(1)
-
-    # Auto-detect format from file extension
-    if path:
-        if path.endswith(".html") or path.endswith(".htm"):
-            if template:
-                click.echo("Warning: --template is only used with DOCX output", err=True)
-            _publish_html(prefix, path, include_links)
-        elif path.endswith(".docx"):
-            _publish_docx(prefix, path, include_links, template)
-        else:
-            if template:
-                click.echo("Warning: --template is only used with DOCX output", err=True)
-            _publish_markdown(prefix, path, include_links)
+    if pdf:
+        fmt: OutputFormat | None = OutputFormat.PDF
+    elif docx:
+        fmt = OutputFormat.DOCX
+    elif html:
+        fmt = OutputFormat.HTML
+    elif markdown:
+        fmt = OutputFormat.MD
+    elif path:
+        fmt = format_from_path(path) or OutputFormat.MD
     else:
-        if template:
-            click.echo("Warning: --template is only used with DOCX output", err=True)
-        _publish_markdown_stdout(prefix, include_links)
+        fmt = None
+
+    rendered = fmt in (OutputFormat.HTML, OutputFormat.DOCX, OutputFormat.PDF)
+    if template and not rendered:
+        click.echo("Warning: --template is only used with HTML, DOCX, and PDF output", err=True)
+
+    # No PATH: stream Markdown to stdout.
+    if fmt is None:
+        if prefix.lower() == "all":
+            click.echo("Error: 'all' requires an output PATH", err=True)
+            click.echo("Example: jamb publish all docs.html", err=True)
+            sys.exit(1)
+        doc = _build_publish_document(prefix, include_links)
+        click.echo(render_qmd(doc, OutputFormat.MD))
+        return
+
+    if not path:
+        flag = {
+            OutputFormat.HTML: "--html",
+            OutputFormat.DOCX: "--docx",
+            OutputFormat.PDF: "--pdf",
+            OutputFormat.MD: "--markdown",
+            OutputFormat.QMD: "--qmd",
+        }[fmt]
+        click.echo(f"Error: {flag} requires an output PATH", err=True)
+        sys.exit(1)
+
+    assert path is not None
+    doc = _build_publish_document(prefix, include_links)
+    style = template or _configured_style(fmt)
+
+    try:
+        render_document(doc, fmt, path, template=style)
+    except QuartoNotFoundError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        sys.exit(1)
+    except QuartoRenderError as exc:
+        click.echo(f"Error: {exc}", err=True)
+        if exc.stderr:
+            click.echo(exc.stderr.strip()[-2000:], err=True)
+        sys.exit(1)
+
+    click.echo(f"Published to {path}")
 
 
-@_cli_error_handler
-def _publish_html(prefix: str, path: str, include_links: bool) -> None:
-    """Publish documents as a standalone HTML file.
+def _configured_style(fmt: OutputFormat) -> Path | None:
+    """Return the styling file configured in ``[tool.jamb]`` for a format.
 
     Args:
-        prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
-            document.
-        path: Filesystem path for the output HTML file.
-        include_links: Whether to render child-link references in the
-            output.
-    """
-    from jamb.publish.formats.html import render_html
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    dag = discover_documents()
-    graph = build_traceability_graph(dag)
-    output_path = Path(path)
-
-    doc_order = dag.topological_sort()
-
-    if prefix.lower() == "all":
-        items: list[Item] = list(graph.items.values())
-        title = "Requirements Document"
-    else:
-        items = graph.get_items_by_document(prefix)
-        title = f"{prefix} Requirements Document"
-
-    if not items:
-        click.echo(f"Error: No items found for '{prefix}'", err=True)
-        sys.exit(1)
-
-    html_content = render_html(items, title, include_links, doc_order, graph)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html_content)
-    click.echo(f"Published to {output_path}")
-
-
-def _render_markdown_lines(
-    items: list[Item],
-    graph: TraceabilityGraph,
-    use_anchors: bool = False,
-    include_links: bool = True,
-) -> list[str]:
-    """Render items as markdown lines.
-
-    Args:
-        items: Sorted list of items to render.
-        graph: The traceability graph for link resolution.
-        use_anchors: If True, emit ``[uid](#uid)`` anchor links for
-            links and child references; otherwise emit plain text UIDs.
-        include_links: If True, include parent and child link sections.
+        fmt: The output format being rendered.
 
     Returns:
-        A list of markdown-formatted strings (one per logical line).
+        The configured styling path for HTML/DOCX/PDF, or ``None`` when no
+        styling is configured for the format. Exits with an error if a
+        configured file is missing.
     """
-    lines: list[str] = []
-    for item_obj in items:
-        item_type = item_obj.type
-        if item_type == "heading":
-            heading_display = item_obj.header if item_obj.header else item_obj.uid
-            md_level = item_obj.level if item_obj.level else 2
-            lines.append("#" * md_level + f" {item_obj.uid}: {heading_display}\n")
-        else:
-            if item_obj.header:
-                lines.append(f"## {item_obj.uid}: {item_obj.header}\n")
-            else:
-                lines.append(f"## {item_obj.uid}\n")
-            if item_obj.text:
-                if item_type == "info":
-                    lines.append(f"*{item_obj.text}*\n")
-                else:
-                    lines.append(f"{item_obj.text}\n")
-        if include_links and item_obj.links:
-            link_parts = [f"[{uid}](#{uid})" for uid in item_obj.links] if use_anchors else list(item_obj.links)
-            lines.append(f"*Links: {', '.join(link_parts)}*\n")
-        if include_links:
-            children = graph.item_children.get(item_obj.uid, [])
-            if children:
-                child_parts = [f"[{uid}](#{uid})" for uid in children] if use_anchors else list(children)
-                lines.append(f"*Linked from: {', '.join(child_parts)}*\n")
-        if use_anchors:
-            lines.append("")
-    return lines
+    from jamb.config.loader import load_config
+    from jamb.publish import OutputFormat
 
+    config = load_config()
+    configured = {
+        OutputFormat.HTML: config.publish_html_theme,
+        OutputFormat.DOCX: config.publish_docx_reference,
+        OutputFormat.PDF: config.publish_pdf_template,
+    }.get(fmt)
 
-@_cli_error_handler
-def _publish_markdown_stdout(prefix: str, include_links: bool = True) -> None:
-    """Publish a document as markdown to stdout.
+    if not configured:
+        return None
 
-    Args:
-        prefix: Document prefix identifying the document to publish
-            (e.g. ``"SRS"``).
-        include_links: Whether to include parent and child link sections.
-    """
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    dag = discover_documents()
-    graph = build_traceability_graph(dag)
-
-    items = graph.get_items_by_document(prefix)
-    if not items:
-        click.echo(f"Error: No items found for '{prefix}'", err=True)
+    path = Path(configured)
+    if not path.exists():
+        click.echo(f"Error: configured styling file not found: {configured}", err=True)
         sys.exit(1)
-
-    items.sort(key=lambda i: i.uid)
-    click.echo(f"# {prefix}\n")
-    for line in _render_markdown_lines(items, graph, use_anchors=False, include_links=include_links):
-        click.echo(line)
+    return path
 
 
-@_cli_error_handler
-def _publish_markdown(prefix: str, path: str, include_links: bool = True) -> None:
-    """Publish a document as markdown to a file.
+def _build_publish_document(prefix: str, include_links: bool) -> PublishDocument:
+    """Load documents and assemble a publishable document.
 
     Args:
         prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
             document.
-        path: Filesystem path for the output Markdown file.
-        include_links: Whether to include parent and child link sections.
+        include_links: Whether to carry parent and child link references.
+
+    Returns:
+        The assembled :class:`~jamb.publish.PublishDocument`.
     """
+    from datetime import date
+
+    from jamb.config.loader import load_config
+    from jamb.publish import build_publish_document
     from jamb.storage import build_traceability_graph, discover_documents
 
     dag = discover_documents()
     graph = build_traceability_graph(dag)
-    output_path = Path(path)
-
-    prefixes = dag.topological_sort() if prefix.lower() == "all" else [prefix]
-
-    lines: list[str] = []
-    for p in prefixes:
-        items = graph.get_items_by_document(p)
-        if not items:
-            continue
-        items.sort(key=lambda i: i.uid)
-        lines.append(f"# {p}\n")
-        lines.extend(_render_markdown_lines(items, graph, use_anchors=True, include_links=include_links))
-
-    if not lines:
-        click.echo(f"Error: No items found for '{prefix}'", err=True)
-        sys.exit(1)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines))
-    click.echo(f"Published to {output_path}")
-
-
-@_cli_error_handler
-def _publish_docx(prefix: str, path: str, include_links: bool, template: Path | None = None) -> None:
-    """Publish documents as a single DOCX file.
-
-    Args:
-        prefix: Document prefix (e.g. ``"SRS"``) or ``"all"`` for every
-            document.
-        path: Filesystem path for the output DOCX file.
-        include_links: Whether to include link references in the
-            generated document.
-        template: Optional path to a DOCX template file to use for styling.
-    """
-    from jamb.publish.formats.docx import render_docx
-    from jamb.storage import build_traceability_graph, discover_documents
-
-    dag = discover_documents()
-    graph = build_traceability_graph(dag)
-    output_path = Path(path)
-
     doc_order = dag.topological_sort()
 
     if prefix.lower() == "all":
         items: list[Item] = list(graph.items.values())
         title = "Requirements Document"
+        document_label = None
     else:
         items = graph.get_items_by_document(prefix)
         title = f"{prefix} Requirements Document"
+        document_label = f"Document {prefix}"
 
     if not items:
         click.echo(f"Error: No items found for '{prefix}'", err=True)
         sys.exit(1)
 
-    template_path = str(template) if template else None
-    docx_bytes = render_docx(items, title, include_links, doc_order, graph, template_path)
-    output_path.write_bytes(docx_bytes)
-    click.echo(f"Published to {output_path}")
+    config = load_config()
+    parts = [document_label] if document_label else []
+    if config.software_version:
+        parts.append(f"Version {config.software_version}")
+    parts.append(date.today().isoformat())
+    if config.publish_status:
+        parts.append(f"Status: {config.publish_status}")
+    subtitle = "  ·  ".join(parts)
+
+    return build_publish_document(
+        items,
+        title,
+        subtitle=subtitle,
+        include_links=include_links,
+        document_order=doc_order,
+        graph=graph,
+    )
 
 
 @cli.command("template")
-@click.argument("path", required=False, default="jamb-template.docx")
-def template(path: str) -> None:
-    """Generate a DOCX template file with jamb styles.
+@click.argument("path", required=False, default="jamb-assets")
+@click.option("--docx", "include_docx", is_flag=True, help="Also scaffold a Word reference document for DOCX styling")
+def template(path: str, include_docx: bool) -> None:
+    """Scaffold customizable styling assets for publishing.
 
-    PATH is the output file path (default: jamb-template.docx).
+    PATH is the output directory (default: jamb-assets).
 
-    The generated template contains all styles used by jamb when publishing
-    DOCX documents. Open it in Microsoft Word, customize the styles (fonts,
-    colors, spacing), then use it with:
-
-        jamb publish SRS output.docx --template jamb-template.docx
+    Writes the HTML theme (``theme.scss``) and the PDF Typst preamble
+    (``typst-theme.typ``). Word is styled by a binary reference document rather
+    than text, so pass ``--docx`` to also scaffold ``reference.docx``. All three
+    match the default look. Apply assets per command:
 
     \b
-    Examples:
-        jamb template
-        jamb template my-company-template.docx
+        jamb publish SRS out.html --template jamb-assets/theme.scss
+        jamb publish SRS out.pdf  --template jamb-assets/typst-theme.typ
+        jamb publish SRS out.docx --template jamb-assets/reference.docx
     """
-    from jamb.publish.formats.docx import generate_template
+    from jamb.publish import build_reference_docx, default_theme, default_typst_theme
 
-    output_path = Path(path)
+    target = Path(path)
+    theme_path = target / "theme.scss"
+    typst_path = target / "typst-theme.typ"
+    reference_path = target / "reference.docx"
 
-    if output_path.exists() and not click.confirm(f"File '{path}' exists. Overwrite?"):
+    planned = [theme_path, typst_path] + ([reference_path] if include_docx else [])
+    if any(p.exists() for p in planned) and not click.confirm(f"Assets exist in '{target}'. Overwrite?"):
         click.echo("Aborted.")
         return
 
-    try:
-        generate_template(str(output_path))
-        click.echo(f"Generated template: {output_path}")
-        click.echo("\nNext steps:")
-        click.echo("  1. Open the template in Microsoft Word")
-        click.echo("  2. Customize styles (Heading 1, Heading 2, Normal, etc.)")
-        click.echo("  3. Save the template")
-        click.echo(f"  4. Use with: jamb publish SRS output.docx --template {path}")
-    except (OSError, ValueError) as e:
-        click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
+    target.mkdir(parents=True, exist_ok=True)
+    theme_path.write_text(default_theme())
+    typst_path.write_text(default_typst_theme())
+    written = [theme_path, typst_path]
+
+    if include_docx:
+        reference_bytes = build_reference_docx()
+        if reference_bytes is not None:
+            reference_path.write_bytes(reference_bytes)
+            written.append(reference_path)
+        else:
+            click.echo("Warning: Quarto not found; skipped reference.docx", err=True)
+
+    for item in written:
+        click.echo(f"Wrote {item}")
+    click.echo("\nCustomize these files, then apply them per command:")
+    click.echo(f"  jamb publish SRS out.html --template {theme_path}")
+    click.echo(f"  jamb publish SRS out.pdf  --template {typst_path}")
+    if reference_path in written:
+        click.echo(f"  jamb publish SRS out.docx --template {reference_path}")
+    click.echo("\nOr apply them to every publish by adding to pyproject.toml:")
+    click.echo("  [tool.jamb]")
+    click.echo(f'  publish_html_theme = "{theme_path}"')
+    click.echo(f'  publish_pdf_template = "{typst_path}"')
+    if reference_path in written:
+        click.echo(f'  publish_docx_reference = "{reference_path}"')
+    if not include_docx:
+        click.echo("\nFor Word (DOCX) styling, run: jamb template --docx")
 
 
 # =============================================================================

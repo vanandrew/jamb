@@ -40,6 +40,9 @@ def test_valid_credentials():
 ```bash
 # Generate traceability matrix
 pytest --jamb --jamb-trace-matrix matrix.html
+
+# Publish requirement documents (HTML, PDF, Word, or Markdown via Quarto)
+jamb publish all docs/requirements.pdf
 ```
 
 ## Documentation

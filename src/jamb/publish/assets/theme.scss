@@ -1,0 +1,188 @@
+/*-- scss:defaults --*/
+
+// ============================================================================
+// jamb default publishing theme (HTML output) — a formal specification look:
+// serif body with sans-serif headings, numbered sections, an inline table of
+// contents, and a conservative blue accent.
+//
+// Scaffold an editable copy with `jamb template`, then apply it per command
+// (`jamb publish SRS out.html --template my-theme.scss`) or once in
+// pyproject.toml:
+//
+//     [tool.jamb]
+//     publish_html_theme = "jamb-assets/theme.scss"
+//
+// Uses only system fonts so single-file HTML stays self-contained offline.
+// ============================================================================
+
+// --- Palette ---------------------------------------------------------------
+$primary:          #0a52a3; // conservative accent for links
+$body-color:       #1d1d1f; // near-black
+$body-bg:          #ffffff;
+$link-color:       #0a52a3;
+$link-hover-color: #0a3d7a;
+$border-color:     #d2d2d7; // hairline gray
+$gray-50:          #f5f5f7; // soft section / card fill
+$text-secondary:   #6e6e73;
+
+// --- Typography: serif body, sans headings ---------------------------------
+$font-family-serif: Charter, Georgia, "Times New Roman", "Noto Serif", serif;
+$font-family-sans-serif:
+  -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+$font-family-monospace: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+$font-family-base: $font-family-serif;
+$headings-font-family: $font-family-sans-serif;
+
+$font-size-root: 17px;
+$line-height-base: 1.6;
+
+$headings-color: #1d1d1f;
+$headings-font-weight: 600;
+$headings-line-height: 1.2;
+
+$h1-font-size: 1.9rem;
+$h2-font-size: 1.4rem;
+$h3-font-size: 1.18rem;
+$h4-font-size: 1.05rem;
+$h5-font-size: 0.95rem;
+$h6-font-size: 0.85rem;
+
+// --- Table of contents -----------------------------------------------------
+$toc-color: $body-color;
+$toc-active-border: $primary;
+
+// --- Inline code -----------------------------------------------------------
+$code-color: #1d1d1f;
+$code-bg: $gray-50;
+
+// --- Callouts (info / note blocks) -----------------------------------------
+$callout-color-note: $primary;
+
+/*-- scss:rules --*/
+
+// Title block — sans, prominent, with a metadata subtitle.
+.quarto-title-block .title {
+  font-family: $headings-font-family;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.35rem;
+}
+
+.quarto-title-block .subtitle {
+  font-family: $headings-font-family;
+  font-weight: 400;
+  font-size: 1.05rem;
+  color: $text-secondary;
+  margin-bottom: 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid $primary;
+}
+
+// Inline "Contents" table of contents reads like a document's contents page.
+nav[role="doc-toc"] {
+  border: 1px solid $border-color;
+  border-radius: 6px;
+  background: $gray-50;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0 2.5rem;
+}
+
+nav[role="doc-toc"] > h2,
+nav[role="doc-toc"] > .h2 {
+  font-size: 1.05rem;
+  margin-top: 0;
+  border-bottom: none;
+}
+
+// Document-section headers (one level-1 heading per document prefix).
+h1[id^="doc-"] {
+  margin-top: 2.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid $border-color;
+}
+
+// Content headings — generous spacing, light separators.
+h2 {
+  margin-top: 2.25rem;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 1.75rem;
+}
+
+// Section numbers (added by number-sections) sit slightly muted.
+.header-section-number {
+  color: $text-secondary;
+  font-weight: 600;
+  margin-right: 0.4em;
+}
+
+// Links — conservative accent, underline on hover. (No pill chips in the
+// formal look; cross-references read as plain references.)
+a {
+  color: $link-color;
+  text-decoration: none;
+}
+
+a:hover {
+  color: $link-hover-color;
+  text-decoration: underline;
+}
+
+// Callouts (info / note blocks) — soft rounded cards with a hairline border.
+.callout {
+  border: 1px solid $border-color !important;
+  border-radius: 10px !important;
+  box-shadow: none;
+}
+
+.callout.callout-style-default > .callout-header {
+  background: $gray-50 !important;
+  border-bottom: 1px solid $border-color;
+  font-weight: 600;
+}
+
+.callout-note {
+  border-left-color: $border-color !important;
+}
+
+// Tables — hairlines and a light header.
+thead th {
+  background: $gray-50;
+  border-bottom: 1px solid $border-color;
+  font-weight: 600;
+}
+
+td,
+th {
+  border-color: $border-color;
+}
+
+// Print — comfortable margins; start each document section on a fresh page.
+@media print {
+  @page {
+    margin: 2.5cm;
+  }
+
+  h1[id^="doc-"] {
+    break-before: page;
+  }
+
+  h1[id^="doc-"]:first-of-type {
+    break-before: auto;
+  }
+
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .callout {
+    break-inside: avoid;
+  }
+}

@@ -514,31 +514,25 @@ class TestPublishCommandExtended:
         assert result.exit_code == 1
         assert "requires" in result.output.lower() and "path" in result.output.lower()
 
+    @pytest.mark.quarto
     def test_publish_docx_with_template(self, runner, jamb_project):
-        """Test publish with --template option creates DOCX using template."""
+        """Test publish --template applies a reference .docx to DOCX output."""
         import os
 
-        template_path = jamb_project / "template.docx"
+        assets_dir = jamb_project / "assets"
         output_path = jamb_project / "output.docx"
 
-        # First generate a template
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            result = runner.invoke(cli, ["template", str(template_path)], catch_exceptions=False)
+            result = runner.invoke(cli, ["template", str(assets_dir), "--docx"], catch_exceptions=False)
             assert result.exit_code == 0
-            assert template_path.exists()
+            reference = assets_dir / "reference.docx"
+            assert reference.exists()
 
-            # Now publish with the template
             result = runner.invoke(
                 cli,
-                [
-                    "publish",
-                    "SRS",
-                    str(output_path),
-                    "--template",
-                    str(template_path),
-                ],
+                ["publish", "SRS", str(output_path), "--template", str(reference)],
                 catch_exceptions=False,
             )
             assert result.exit_code == 0
@@ -547,69 +541,31 @@ class TestPublishCommandExtended:
         finally:
             os.chdir(original_cwd)
 
-    def test_publish_template_warning_with_html(self, runner, jamb_project):
-        """Test that --template with HTML output shows warning."""
+    def test_publish_template_warning_with_markdown(self, runner, jamb_project):
+        """Test that --template with non-rendered output shows a warning."""
         import os
 
-        template_path = jamb_project / "template.docx"
-        output_path = jamb_project / "output.html"
+        template_path = jamb_project / "theme.scss"
+        template_path.write_text("/* theme */")
+        output_path = jamb_project / "output.md"
 
         original_cwd = os.getcwd()
         try:
             os.chdir(jamb_project)
-            # Generate template first
-            runner.invoke(cli, ["template", str(template_path)])
-
-            # Try to use with HTML
             result = runner.invoke(
                 cli,
-                [
-                    "publish",
-                    "SRS",
-                    str(output_path),
-                    "--html",
-                    "--template",
-                    str(template_path),
-                ],
+                ["publish", "SRS", str(output_path), "--markdown", "--template", str(template_path)],
                 catch_exceptions=False,
             )
             assert result.exit_code == 0
             assert "Warning" in result.output
-            assert "DOCX" in result.output
-        finally:
-            os.chdir(original_cwd)
-
-    def test_publish_template_must_be_docx(self, runner, jamb_project):
-        """Test that --template must be a .docx file."""
-        import os
-
-        # Create a non-docx file
-        template_path = jamb_project / "template.txt"
-        template_path.write_text("not a docx")
-        output_path = jamb_project / "output.docx"
-
-        original_cwd = os.getcwd()
-        try:
-            os.chdir(jamb_project)
-            result = runner.invoke(
-                cli,
-                [
-                    "publish",
-                    "SRS",
-                    str(output_path),
-                    "--docx",
-                    "--template",
-                    str(template_path),
-                ],
-            )
-            assert result.exit_code == 1
-            assert "must be a .docx file" in result.output
+            assert "template" in result.output.lower()
         finally:
             os.chdir(original_cwd)
 
 
 class TestPublishTemplateCommand:
-    """Tests for template command."""
+    """Tests for the template command (styling asset scaffold)."""
 
     def test_publish_template_help(self, runner):
         """Test that template --help works."""
@@ -619,26 +575,46 @@ class TestPublishTemplateCommand:
         assert "template" in result.output.lower()
         assert "jamb" in result.output.lower()
 
-    def test_publish_template_creates_file(self, runner, tmp_path):
-        """Test that template creates a DOCX file."""
+    def test_publish_template_creates_theme_only_by_default(self, runner, tmp_path):
+        """By default template scaffolds only the HTML theme (no binary needed)."""
         import os
 
-        output_path = tmp_path / "my-template.docx"
+        target = tmp_path / "my-assets"
 
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            result = runner.invoke(cli, ["template", str(output_path)], catch_exceptions=False)
+            result = runner.invoke(cli, ["template", str(target)], catch_exceptions=False)
 
             assert result.exit_code == 0
-            assert output_path.exists()
-            assert "Generated template" in result.output
-            assert "Next steps" in result.output
+            assert (target / "theme.scss").exists()
+            # The Word reference document is opt-in, not generated by default.
+            assert not (target / "reference.docx").exists()
+            assert "Wrote" in result.output
+            assert "--docx" in result.output
+        finally:
+            os.chdir(original_cwd)
+
+    @pytest.mark.quarto
+    def test_publish_template_docx_flag_adds_reference(self, runner, tmp_path):
+        """--docx also scaffolds the Word reference document."""
+        import os
+
+        target = tmp_path / "my-assets"
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            result = runner.invoke(cli, ["template", str(target), "--docx"], catch_exceptions=False)
+
+            assert result.exit_code == 0
+            assert (target / "theme.scss").exists()
+            assert (target / "reference.docx").exists()
         finally:
             os.chdir(original_cwd)
 
     def test_publish_template_default_name(self, runner, tmp_path):
-        """Test template uses default filename."""
+        """Test template uses the default jamb-assets directory."""
         import os
 
         original_cwd = os.getcwd()
@@ -647,27 +623,26 @@ class TestPublishTemplateCommand:
             result = runner.invoke(cli, ["template"], catch_exceptions=False)
 
             assert result.exit_code == 0
-            assert (tmp_path / "jamb-template.docx").exists()
+            assert (tmp_path / "jamb-assets" / "theme.scss").exists()
         finally:
             os.chdir(original_cwd)
 
     def test_publish_template_overwrite_prompt(self, runner, tmp_path):
-        """Test template prompts before overwriting."""
+        """Test template prompts before overwriting existing assets."""
         import os
 
-        output_path = tmp_path / "template.docx"
-        output_path.write_bytes(b"existing content")
+        target = tmp_path / "jamb-assets"
+        target.mkdir()
+        (target / "theme.scss").write_text("existing content")
 
         original_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
-            # Answer 'n' to overwrite prompt
-            result = runner.invoke(cli, ["template", str(output_path)], input="n\n")
+            result = runner.invoke(cli, ["template", str(target)], input="n\n")
 
             assert result.exit_code == 0
             assert "Aborted" in result.output
-            # Original content should be preserved
-            assert output_path.read_bytes() == b"existing content"
+            assert (target / "theme.scss").read_text() == "existing content"
         finally:
             os.chdir(original_cwd)
 
@@ -1262,8 +1237,9 @@ class TestReviewCommandsWithMock:
 
 
 class TestPublishWithMock:
-    """Tests for publish command variants (native markdown publishing)."""
+    """Tests for publish command output across formats."""
 
+    @pytest.mark.quarto
     def test_publish_html(self, runner, tmp_path, monkeypatch):
         """Test publish with --html flag produces real HTML output."""
         srs_dir = tmp_path / "srs"
@@ -1283,10 +1259,10 @@ class TestPublishWithMock:
         assert output_file.exists()
         content = output_file.read_text()
         assert "<html" in content
-        assert "<h1>" in content
-        assert "SRS001" in content
+        assert 'id="SRS001"' in content
         assert "Software req" in content
 
+    @pytest.mark.quarto
     def test_publish_html_with_links(self, runner, tmp_path, monkeypatch):
         """Test publish HTML includes hyperlinks for parent and child items."""
         # Create UN (root) and SRS (child) docs
@@ -1305,10 +1281,11 @@ class TestPublishWithMock:
         assert result.exit_code == 0
         content = output_file.read_text()
         # Parent link from SRS001 to UN001
-        assert '<a href="#UN001">' in content
+        assert 'href="#UN001"' in content
         # Child link from UN001 to SRS001
-        assert '<a href="#SRS001">' in content
+        assert 'href="#SRS001"' in content
 
+    @pytest.mark.quarto
     def test_publish_html_no_child_links(self, runner, tmp_path, monkeypatch):
         """Test publish HTML with --no-links suppresses links."""
         srs_dir = tmp_path / "srs"
@@ -1323,9 +1300,10 @@ class TestPublishWithMock:
         assert result.exit_code == 0
         content = output_file.read_text()
         assert "<html" in content
-        assert "Links:" not in content
         assert "Linked from:" not in content
+        assert 'href="#UN001"' not in content
 
+    @pytest.mark.quarto
     def test_publish_html_all_documents(self, runner, tmp_path, monkeypatch):
         """Test publish all produces HTML with multiple document sections."""
         (tmp_path / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: UN\n  sep: ''\n")
@@ -1342,8 +1320,8 @@ class TestPublishWithMock:
 
         assert result.exit_code == 0
         content = output_file.read_text()
-        assert '<h2 id="doc-UN">' in content
-        assert '<h2 id="doc-SRS">' in content
+        assert 'id="doc-UN"' in content
+        assert 'id="doc-SRS"' in content
 
     def test_publish_markdown(self, runner, tmp_path, monkeypatch):
         """Test publish with --markdown flag writes markdown file."""
@@ -1362,6 +1340,7 @@ class TestPublishWithMock:
         assert "SRS001" in content
         assert "Software req" in content
 
+    @pytest.mark.quarto
     def test_publish_no_child_links(self, runner, tmp_path, monkeypatch):
         """Test publish with --no-links flag."""
         srs_dir = tmp_path / "srs"
@@ -1374,6 +1353,63 @@ class TestPublishWithMock:
         result = runner.invoke(cli, ["publish", "SRS", str(output_file), "--no-links"])
 
         assert result.exit_code == 0
+
+
+class TestPublishConfiguredStyling:
+    """Tests for [tool.jamb] publish styling configuration."""
+
+    def _project(self, tmp_path):
+        srs = tmp_path / "srs"
+        srs.mkdir()
+        (srs / ".jamb.yml").write_text("settings:\n  digits: 3\n  prefix: SRS\n  sep: ''\n")
+        (srs / "SRS001.yml").write_text("active: true\ntext: A requirement.\n")
+
+    @pytest.mark.quarto
+    def test_configured_html_theme_is_applied(self, runner, tmp_path, monkeypatch):
+        """publish_html_theme in [tool.jamb] styles HTML without --template."""
+        self._project(tmp_path)
+        (tmp_path / "custom.scss").write_text("/*-- scss:defaults --*/\n$primary: #abc123;\n")
+        (tmp_path / "pyproject.toml").write_text('[tool.jamb]\npublish_html_theme = "custom.scss"\n')
+
+        output_file = tmp_path / "out.html"
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["publish", "SRS", str(output_file)], catch_exceptions=False)
+
+        assert result.exit_code == 0
+        assert "abc123" in output_file.read_text()
+
+    @pytest.mark.quarto
+    def test_template_flag_overrides_configured_theme(self, runner, tmp_path, monkeypatch):
+        """An explicit --template wins over the configured theme."""
+        self._project(tmp_path)
+        (tmp_path / "configured.scss").write_text("/*-- scss:defaults --*/\n$primary: #abc123;\n")
+        (tmp_path / "override.scss").write_text("/*-- scss:defaults --*/\n$primary: #def456;\n")
+        (tmp_path / "pyproject.toml").write_text('[tool.jamb]\npublish_html_theme = "configured.scss"\n')
+
+        output_file = tmp_path / "out.html"
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(
+            cli,
+            ["publish", "SRS", str(output_file), "--template", "override.scss"],
+            catch_exceptions=False,
+        )
+
+        assert result.exit_code == 0
+        content = output_file.read_text()
+        assert "def456" in content
+        assert "abc123" not in content
+
+    def test_missing_configured_style_errors(self, runner, tmp_path, monkeypatch):
+        """A configured styling file that does not exist fails clearly."""
+        self._project(tmp_path)
+        (tmp_path / "pyproject.toml").write_text('[tool.jamb]\npublish_html_theme = "nope.scss"\n')
+
+        output_file = tmp_path / "out.html"
+        monkeypatch.chdir(tmp_path)
+        result = runner.invoke(cli, ["publish", "SRS", str(output_file)], catch_exceptions=False)
+
+        assert result.exit_code == 1
+        assert "not found" in result.output.lower()
 
 
 class TestInfoErrorHandling:
@@ -2213,6 +2249,7 @@ class TestPublishDocx:
         assert "--docx" in result.output or "-d" in result.output
         assert "DOCX" in result.output or "Word" in result.output
 
+    @pytest.mark.quarto
     def test_publish_single_document_docx(self, runner, jamb_project):
         """Test publishing a single document as DOCX."""
         import os
@@ -2235,6 +2272,7 @@ class TestPublishDocx:
         assert output_file.stat().st_size > 0
         assert "Published" in result.output
 
+    @pytest.mark.quarto
     def test_publish_all_documents_docx(self, runner, jamb_project):
         """Test publishing all documents to a single DOCX file."""
         import os
@@ -2257,6 +2295,7 @@ class TestPublishDocx:
         assert output_file.stat().st_size > 0
         assert "Published" in result.output
 
+    @pytest.mark.quarto
     def test_publish_docx_with_no_child_links(self, runner, jamb_project):
         """Test publishing DOCX with --no-links flag."""
         import os

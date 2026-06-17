@@ -129,7 +129,7 @@ src/jamb/
 ├── config/           # Configuration loading
 ├── core/             # Domain models and errors
 ├── matrix/           # Traceability matrix generation
-├── publish/          # Document publishing (HTML, DOCX)
+├── publish/          # Document publishing via Quarto (HTML, DOCX, PDF, Markdown)
 ├── pytest_plugin/    # pytest integration (markers, hooks)
 ├── storage/          # Document discovery, validation, graph building
 └── yaml_io.py        # YAML import/export

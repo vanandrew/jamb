@@ -49,6 +49,14 @@ class JambConfig:
         matrix_columns (list[MatrixColumnConfig]): Extra columns to display
             in the full chain traceability matrix. Each entry defines a column
             sourced from a custom attribute or a built-in resolver.
+        publish_html_theme (str | None): Path to a Quarto SCSS theme applied to
+            published HTML, or ``None`` to use the bundled default theme.
+        publish_docx_reference (str | None): Path to a Word reference document
+            applied to published DOCX, or ``None`` for Quarto's default styling.
+        publish_pdf_template (str | None): Path to a Typst preamble applied to
+            published PDF, or ``None`` to use the bundled default.
+        publish_status (str | None): Document status (e.g. ``"Draft"``,
+            ``"Approved"``) shown on the published title page, or ``None`` to omit.
 
     Examples:
         Construct a config with custom settings::
@@ -76,6 +84,10 @@ class JambConfig:
     include_ancestors: bool = False
     tc_id_prefix: str = "TC"
     matrix_columns: list[MatrixColumnConfig] = field(default_factory=list)
+    publish_html_theme: str | None = None
+    publish_docx_reference: str | None = None
+    publish_pdf_template: str | None = None
+    publish_status: str | None = None
 
     def validate(self, available_documents: list[str]) -> list[str]:
         """Validate configuration against available documents.
@@ -252,6 +264,10 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         "include_ancestors",
         "tc_id_prefix",
         "matrix_columns",
+        "publish_html_theme",
+        "publish_docx_reference",
+        "publish_pdf_template",
+        "publish_status",
     }
     unknown = set(jamb_config.keys()) - recognized_keys
     if unknown:
@@ -329,4 +345,8 @@ def load_config(config_path: Path | None = None) -> JambConfig:
         include_ancestors=jamb_config.get("include_ancestors", False),
         tc_id_prefix=jamb_config.get("tc_id_prefix", "TC"),
         matrix_columns=matrix_columns,
+        publish_html_theme=jamb_config.get("publish_html_theme"),
+        publish_docx_reference=jamb_config.get("publish_docx_reference"),
+        publish_pdf_template=jamb_config.get("publish_pdf_template"),
+        publish_status=jamb_config.get("publish_status"),
     )

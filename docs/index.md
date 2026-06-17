@@ -50,7 +50,7 @@ Test-centric view with actions, expected/actual results for IEC 62304 compliance
 
 ### Requirements Documents
 
-You can also publish requirements documents as standalone HTML, Markdown, or Word files:
+You can also publish requirements documents as HTML, PDF, Word, or Markdown files (rendered with Quarto):
 
 ```bash
 jamb publish SRS docs/srs.html

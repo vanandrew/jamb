@@ -379,7 +379,7 @@ jamb validate
 
 A regulatory submission package typically includes human-readable requirement documents for each specification level, a traceability matrix showing the chain from user needs through software requirements to test results, and evidence that all changes have been reviewed. jamb's publish and matrix commands generate these artifacts directly from your requirements data, so the documentation stays in sync with the source of truth.
 
-### Generate HTML Documentation
+### Generate HTML or PDF Documentation
 
 Export all documents as a single combined HTML file:
 
@@ -387,7 +387,13 @@ Export all documents as a single combined HTML file:
 jamb publish all ./docs/requirements.html --html
 ```
 
-This creates a single `docs/requirements.html` file containing all documents.
+This creates a single `docs/requirements.html` file containing all documents, with a table of contents and working cross-reference links.
+
+For a print-ready submission, render the same content as a PDF (via Quarto's bundled Typst engine — no LaTeX needed):
+
+```bash
+jamb publish all ./docs/requirements.pdf --pdf
+```
 
 ### Generate Markdown for GitHub
 
